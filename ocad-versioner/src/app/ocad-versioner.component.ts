@@ -1,24 +1,22 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GeoJsonObject } from 'geojson';
-import {
-  BehaviorSubject,
-  Observable,
-  combineLatest,
-  filter,
-  map,
-  of,
-} from 'rxjs';
+import { BehaviorSubject, combineLatest, filter, map } from 'rxjs';
 import { OcadFileUploaderComponent } from './components/ocad-file-uploader/ocad-file-uploader.component';
+import { JsonDiffService } from './services/json-diff-service';
+import { OcadMapViewerComponent } from './components/ocad-map-viewer/ocad-map-viewer.component';
+import { OcadVersionerModule } from './components/ocad-file-uploader/ocad-versioner.module';
 
 @Component({
   selector: 'ocad-versioner',
   standalone: true,
-  imports: [CommonModule, OcadFileUploaderComponent],
+  imports: [CommonModule, OcadVersionerModule, OcadFileUploaderComponent],
   templateUrl: './ocad-versioner.component.html',
   styleUrl: './ocad-versioner.component.scss',
 })
 export class OcadVersionerComponent implements OnInit {
+  constructor(private jsonDiffService: JsonDiffService) {}
+
   public originalAsGeoJson$: BehaviorSubject<GeoJsonObject | null> =
     new BehaviorSubject<GeoJsonObject | null>(null);
   public versionedAsGeoJson$: BehaviorSubject<GeoJsonObject | null> =
@@ -28,11 +26,11 @@ export class OcadVersionerComponent implements OnInit {
     combineLatest([this.originalAsGeoJson$, this.versionedAsGeoJson$])
       .pipe(
         filter(
-          ([original, versioned]) => original !== null && versioned !== null
+          ([current, versioned]) => current !== null && versioned !== null
         ),
-        map(([original, versioned]) => {
-          console.log('original: ', original);
-          console.log('versioned: ', versioned);
+        map(([current, versioned]) => {
+          const diff = this.jsonDiffService.getJsonDiff(versioned, current);
+          console.log('diff: ', diff);
         })
       )
       .subscribe();

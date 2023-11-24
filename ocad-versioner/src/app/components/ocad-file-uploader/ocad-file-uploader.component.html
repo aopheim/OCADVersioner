@@ -1,4 +1,14 @@
 <div>
+  <label for="formFileLg" class="form-label">{{ title }}</label>
+  <input
+    type="file"
+    class="form-control form-control-lg"
+    accept=".ocd"
+    (change)="onFileSelected($event)"
+    #fileUpload
+  />
+</div>
+<!-- <div>
   <input
     type="file"
     class="file-input"
@@ -10,4 +20,4 @@
   <div class="file-upload">
     {{ fileName || "No file uploaded yet." }}
   </div>
-</div>
+</div> -->

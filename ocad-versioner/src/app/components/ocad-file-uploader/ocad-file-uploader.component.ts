@@ -1,4 +1,4 @@
-import { Component, EventEmitter, NgZone, Output } from '@angular/core';
+import { Component, EventEmitter, Input, NgZone, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import * as ocad2geojson from 'ocad2geojson';
 import { Buffer } from 'buffer';
@@ -14,6 +14,7 @@ import { from, map } from 'rxjs';
 })
 export class OcadFileUploaderComponent {
   public fileName: string = '';
+  @Input() public title: string = '';
   @Output() public ocadFileAsGeoJson = new EventEmitter<GeoJsonObject>();
   constructor() {}
 
