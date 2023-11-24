@@ -1,0 +1,17 @@
+<p>ocad-versioner works!</p>
+<div>
+  <div>
+    <p>Original version</p>
+    <ocad-file-uploader
+      (ocadFileAsGeoJson)="handleLoadedGeoJsonFile($event, true)"
+    ></ocad-file-uploader>
+    <p *ngIf="originalAsGeoJson$ | async as original">{{ original }}</p>
+  </div>
+  <div>
+    <p>Versioned ocadFile</p>
+    <ocad-file-uploader
+      (ocadFileAsGeoJson)="handleLoadedGeoJsonFile($event, false)"
+    ></ocad-file-uploader>
+    <p *ngIf="versionedAsGeoJson$ | async as versioned">{{ versioned }}</p>
+  </div>
+</div>

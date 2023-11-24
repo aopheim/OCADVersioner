@@ -1,0 +1,13 @@
+<div>
+  <input
+    type="file"
+    class="file-input"
+    accept=".ocd"
+    (change)="onFileSelected($event)"
+    #fileUpload
+  />
+
+  <div class="file-upload">
+    {{ fileName || "No file uploaded yet." }}
+  </div>
+</div>

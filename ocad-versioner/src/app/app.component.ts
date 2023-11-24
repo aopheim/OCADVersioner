@@ -1,12 +1,13 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
-import { OcadDirectorySelectorModule } from './components/ocad-directory-selector/ocad-directory-selector.module';
+import { OcadVersionerModule } from './components/ocad-file-uploader/ocad-versioner.module';
+import { GeoJsonObject } from 'geojson';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, OcadDirectorySelectorModule],
+  imports: [CommonModule, RouterOutlet, OcadVersionerModule],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
