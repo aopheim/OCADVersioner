@@ -1,0 +1,24 @@
+<div class="container" id="newSymbols">
+    <table class="table table-sm table-striped table-hover">
+        <thead>
+            <tr>
+                <th scope="col">Symbolnummer</th>
+                <th scope="col">Navn</th>
+                <th scope="col">Opprettet</th>
+                <th scope="col">Slettet</th>
+                <th scope="col">Slettet av</th>
+              </tr>
+        </thead>
+        <tbody>
+            <ng-template *ngFor="let symbol in tableInput.added">
+                <tr>
+                    <th>{{symbol.symbolNumber}}</th>
+                    <th>{{symbol.symbolName}}</th>
+                    <th>{{symbol.createdAtUtc}}</th>
+                    <th>{{symbol.lastedEditedAtUtc}}</th>
+                    <th>{{symbol.lastEditBy}}</th>
+                </tr>
+            </ng-template>
+        </tbody>
+    </table>
+</div>

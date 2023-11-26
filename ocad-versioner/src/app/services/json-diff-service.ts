@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { OcadVersionerModule } from '../components/ocad-file-uploader/ocad-versioner.module';
+import { OcadVersionerModule } from '../ocad-versioner.module';
 import { IJsonDiffService, JsonDiffOutput } from './json-diff-service.models';
 import { getDiff } from 'json-difference';
 

@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
-import { OcadVersionerModule } from './components/ocad-file-uploader/ocad-versioner.module';
+import { OcadVersionerModule } from './ocad-versioner.module';
 import { GeoJsonObject } from 'geojson';
 
 @Component({

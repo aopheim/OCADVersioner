@@ -6,7 +6,7 @@
         [title]="'Current version'"
         (ocadFileAsGeoJson)="handleLoadedGeoJsonFile($event, true)"
       ></ocad-file-uploader>
-      <ocad-map-viewer></ocad-map-viewer>
+      <!-- <ocad-map-viewer></ocad-map-viewer> -->
       <p *ngIf="originalAsGeoJson$ | async as original">{{ original }}</p>
     </div>
     <div class="col">
@@ -16,5 +16,8 @@
       ></ocad-file-uploader>
       <p *ngIf="versionedAsGeoJson$ | async as versioned">{{ versioned }}</p>
     </div>
+  </div>
+  <div>
+    <ocad-diff-table [tableInput]="diffTable"></ocad-diff-table>
   </div>
 </div>
