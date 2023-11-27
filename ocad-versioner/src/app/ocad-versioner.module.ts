@@ -18,7 +18,7 @@ import { OcadDiffTableComponent } from './components/ocad-diff-table/ocad-diff-t
     OcadVersionerComponent,
     OcadFileUploaderComponent,
     OcadMapViewerComponent,
-    OcadDiffTableComponent
+    OcadDiffTableComponent,
   ],
   providers: [JsonDiffService],
 })

@@ -5,7 +5,7 @@ import { Component } from '@angular/core';
   templateUrl: './ocad-map-viewer.component.html',
   styleUrl: './ocad-map-viewer.component.scss',
 })
-export class OcadMapViewerComponent  {
+export class OcadMapViewerComponent {
   public options: any;
 
   // ngOnInit(): void {
