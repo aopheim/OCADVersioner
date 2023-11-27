@@ -1,24 +1,60 @@
 <div class="container" id="newSymbols">
-    <table class="table table-sm table-striped table-hover">
-        <thead>
-            <tr>
-                <th scope="col">Symbolnummer</th>
-                <th scope="col">Navn</th>
-                <th scope="col">Opprettet</th>
-                <th scope="col">Slettet</th>
-                <th scope="col">Slettet av</th>
-              </tr>
-        </thead>
-        <tbody>
-            <ng-template *ngFor="let symbol in tableInput.added">
-                <tr>
-                    <th>{{symbol.symbolNumber}}</th>
-                    <th>{{symbol.symbolName}}</th>
-                    <th>{{symbol.createdAtUtc}}</th>
-                    <th>{{symbol.lastedEditedAtUtc}}</th>
-                    <th>{{symbol.lastEditBy}}</th>
-                </tr>
-            </ng-template>
-        </tbody>
-    </table>
+  <table class="table table-sm table-striped table-hover">
+    <thead>
+      <tr>
+        <th scope="col">Symbolnummer</th>
+        <th scope="col">Navn</th>
+        <th *ngIf="tableView === OcadDiffTableView.Updated" scope="col">
+          Flyttet antall meter
+        </th>
+        <th *ngIf="tableView === OcadDiffTableView.Updated" scope="col">
+          %-vis lengdeforskjell
+        </th>
+        <th *ngIf="tableView === OcadDiffTableView.Updated" scope="col">
+          %-vis arealforskjell
+        </th>
+        <th scope="col">Opprettet</th>
+        <th scope="col">Slettet</th>
+        <th scope="col">Slettet av</th>
+      </tr>
+    </thead>
+    <tbody>
+      <ng-container
+        *ngIf="
+          tableView === OcadDiffTableView.Added ||
+          tableView === OcadDiffTableView.Deleted
+        "
+      >
+        <ng-container *ngFor="let symbol of getAddedOrDeletedSymbols() ?? []">
+          <tr>
+            <th>{{ symbol.symbolNumber }}</th>
+            <td>{{ symbol.symbolName }}</td>
+            <td>{{ symbol.createdAtUtc }}</td>
+            <td>{{ symbol.lastEditedAtUtc }}</td>
+            <td>{{ symbol.lastEditBy }}</td>
+          </tr>
+        </ng-container>
+      </ng-container>
+      <ng-container *ngIf="tableView === OcadDiffTableView.Updated">
+        <ng-container *ngFor="let symbol of getUpdatedSymbols() ?? []">
+          <tr>
+            <th>{{ symbol.symbolNumber }}</th>
+            <td>{{ symbol.symbolName }}</td>
+            <td *ngIf="tableView === OcadDiffTableView.Updated">
+              {{ symbol?.pointSymbolDiff?.movementInMeters }}
+            </td>
+            <td *ngIf="tableView === OcadDiffTableView.Updated">
+              {{ symbol?.lineSymbolDiff?.lengthDiffInPercent }}
+            </td>
+            <td *ngIf="tableView === OcadDiffTableView.Updated">
+              {{ symbol?.areaSymbolDiff?.areaDiffInPercent }}
+            </td>
+            <td>{{ symbol.createdAtUtc }}</td>
+            <td>{{ symbol.lastEditedAtUtc }}</td>
+            <td>{{ symbol.lastEditBy }}</td>
+          </tr>
+        </ng-container>
+      </ng-container>
+    </tbody>
+  </table>
 </div>

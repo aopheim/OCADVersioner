@@ -1,25 +1,14 @@
 import { NgModule } from '@angular/core';
-import { OcadFileUploaderComponent } from './components/ocad-file-uploader/ocad-file-uploader.component';
 import { OcadVersionerComponent } from './ocad-versioner.component';
 import { JsonDiffService } from './services/json-diff-service';
-import { OcadMapViewerComponent } from './components/ocad-map-viewer/ocad-map-viewer.component';
-import { LeafletModule } from '@asymmetrik/ngx-leaflet';
-import { OcadDiffTableComponent } from './components/ocad-diff-table/ocad-diff-table.component';
+// import { LeafletModule } from '@asymmetrik/ngx-leaflet';
+import { OcadVersionerComponetsModule as OcadVersionerComponentsModule } from './components/ocad-versioner-components.module';
+import { CommonModule } from '@angular/common';
 
 @NgModule({
-  imports: [
-    OcadVersionerComponent,
-    OcadFileUploaderComponent,
-    OcadMapViewerComponent,
-    OcadDiffTableComponent,
-    LeafletModule,
-  ],
-  exports: [
-    OcadVersionerComponent,
-    OcadFileUploaderComponent,
-    OcadMapViewerComponent,
-    OcadDiffTableComponent,
-  ],
+  imports: [OcadVersionerComponentsModule, CommonModule],
+  declarations: [OcadVersionerComponent],
+  exports: [OcadVersionerComponent],
   providers: [JsonDiffService],
 })
 export class OcadVersionerModule {}

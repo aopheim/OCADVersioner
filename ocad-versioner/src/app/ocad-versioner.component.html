@@ -17,7 +17,51 @@
       <p *ngIf="versionedAsGeoJson$ | async as versioned">{{ versioned }}</p>
     </div>
   </div>
-  <div>
-    <ocad-diff-table [tableInput]="diffTable"></ocad-diff-table>
+  <div *ngIf="selectedTableView$ | async as selectedTableView">
+    <div class="mt-3">
+      <ul class="nav nav-tabs nav-fill">
+        <li
+          class="nav-item"
+          (click)="setSelectedTableView(OcadDiffTableView.Added)"
+        >
+          <a
+            class="nav-link"
+            [ngClass]="{
+              active: selectedTableView === OcadDiffTableView.Added
+            }"
+            >Lagt til</a
+          >
+        </li>
+        <li
+          class="nav-item"
+          (click)="setSelectedTableView(OcadDiffTableView.Updated)"
+        >
+          <a
+            class="nav-link"
+            [ngClass]="{
+              active: selectedTableView === OcadDiffTableView.Updated
+            }"
+            >Redigert</a
+          >
+        </li>
+        <li
+          class="nav-item"
+          (click)="setSelectedTableView(OcadDiffTableView.Deleted)"
+        >
+          <a
+            class="nav-link"
+            [ngClass]="{
+              active: selectedTableView === OcadDiffTableView.Deleted
+            }"
+            >Slettet</a
+          >
+        </li>
+      </ul>
+    </div>
+    <ocad-diff-table
+      [tableInput]="diffTable$ | async"
+      [tableView]="selectedTableView"
+      class="mt-3"
+    ></ocad-diff-table>
   </div>
 </div>

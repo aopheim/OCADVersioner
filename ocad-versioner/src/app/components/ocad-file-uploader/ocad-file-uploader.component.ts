@@ -1,5 +1,4 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import * as ocad2geojson from 'ocad2geojson';
 import { Buffer } from 'buffer';
 import { GeoJsonObject } from 'geojson';
@@ -7,8 +6,6 @@ import { from, map } from 'rxjs';
 
 @Component({
   selector: 'ocad-file-uploader',
-  standalone: true,
-  imports: [CommonModule],
   templateUrl: './ocad-file-uploader.component.html',
   styleUrl: './ocad-file-uploader.component.scss',
 })

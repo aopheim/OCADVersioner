@@ -1,5 +1,4 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { GeoJsonObject } from 'geojson';
 import {
   BehaviorSubject,
@@ -10,13 +9,11 @@ import {
   of,
 } from 'rxjs';
 import { JsonDiffService } from './services/json-diff-service';
-import { OcadVersionerModule } from './ocad-versioner.module';
 import { OcadDiffDto } from './components/ocad-diff-table/ocad-diff-table.models';
+import { OcadDiffTableView } from './components/ocad-diff-table/ocad-diff-table.component';
 
 @Component({
   selector: 'ocad-versioner',
-  standalone: true,
-  imports: [CommonModule, OcadVersionerModule],
   templateUrl: './ocad-versioner.component.html',
   styleUrl: './ocad-versioner.component.scss',
 })
@@ -26,8 +23,12 @@ export class OcadVersionerComponent implements OnInit {
   public versionedAsGeoJson$: BehaviorSubject<GeoJsonObject | null> =
     new BehaviorSubject<GeoJsonObject | null>(null);
   public diffTable$: Observable<OcadDiffDto> = new Observable();
+  public selectedTableView$: BehaviorSubject<OcadDiffTableView> =
+    new BehaviorSubject<OcadDiffTableView>(OcadDiffTableView.Added);
+
   constructor(private jsonDiffService: JsonDiffService) {}
 
+  public OcadDiffTableView = OcadDiffTableView;
   ngOnInit(): void {
     combineLatest([this.originalAsGeoJson$, this.versionedAsGeoJson$])
       .pipe(
@@ -46,6 +47,10 @@ export class OcadVersionerComponent implements OnInit {
   public handleLoadedGeoJsonFile(geoJson: GeoJsonObject, isOriginal: boolean) {
     if (isOriginal) this.originalAsGeoJson$.next(geoJson);
     else this.versionedAsGeoJson$.next(geoJson);
+  }
+
+  public setSelectedTableView(selectedView: OcadDiffTableView): void {
+    this.selectedTableView$.next(selectedView);
   }
 
   private mockDiffTable(): OcadDiffDto {
