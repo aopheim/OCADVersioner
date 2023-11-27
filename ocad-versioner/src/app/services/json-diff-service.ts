@@ -6,6 +6,7 @@ import { getDiff } from 'json-difference';
 @Injectable({ providedIn: OcadVersionerModule })
 export class JsonDiffService implements IJsonDiffService {
   getJsonDiff(oldJsonData: any, newJsonData: any): JsonDiffOutput {
+    console.log('newData', newJsonData);
     // const diffs = diff(oldJsonData, newJsonData);
     const diffs = getDiff(
       JSON.stringify(oldJsonData),

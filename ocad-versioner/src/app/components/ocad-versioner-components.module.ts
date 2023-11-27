@@ -4,9 +4,10 @@ import { OcadFileUploaderComponent } from './ocad-file-uploader/ocad-file-upload
 import { OcadMapViewerComponent } from './ocad-map-viewer/ocad-map-viewer.component';
 import { CommonModule } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
+import { LeafletModule } from '@asymmetrik/ngx-leaflet';
 
 @NgModule({
-  imports: [CommonModule, TranslateModule],
+  imports: [CommonModule, TranslateModule, LeafletModule],
   declarations: [
     OcadDiffTableComponent,
     OcadFileUploaderComponent,
