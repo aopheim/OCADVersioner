@@ -1,0 +1,16 @@
+{
+  "#_added": "Added",
+  "#_edited": "Edited",
+  "#_createdAt": "Created at",
+  "#_currentVersion": "Current version",
+  "#_deleted": "Deleted",
+  "#_deletedAt": "Deleted at",
+  "#_deletedBy": "Deleted by",
+  "#_movedNumberOfMeters": "Moved nr of meters",
+  "#_name": "Name",
+  "#_oldVersion": "Old version",
+  "#_percentageLengthDiff": "Percentage length difference",
+  "#_percentageAreaDiff": "Percentage area difference",
+  "#_symbolName": "Symbol name",
+  "#_symbolNumber": "Symbol number"
+}

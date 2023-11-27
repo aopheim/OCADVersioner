@@ -3,7 +3,7 @@
   <div class="row">
     <div class="col">
       <ocad-file-uploader
-        [title]="'Current version'"
+        [title]="'#_currentVersion' | translate"
         (ocadFileAsGeoJson)="handleLoadedGeoJsonFile($event, true)"
       ></ocad-file-uploader>
       <!-- <ocad-map-viewer></ocad-map-viewer> -->
@@ -11,7 +11,7 @@
     </div>
     <div class="col">
       <ocad-file-uploader
-        [title]="'Old version'"
+        [title]="'#_oldVersion' | translate"
         (ocadFileAsGeoJson)="handleLoadedGeoJsonFile($event, false)"
       ></ocad-file-uploader>
       <p *ngIf="versionedAsGeoJson$ | async as versioned">{{ versioned }}</p>
@@ -29,7 +29,7 @@
             [ngClass]="{
               active: selectedTableView === OcadDiffTableView.Added
             }"
-            >Lagt til</a
+            >{{ "#_added" | translate }}</a
           >
         </li>
         <li
@@ -41,7 +41,7 @@
             [ngClass]="{
               active: selectedTableView === OcadDiffTableView.Updated
             }"
-            >Redigert</a
+            >{{ "#_edited" | translate }}</a
           >
         </li>
         <li
@@ -53,7 +53,7 @@
             [ngClass]="{
               active: selectedTableView === OcadDiffTableView.Deleted
             }"
-            >Slettet</a
+            >{{ "#_deleted" | translate }}</a
           >
         </li>
       </ul>
