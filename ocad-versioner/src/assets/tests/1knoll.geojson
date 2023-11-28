@@ -1,0 +1,54 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "sym": 109000,
+        "otp": 1,
+        "unicode": 0,
+        "ang": 0,
+        "col": 5,
+        "lineWidth": 0,
+        "diamFlags": 0,
+        "serverObjectId": -1,
+        "height": 0,
+        "creationDate": 45257.96000232639,
+        "multirepresentationId": 0,
+        "modificationDate": 45257.96048340278,
+        "nItem": 1,
+        "nText": 0,
+        "nObjectString": 0,
+        "nDatabaseString": 0,
+        "objectStringType": 0,
+        "res1": 0,
+        "text": "",
+        "objectString": "",
+        "databaseString": ""
+      },
+      "id": 1,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          10.51176,
+          0.000384
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "element": "109000-element-0",
+        "parentId": 1
+      },
+      "id": 2,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          10.51176,
+          0.000384
+        ]
+      }
+    }
+  ]
+}
