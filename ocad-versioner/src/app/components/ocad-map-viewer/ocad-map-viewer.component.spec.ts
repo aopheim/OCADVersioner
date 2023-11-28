@@ -7,11 +7,8 @@ describe('OcadMapViewerComponent', () => {
   let fixture: ComponentFixture<OcadMapViewerComponent>;
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [OcadMapViewerComponent]
-    })
-    .compileComponents();
-    
+    await TestBed.configureTestingModule({}).compileComponents();
+
     fixture = TestBed.createComponent(OcadMapViewerComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();

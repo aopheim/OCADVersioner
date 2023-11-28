@@ -1,27 +1,23 @@
 import { Injectable } from '@angular/core';
-import { OcadVersionerModule } from '../ocad-versioner.module';
-import { IJsonDiffService, JsonDiffOutput } from './json-diff-service.models';
+import { IJsonDiffService } from './json-diff-service.models';
 import { getDiff } from 'json-difference';
+import { OcadDiffDto } from '../components/ocad-diff-table/ocad-diff-table.models';
 
-@Injectable({ providedIn: OcadVersionerModule })
+@Injectable()
 export class JsonDiffService implements IJsonDiffService {
-  getJsonDiff(oldJsonData: any, newJsonData: any): JsonDiffOutput {
+  getJsonDiff(oldJsonData: any, newJsonData: any): OcadDiffDto {
     console.log('newData', newJsonData);
-    // const diffs = diff(oldJsonData, newJsonData);
     const diffs = getDiff(
       JSON.stringify(oldJsonData),
-      JSON.stringify(newJsonData)
+      JSON.stringify(newJsonData),
+      {}
     );
+    console.log('diffs: ', diffs.added);
 
     return {
-      addedItems: diffs.added,
-      deletedItems: diffs.removed,
-      updatedItems: diffs.edited,
-    } as JsonDiffOutput;
-    // return {
-    //   addedItems: diffs.filter((d) => d.type === Operation.ADD),
-    //   updatedItems: diffs.filter((d) => d.type === Operation.UPDATE),
-    //   deletedItems: diffs.filter((d) => d.type === Operation.REMOVE),
-    // } as JsonDiffOutput;
+      added: [],
+      deleted: [],
+      edited: [],
+    } as OcadDiffDto;
   }
 }

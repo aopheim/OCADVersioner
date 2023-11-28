@@ -1,13 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { GeoJsonObject } from 'geojson';
-import {
-  BehaviorSubject,
-  Observable,
-  combineLatest,
-  filter,
-  map,
-  of,
-} from 'rxjs';
+import { BehaviorSubject, Observable, combineLatest, filter, map } from 'rxjs';
 import { JsonDiffService } from './services/json-diff-service';
 import { OcadDiffDto } from './components/ocad-diff-table/ocad-diff-table.models';
 import { OcadDiffTableView } from './components/ocad-diff-table/ocad-diff-table.component';
@@ -30,18 +23,15 @@ export class OcadVersionerComponent implements OnInit {
 
   public OcadDiffTableView = OcadDiffTableView;
   ngOnInit(): void {
-    combineLatest([this.originalAsGeoJson$, this.versionedAsGeoJson$])
-      .pipe(
-        filter(
-          ([current, versioned]) => current !== null && versioned !== null
-        ),
-        map(([current, versioned]) => {
-          const diff = this.jsonDiffService.getJsonDiff(versioned, current);
-          console.log('diff: ', diff);
-        })
-      )
-      .subscribe();
-    this.diffTable$ = of(this.mockDiffTable());
+    this.diffTable$ = combineLatest([
+      this.originalAsGeoJson$,
+      this.versionedAsGeoJson$,
+    ]).pipe(
+      filter(([current, versioned]) => current !== null && versioned !== null),
+      map(([current, versioned]) => {
+        return this.jsonDiffService.getJsonDiff(versioned, current);
+      })
+    );
   }
 
   public handleLoadedGeoJsonFile(geoJson: GeoJsonObject, isOriginal: boolean) {
@@ -53,68 +43,68 @@ export class OcadVersionerComponent implements OnInit {
     this.selectedTableView$.next(selectedView);
   }
 
-  private mockDiffTable(): OcadDiffDto {
-    return {
-      added: [
-        {
-          symbolName: 'Høydepunkt',
-          symbolNumber: '123.34',
-          createdAtUtc: new Date(),
-          lastEditBy: 'Adrian Opheim',
-          lastEditedAtUtc: new Date(),
-        },
-        {
-          symbolName: 'Kolle',
-          symbolNumber: '124.34',
-          createdAtUtc: new Date(),
-          lastEditBy: 'Adrian Opheim',
-          lastEditedAtUtc: new Date(),
-        },
-        {
-          symbolName: 'Stein',
-          symbolNumber: '125.34',
-          createdAtUtc: new Date(),
-          lastEditBy: 'Adrian Opheim',
-          lastEditedAtUtc: new Date(),
-        },
-      ],
-      edited: [
-        {
-          areaSymbolDiff: { areaDiffInPercent: -20 },
-          createdAtUtc: new Date(),
-          symbolName: 'Jorde',
-          symbolNumber: '145.44',
-          lastEditBy: 'Adrian Opheim',
-          lastEditedAtUtc: new Date(),
-        },
-        {
-          lineSymbolDiff: {
-            lengthDiffInPercent: 14,
-          },
-          createdAtUtc: new Date(),
-          symbolName: 'Sti',
-          symbolNumber: '145.44',
-          lastEditBy: 'Adrian Opheim',
-          lastEditedAtUtc: new Date(),
-        },
-        {
-          pointSymbolDiff: { movementInMeters: 20 },
-          createdAtUtc: new Date(),
-          symbolName: 'Stein',
-          symbolNumber: '145.44',
-          lastEditBy: 'Adrian Opheim',
-          lastEditedAtUtc: new Date(),
-        },
-      ],
-      deleted: [
-        {
-          createdAtUtc: new Date(),
-          symbolName: 'Høydekurve',
-          symbolNumber: '156.21',
-          lastEditBy: 'Adrian Opheim',
-          lastEditedAtUtc: new Date(),
-        },
-      ],
-    } as OcadDiffDto;
-  }
+  // private mockDiffTable(): OcadDiffDto {
+  //   return {
+  //     added: [
+  //       {
+  //         symbolName: 'Høydepunkt',
+  //         symbolNumber: '123.34',
+  //         createdAtUtc: new Date(),
+  //         lastEditBy: 'Adrian Opheim',
+  //         lastEditedAtUtc: new Date(),
+  //       },
+  //       {
+  //         symbolName: 'Kolle',
+  //         symbolNumber: '124.34',
+  //         createdAtUtc: new Date(),
+  //         lastEditBy: 'Adrian Opheim',
+  //         lastEditedAtUtc: new Date(),
+  //       },
+  //       {
+  //         symbolName: 'Stein',
+  //         symbolNumber: '125.34',
+  //         createdAtUtc: new Date(),
+  //         lastEditBy: 'Adrian Opheim',
+  //         lastEditedAtUtc: new Date(),
+  //       },
+  //     ],
+  //     edited: [
+  //       {
+  //         areaSymbolDiff: { areaDiffInPercent: -20 },
+  //         createdAtUtc: new Date(),
+  //         symbolName: 'Jorde',
+  //         symbolNumber: '145.44',
+  //         lastEditBy: 'Adrian Opheim',
+  //         lastEditedAtUtc: new Date(),
+  //       },
+  //       {
+  //         lineSymbolDiff: {
+  //           lengthDiffInPercent: 14,
+  //         },
+  //         createdAtUtc: new Date(),
+  //         symbolName: 'Sti',
+  //         symbolNumber: '145.44',
+  //         lastEditBy: 'Adrian Opheim',
+  //         lastEditedAtUtc: new Date(),
+  //       },
+  //       {
+  //         pointSymbolDiff: { movementInMeters: 20 },
+  //         createdAtUtc: new Date(),
+  //         symbolName: 'Stein',
+  //         symbolNumber: '145.44',
+  //         lastEditBy: 'Adrian Opheim',
+  //         lastEditedAtUtc: new Date(),
+  //       },
+  //     ],
+  //     deleted: [
+  //       {
+  //         createdAtUtc: new Date(),
+  //         symbolName: 'Høydekurve',
+  //         symbolNumber: '156.21',
+  //         lastEditBy: 'Adrian Opheim',
+  //         lastEditedAtUtc: new Date(),
+  //       },
+  //     ],
+  //   } as OcadDiffDto;
+  // }
 }

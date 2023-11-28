@@ -1,16 +1,5 @@
-import { EditedPath, PathsDiff } from 'json-difference';
+import { OcadDiffDto } from '../components/ocad-diff-table/ocad-diff-table.models';
 
 export interface IJsonDiffService {
-  getJsonDiff(oldJsonData: string, newJsonData: string): JsonDiffOutput;
+  getJsonDiff(oldJsonData: string, newJsonData: string): OcadDiffDto;
 }
-
-export interface JsonDiffOutput {
-  addedItems: ICustomPathsDiff[];
-  updatedItems: EditedPath[];
-  deletedItems: ICustomPathsDiff[];
-}
-
-// export interface ICustomChange extends IChange {}
-
-export interface ICustomPathsDiff extends PathsDiff {}
-export interface ICustomEditedPathsDiff extends EditedPath {}
