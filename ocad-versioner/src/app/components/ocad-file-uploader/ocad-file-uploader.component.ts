@@ -1,6 +1,8 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-// import * as ocad2geojson from 'ocad2geojson';
-import { GeoJsonObject } from 'geojson';
+import * as ocad2geojson from 'ocad2geojson';
+import { FeatureCollection } from 'geojson';
+import { from, map } from 'rxjs';
+import { Buffer } from 'buffer';
 
 @Component({
   selector: 'ocad-file-uploader',
@@ -10,7 +12,7 @@ import { GeoJsonObject } from 'geojson';
 export class OcadFileUploaderComponent {
   public fileName: string = '';
   @Input() public title: string = '';
-  @Output() public ocadFileAsGeoJson = new EventEmitter<GeoJsonObject>();
+  @Output() public ocadFileAsGeoJson = new EventEmitter<FeatureCollection>();
   constructor() {}
 
   public onFileSelected(event: Event) {
@@ -24,17 +26,18 @@ export class OcadFileUploaderComponent {
     this.fileName = file.name;
     var reader = new FileReader();
 
-    // reader.onload = (e) => {
-    //   const arrayBuffer = reader.result;
-    //   from(ocad2geojson.readOcad(Buffer.from(arrayBuffer as ArrayBuffer)))
-    //     .pipe(
-    //       map((ocadFile) => {
-    //         const geojson: GeoJsonObject = ocad2geojson.ocadToGeoJson(ocadFile);
-    //         this.ocadFileAsGeoJson.emit(geojson);
-    //       })
-    //     )
-    //     .subscribe();
-    // };
+    reader.onload = (e) => {
+      const arrayBuffer = reader.result;
+      from(ocad2geojson.readOcad(Buffer.from(arrayBuffer as ArrayBuffer)))
+        .pipe(
+          map((ocadFile) => {
+            const geojson: FeatureCollection =
+              ocad2geojson.ocadToGeoJson(ocadFile);
+            this.ocadFileAsGeoJson.emit(geojson);
+          })
+        )
+        .subscribe();
+    };
 
     reader.readAsArrayBuffer(file);
   }

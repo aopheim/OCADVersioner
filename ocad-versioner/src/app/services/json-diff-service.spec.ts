@@ -14,7 +14,10 @@ describe('JsonDiffService', () => {
   });
 
   it('Empty input should give empty results', () => {
-    const res = jsonDiffService.getJsonDiff('', '');
+    const res = jsonDiffService.getJsonDiff(
+      { features: [], type: 'FeatureCollection' },
+      { features: [], type: 'FeatureCollection' }
+    );
 
     expect(res.added.length).toBe(0);
     expect(res.edited.length).toBe(0);
