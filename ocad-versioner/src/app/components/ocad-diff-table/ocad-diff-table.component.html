@@ -14,7 +14,7 @@
           {{ "#_percentageAreaDiff" | translate }}
         </th>
         <th scope="col">{{ "#_createdAt" | translate }}</th>
-        <th scope="col">{{ "#_deletedAt" | translate }}</th>
+        <th scope="col">{{ "#_lastEditedAt" | translate }}</th>
         <th scope="col">{{ "#_deletedBy" | translate }}</th>
       </tr>
     </thead>
@@ -29,8 +29,8 @@
           <tr>
             <th>{{ symbol.symbolNumber }}</th>
             <td>{{ symbol.symbolName }}</td>
-            <td>{{ symbol.createdAtUtc | date }}</td>
-            <td>{{ symbol.lastEditedAtUtc | date }}</td>
+            <td>{{ symbol?.createdAtUtc | date : "medium" }}</td>
+            <td>{{ symbol?.lastEditedAtUtc | date : "medium" }}</td>
             <td>{{ symbol.lastEditBy }}</td>
           </tr>
         </ng-container>
@@ -40,17 +40,17 @@
           <tr>
             <th>{{ symbol.symbolNumber }}</th>
             <td>{{ symbol.symbolName }}</td>
-            <td *ngIf="tableView === OcadDiffTableView.Updated">
+            <td>
               {{ symbol?.pointSymbolDiff?.movementInMeters }}
             </td>
-            <td *ngIf="tableView === OcadDiffTableView.Updated">
+            <td>
               {{ symbol?.lineSymbolDiff?.lengthDiffInPercent }}
             </td>
-            <td *ngIf="tableView === OcadDiffTableView.Updated">
+            <td>
               {{ symbol?.areaSymbolDiff?.areaDiffInPercent }}
             </td>
-            <td>{{ symbol.createdAtUtc | date }}</td>
-            <td>{{ symbol.lastEditedAtUtc | date }}</td>
+            <td>{{ symbol?.createdAtUtc | date : "medium" }}</td>
+            <td>{{ symbol?.lastEditedAtUtc | date : "medium" }}</td>
             <td>{{ symbol.lastEditBy }}</td>
           </tr>
         </ng-container>

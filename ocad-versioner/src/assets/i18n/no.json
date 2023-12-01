@@ -1,16 +1,20 @@
 {
   "#_added": "Lagt til",
   "#_edited": "Redigert",
+  "#_chooseOcadDirectory": "Velg mappen der OCAD-filen ligger",
   "#_createdAt": "Opprettet",
   "#_currentVersion": "Nåværende versjon",
   "#_deleted": "Sletted",
   "#_deletedAt": "Slettet",
   "#_deletedBy": "Slettet av",
+  "#_foundMultipleOcdFilesInDirectory": "Fant flere .ocd-filer i mappen. Velg .ocd-filen som er i bruk nå",
+  "#_lastEditedAt": "Sist redigert",
   "#_movedNumberOfMeters": "Flyttet antall meter",
   "#_name": "Navn",
   "#_oldVersion": "Gammel versjon",
   "#_percentageLengthDiff": "%-vis lengdeforskjell",
   "#_percentageAreaDiff": "%-vis arealforskjell",
+  "#_selectVersionForComparison": "Velg versjon for sammenligning",
   "#_symbolName": "Symbolnavn",
   "#_symbolNumber": "Symbolnummer"
 }

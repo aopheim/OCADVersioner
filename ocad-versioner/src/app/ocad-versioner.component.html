@@ -5,16 +5,8 @@
       <ocad-file-uploader
         [title]="'#_currentVersion' | translate"
         (ocadFileAsGeoJson)="handleLoadedGeoJsonFile($event, true)"
+        (oldOcadFileAsGeoJson)="handleLoadedGeoJsonFile($event, false)"
       ></ocad-file-uploader>
-      <!-- <ocad-map-viewer></ocad-map-viewer> -->
-      <p *ngIf="originalAsGeoJson$ | async as original">{{ original }}</p>
-    </div>
-    <div class="col">
-      <ocad-file-uploader
-        [title]="'#_oldVersion' | translate"
-        (ocadFileAsGeoJson)="handleLoadedGeoJsonFile($event, false)"
-      ></ocad-file-uploader>
-      <p *ngIf="versionedAsGeoJson$ | async as versioned">{{ versioned }}</p>
     </div>
   </div>
   <div *ngIf="selectedTableView$ | async as selectedTableView">

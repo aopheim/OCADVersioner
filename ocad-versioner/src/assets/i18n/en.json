@@ -1,16 +1,20 @@
 {
   "#_added": "Added",
   "#_edited": "Edited",
+  "#_chooseOcadDirectory": "Choose directory where the OCAD file is saved",
   "#_createdAt": "Created at",
   "#_currentVersion": "Current version",
   "#_deleted": "Deleted",
   "#_deletedAt": "Deleted at",
   "#_deletedBy": "Deleted by",
+  "#_foundMultipleOcdFilesInDirectory": "Found multiple .ocd files in selected folder. Choose the .ocd file currently in use.",
+  "#_lastEditedAt": "Last edit",
   "#_movedNumberOfMeters": "Moved nr of meters",
   "#_name": "Name",
   "#_oldVersion": "Old version",
   "#_percentageLengthDiff": "Percentage length difference",
   "#_percentageAreaDiff": "Percentage area difference",
+  "#_selectVersionForComparison": "Select version for comparison",
   "#_symbolName": "Symbol name",
   "#_symbolNumber": "Symbol number"
 }

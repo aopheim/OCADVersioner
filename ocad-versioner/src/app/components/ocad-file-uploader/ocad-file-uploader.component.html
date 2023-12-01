@@ -1,23 +1,57 @@
-<div>
-  <label for="formFileLg" class="form-label">{{ title }}</label>
-  <input
-    type="file"
-    class="form-control form-control-lg"
-    accept=".ocd"
-    (change)="onFileSelected($event)"
-    #fileUpload
-  />
-</div>
-<!-- <div>
-  <input
-    type="file"
-    class="file-input"
-    accept=".ocd"
-    (change)="onFileSelected($event)"
-    #fileUpload
-  />
-
-  <div class="file-upload">
-    {{ fileName || "No file uploaded yet." }}
+<div class="container">
+  <div class="row">
+    <div class="col-6">
+      <button
+        *ngIf="!currentOcdFileHandle"
+        class="btn btn-primary"
+        (click)="chooseOcadDirectory()"
+      >
+        {{ "#_chooseOcadDirectory" | translate }}
+      </button>
+      <div
+        *ngIf="
+          (ocadFileNamesInDirectory?.length ?? 0 > 1) && !currentOcdFileHandle
+        "
+        class="dropdown"
+      >
+        <button
+          id="selectCorrectOcadFileButton"
+          class="btn btn-secondary dropdown-toggle"
+          type="button"
+          data-bs-toggle="dropdown"
+          aria-expanded="false"
+        >
+          {{ "#_foundMultipleOcdFilesInDirectory" | translate }}
+        </button>
+        <ul class="dropdown-menu">
+          <ng-container *ngFor="let ocdFileName of ocadFileNamesInDirectory"
+            ><li (click)="setCurrentOcdFile(ocdFileName)">
+              <a class="dropdown-item">{{ ocdFileName }}</a>
+            </li></ng-container
+          >
+        </ul>
+      </div>
+    </div>
+    <div class="col-6">
+      <div *ngIf="versionFolderNames?.length ?? 0 > 0" class="dropdown">
+        <button
+          id="selectVersion"
+          class="btn btn-secondary dropdown-toggle"
+          type="button"
+          data-bs-toggle="dropdown"
+          aria-expanded="false"
+        >
+          {{ "#_selectVersionForComparison" | translate }}
+        </button>
+        <ul class="dropdown-menu">
+          <ng-container *ngFor="let versionName of versionFolderNames"
+            ><li (click)="setOldOcdFile(versionName)">
+              <a class="dropdown-item">{{ versionName }}</a>
+            </li></ng-container
+          >
+        </ul>
+      </div>
+    </div>
+    <p>{{ errorMessage }}</p>
   </div>
-</div> -->
+</div>
