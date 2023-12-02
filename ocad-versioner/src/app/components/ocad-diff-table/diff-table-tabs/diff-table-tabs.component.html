@@ -1,0 +1,40 @@
+<div class="mt-3">
+  <ul class="nav nav-tabs nav-fill">
+    <li
+      class="nav-item"
+      (click)="setSelectedTableView(OcadDiffTableView.Added)"
+    >
+      <a
+        class="nav-link"
+        [ngClass]="{
+          active: currentView === OcadDiffTableView.Added
+        }"
+        >{{ "#_added" | translate }}</a
+      >
+    </li>
+    <li
+      class="nav-item"
+      (click)="setSelectedTableView(OcadDiffTableView.Updated)"
+    >
+      <a
+        class="nav-link"
+        [ngClass]="{
+          active: currentView === OcadDiffTableView.Updated
+        }"
+        >{{ "#_edited" | translate }}</a
+      >
+    </li>
+    <li
+      class="nav-item"
+      (click)="setSelectedTableView(OcadDiffTableView.Deleted)"
+    >
+      <a
+        class="nav-link"
+        [ngClass]="{
+          active: currentView === OcadDiffTableView.Deleted
+        }"
+        >{{ "#_deleted" | translate }}</a
+      >
+    </li>
+  </ul>
+</div>

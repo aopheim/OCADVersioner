@@ -5,7 +5,7 @@ import {
   DeletedSymbolDto,
   EditedSymbolDto,
   OcadDiffDto,
-} from '../components/ocad-diff-table/ocad-diff-table.models';
+} from '../components/ocad-diff-table/ocad-diff-table/ocad-diff-table.models';
 import { isNil, isEqual } from 'lodash-es';
 import {
   Feature,

@@ -2,8 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { FeatureCollection } from 'geojson';
 import { BehaviorSubject, Observable, combineLatest, filter, map } from 'rxjs';
 import { JsonDiffService } from './services/json-diff-service';
-import { OcadDiffDto } from './components/ocad-diff-table/ocad-diff-table.models';
-import { OcadDiffTableView } from './components/ocad-diff-table/ocad-diff-table.component';
+import { OcadDiffDto } from './components/ocad-diff-table/ocad-diff-table/ocad-diff-table.models';
+import { OcadDiffTableView } from './components/ocad-diff-table/ocad-diff-table/ocad-diff-table.component';
 
 @Component({
   selector: 'ocad-versioner',

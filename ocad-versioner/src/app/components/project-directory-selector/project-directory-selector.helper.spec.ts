@@ -1,4 +1,4 @@
-import { OcadDirectoryHelper } from './ocad-file-uploader.helper';
+import { OcadDirectoryHelper } from './project-directory-selector.helper';
 
 describe('OcadDirectoryHelper', () => {
   const testCases: DirectoryTestNames[] = [

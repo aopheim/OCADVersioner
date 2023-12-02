@@ -11,9 +11,12 @@
   "#_lastEditedAt": "Sist redigert",
   "#_movedNumberOfMeters": "Flyttet antall meter",
   "#_name": "Navn",
+  "#_OCADVersioner": "OCADVersioner",
   "#_oldVersion": "Gammel versjon",
   "#_percentageLengthDiff": "%-vis lengdeforskjell",
   "#_percentageAreaDiff": "%-vis arealforskjell",
+  "#_projectDirectorySelectorText": "Velkommen til OCADVersioner. Et versjonerings-verktøy for karttegnings-programmet OCAD. Dette verktøyet lar deg opprette versjoner av kartet, og enkelt se symbol-endringene gjort mellom hver versjon.",
+  "#_projectDirectorySelectorTextPt2": "Velg mappen der OCAD-filen ligger for å komme i gang",
   "#_selectVersionForComparison": "Velg versjon for sammenligning",
   "#_symbolName": "Symbolnavn",
   "#_symbolNumber": "Symbolnummer"
