@@ -2,7 +2,7 @@
   "name": "ocad-versioner",
   "version": "0.1.0",
   "engines": {
-    "node": ">=20.10.0"
+    "node": ">=20.9.0"
   },
   "scripts": {
     "ng": "ng",
