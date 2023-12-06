@@ -4,6 +4,7 @@ import { BehaviorSubject, Observable, combineLatest, filter, map } from 'rxjs';
 import { JsonDiffService } from './services/json-diff-service';
 import { OcadDiffDto } from './components/ocad-diff-table/ocad-diff-table/ocad-diff-table.models';
 import { OcadDiffTableView } from './components/ocad-diff-table/ocad-diff-table/ocad-diff-table.component';
+import { OcadVersionerProvider } from './ocad-versioner.provider';
 
 @Component({
   selector: 'ocad-versioner',
@@ -19,7 +20,10 @@ export class OcadVersionerComponent implements OnInit {
   public selectedTableView$: BehaviorSubject<OcadDiffTableView> =
     new BehaviorSubject<OcadDiffTableView>(OcadDiffTableView.Added);
 
-  constructor(private jsonDiffService: JsonDiffService) {}
+  constructor(
+    private jsonDiffService: JsonDiffService,
+    public provider: OcadVersionerProvider
+  ) {}
 
   public OcadDiffTableView = OcadDiffTableView;
   ngOnInit(): void {

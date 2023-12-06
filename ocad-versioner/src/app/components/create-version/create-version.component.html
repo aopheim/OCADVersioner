@@ -1,0 +1,53 @@
+<div *ngIf="fileName.length > 0; else noProject">
+  <div style="display: flex; flex-direction: row">
+    <h5>{{ "#_createNewVersion" | translate : { fileName } }}</h5>
+  </div>
+  <form [formGroup]="form" (ngSubmit)="createNewVersion()">
+    <div class="mb-3">
+      <label for="title" class="form-label">{{ "#_title" | translate }}</label>
+      <input
+        type="text"
+        class="form-control"
+        id="title"
+        aria-describedby="titleHelp"
+        formControlName="title"
+        placeholder="{{
+          '#_versionTitleHelper' | translate : { newVersionName, fileName }
+        }}"
+      />
+    </div>
+    <div class="mb-3">
+      <label for="description" class="form-label">{{
+        "#_description" | translate
+      }}</label>
+      <textarea
+        class="form-control"
+        formControlName="description"
+        rows="4"
+      ></textarea>
+    </div>
+    <div>
+      <button
+        *ngIf="!showSpinner"
+        type="submit"
+        class="btn btn-primary"
+        [ngClass]="{ disabled: !form.valid }"
+        [disabled]="!form.valid"
+      >
+        {{
+          "#_newVersionSubmitText" | translate : { newVersionName, fileName }
+        }}
+      </button>
+      <button *ngIf="showSpinner" class="btn btn-primary" disabled>
+        <span
+          class="spinner-border spinner-border-sm"
+          aria-hidden="true"
+        ></span>
+        <span role="status">{{
+          "#_creatingNewVersion" | translate : { newVersionName }
+        }}</span>
+      </button>
+    </div>
+  </form>
+</div>
+<ng-template #noProject></ng-template>

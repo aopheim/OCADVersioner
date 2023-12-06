@@ -17,8 +17,3 @@ export class DiffTableTabsComponent {
     this.selectedTableView.emit(selectedView);
   }
 }
-
-
-
-
-her er tekst

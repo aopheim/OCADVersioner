@@ -2,7 +2,12 @@
   <h3>OCADVersioner</h3>
   <project-directory-selector></project-directory-selector>
   <div class="row">
-    <div class="col-3">Versjons-liste</div>
+    <div class="col-3">
+      <create-version
+        [fileName]="provider.getCurrentFileName()"
+        [newVersionName]="provider.getNewVersionName()"
+      ></create-version>
+    </div>
     <div class="col-9" *ngIf="selectedTableView$ | async as selectedTableView">
       <diff-table-tabs></diff-table-tabs>
       <ocad-diff-table
