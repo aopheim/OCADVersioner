@@ -12,6 +12,7 @@ import {
   Window,
 } from '../../customWindow';
 import { OcadVersionerProvider } from '../../ocad-versioner.provider';
+import { isNil } from 'lodash-es';
 
 @Component({
   selector: 'project-directory-selector',
@@ -30,6 +31,12 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
     private ocadVersionerProvider: OcadVersionerProvider
   ) {
     this.projectDirectoryHandle = null;
+    if (isNil(this.window.showDirectoryPicker))
+      this.errorMessages.push(
+        this.getErrorMessageForErrorType(
+          DirectorySelectorErrorTypes.UnsupportedBrowser
+        )
+      );
   }
   ngAfterViewInit(): void {
     // Found no other way to trigger the modal without using jQuery...
@@ -51,9 +58,10 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
         this.ocadFileNamesInProjectDirectory.push(fileOrDirectoryName);
     }
     if (this.ocadFileNamesInProjectDirectory.length === 0) {
-      // TODO: Fix translation using TranslateService
       this.errorMessages.push(
-        `Found no .ocd file in the ${this.projectDirectoryHandle.name} folder`
+        this.getErrorMessageForErrorType(
+          DirectorySelectorErrorTypes.MissingOcdFileInProjectDirectory
+        )
       );
       return;
     }
@@ -103,6 +111,20 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
     this.closeModalButton?.nativeElement?.click();
   }
 
+  private getErrorMessageForErrorType(
+    errorType: DirectorySelectorErrorTypes
+  ): string {
+    switch (errorType) {
+      case DirectorySelectorErrorTypes.UnsupportedBrowser:
+        return '#_errorTypeUnsupportedBrowser';
+      case DirectorySelectorErrorTypes.MissingOcdFileInProjectDirectory:
+        // TODO: Find a smart way to do translations
+        return `Found no .ocd file in the ${this.projectDirectoryHandle?.name} folder`;
+      default:
+        return '';
+    }
+  }
+
   // private async readOcdFile(
   //   file: File,
   //   emitter: EventEmitter<FeatureCollection>
@@ -123,4 +145,9 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
   //   if (!file) console.warn('Error reading ocd file');
   //   reader.readAsArrayBuffer(file as File);
   // }
+}
+
+enum DirectorySelectorErrorTypes {
+  UnsupportedBrowser = 1,
+  MissingOcdFileInProjectDirectory = 2,
 }

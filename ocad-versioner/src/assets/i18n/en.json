@@ -10,6 +10,7 @@
   "#_deletedAt": "Deleted at",
   "#_deletedBy": "Deleted by",
   "#_description": "Description",
+  "#_errorTypeUnsupportedBrowser": "This browser can unfortunately not use OCADVersioner. Supported browsers are listed here: https://developer.mozilla.org/en-US/docs/Web/API/File_System_API#browser_compatibility",
   "#_foundMultipleOcdFilesInDirectory": "Found multiple .ocd files in selected folder. Choose the .ocd file currently in use.",
   "#_lastEditedAt": "Last edit",
   "#_movedNumberOfMeters": "Moved nr of meters",
