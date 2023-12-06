@@ -1,10 +1,11 @@
 <div class="container">
   <h3 class="my-2">OCADVersioner</h3>
   <project-directory-selector></project-directory-selector>
-  <div class="row">
-    <div class="col-md-3">
-      <ocad-version-list class="mb-3"> </ocad-version-list>
+  <div class="row vh-100">
+    <div class="col-md-3 cover-container d-flex flex-column">
+      <ocad-version-list class="mb-auto"> </ocad-version-list>
       <create-version
+        class="mt-auto"
         [fileName]="provider.getCurrentFileName()"
         [newVersionName]="provider.getNewVersionName()"
       ></create-version>
