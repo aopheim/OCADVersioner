@@ -1,14 +1,16 @@
 <div class="list-group">
   <a
     *ngFor="let release of releases"
-    href="#"
     class="list-group-item list-group-item-action"
-    [ngClass]="{ active: release.versionNumber === selectedVersionNumber }"
-    aria-current="release.versionNumber === selectedVersionNumber"
+    [ngClass]="{ active: release.versionNumber === getSelectedVersionNumber() }"
+    aria-current="release.versionNumber === getSelectedVersionNumber()"
+    (click)="setSelectedVersionNumber(release.versionNumber)"
   >
     <div class="d-flex w-100 justify-content-between">
-      <h6 class="mb-1">{{ release.title }}</h6>
-      <small>{{ release.versionCreatedAt | date : "short" }}</small>
+      <h6 class="mb-1 col-7">{{ release.title }}</h6>
+      <small class="col-5">{{
+        release.versionCreatedAt | date : "short"
+      }}</small>
     </div>
     <p class="mb-1">{{ release.description }}</p>
     <div

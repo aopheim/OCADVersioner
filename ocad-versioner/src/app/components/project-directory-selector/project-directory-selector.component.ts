@@ -83,6 +83,8 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
         this.projectDirectoryHandle,
         currentOcdFileHandle
       );
+      // This should be rewritten. setFileHandleTree is being called twice. Use observables?
+      this.ocadVersionerProvider.updateFileHandleTree();
       // Setting to null to ensure that the component do not keep a reference to the handle. That is the job of the provider.
       this.projectDirectoryHandle = null;
       this.closeModalButton?.nativeElement.click();
@@ -108,6 +110,8 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
         this.projectDirectoryHandle,
         currentOcdFileHandle
       );
+    // This should be rewritten.
+    this.ocadVersionerProvider.updateFileHandleTree();
     this.closeModalButton?.nativeElement?.click();
   }
 
@@ -124,27 +128,6 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
         return '';
     }
   }
-
-  // private async readOcdFile(
-  //   file: File,
-  //   emitter: EventEmitter<FeatureCollection>
-  // ): Promise<void> {
-  //   var reader = new FileReader();
-  //   reader.onload = (e) => {
-  //     const arrayBuffer = reader.result;
-  //     from(ocad2geojson.readOcad(Buffer.from(arrayBuffer as ArrayBuffer)))
-  //       .pipe(
-  //         map((ocadFile) => {
-  //           console.log('reading ocad file');
-  //           const geoJson = ocad2geojson.ocadToGeoJson(ocadFile);
-  //           emitter.emit(geoJson);
-  //         })
-  //       )
-  //       .subscribe();
-  //   };
-  //   if (!file) console.warn('Error reading ocd file');
-  //   reader.readAsArrayBuffer(file as File);
-  // }
 }
 
 enum DirectorySelectorErrorTypes {

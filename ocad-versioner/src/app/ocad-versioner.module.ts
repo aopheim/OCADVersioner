@@ -8,6 +8,7 @@ import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { OcadVersionerProvider } from './ocad-versioner.provider';
 import { OcadFileSystemService } from './services/ocad-file-system-service';
+import { OcadReaderService } from './services/ocad-reader-service';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -29,6 +30,11 @@ export function HttpLoaderFactory(http: HttpClient) {
   ],
   declarations: [OcadVersionerComponent],
   exports: [OcadVersionerComponent],
-  providers: [JsonDiffService, OcadVersionerProvider, OcadFileSystemService],
+  providers: [
+    JsonDiffService,
+    OcadVersionerProvider,
+    OcadFileSystemService,
+    OcadReaderService,
+  ],
 })
 export class OcadVersionerModule {}

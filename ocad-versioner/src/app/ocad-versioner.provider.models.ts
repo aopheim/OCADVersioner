@@ -1,5 +1,6 @@
-import { FeatureCollection } from 'geojson';
 import { CustomFileSystemDirectoryHandle } from './customWindow';
+import { OcadVersionListItemDto } from './components/ocad-version-list/ocad-version-list.models';
+import { Observable } from 'rxjs';
 
 export interface IOcadVersionerProvider {
   setFileHandleTree(
@@ -7,13 +8,14 @@ export interface IOcadVersionerProvider {
     currentOcdFileHandle: FileSystemFileHandle
   ): Promise<void>;
   updateFileHandleTree(): Promise<void>;
-  getFeatureCollection(version: string): FeatureCollection;
   getOcdFileHandle(versionName: string): FileSystemFileHandle;
   getReleasesDirectoryHandle(): Promise<
     CustomFileSystemDirectoryHandle | undefined
   >;
   getCurrentFileName(): string;
   getNewVersionName(): string;
+  getHighestVersionNumber(): number | null;
+  versionMetaDataList$: Observable<OcadVersionListItemDto[]>;
 }
 
 export interface IFileHandleTree {
@@ -22,4 +24,5 @@ export interface IFileHandleTree {
 
 export interface IVersionFileHandle {
   ocadFileHandle: FileSystemFileHandle;
+  metaDataFileHandle?: FileSystemFileHandle;
 }

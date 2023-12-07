@@ -14,6 +14,7 @@ export class DiffTableTabsComponent {
 
   public currentView: OcadDiffTableView = OcadDiffTableView.Added;
   public setSelectedTableView(selectedView: OcadDiffTableView): void {
+    this.currentView = selectedView;
     this.selectedTableView.emit(selectedView);
   }
 }

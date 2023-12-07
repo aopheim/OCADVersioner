@@ -1,4 +1,4 @@
-export interface OcadVersionListDto {
+export interface OcadVersionListItemDto {
   title?: string;
   description?: string;
   versionCreatedAt: Date;

@@ -1,11 +1,16 @@
 <div class="container">
-  <h3 class="my-2">OCADVersioner</h3>
+  <h3 class="my-2">{{ "#_OCADVersioner" | translate }}</h3>
   <project-directory-selector></project-directory-selector>
-  <div class="row vh-100">
-    <div class="col-md-3 cover-container d-flex flex-column">
-      <ocad-version-list class="mb-auto"> </ocad-version-list>
+  <div class="row">
+    <div class="col-md-3">
+      <ocad-version-list
+        [releases]="(provider.versionMetaDataList$ | async) ?? []"
+        (versionNumberSelected)="setSelectedVersion($event)"
+        class="mb-auto"
+      >
+      </ocad-version-list>
       <create-version
-        class="mt-auto"
+        class="my-3"
         [fileName]="provider.getCurrentFileName()"
         [newVersionName]="provider.getNewVersionName()"
       ></create-version>
@@ -14,7 +19,9 @@
       class="col-md-9"
       *ngIf="selectedTableView$ | async as selectedTableView"
     >
-      <diff-table-tabs></diff-table-tabs>
+      <diff-table-tabs
+        (selectedTableView)="setSelectedTableView($event)"
+      ></diff-table-tabs>
       <ocad-diff-table
         [tableInput]="diffTable$ | async"
         [tableView]="selectedTableView"
