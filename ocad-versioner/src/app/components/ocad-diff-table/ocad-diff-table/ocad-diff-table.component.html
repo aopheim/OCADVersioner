@@ -15,7 +15,6 @@
         </th>
         <th scope="col">{{ "#_createdAt" | translate }}</th>
         <th scope="col">{{ "#_lastEditedAt" | translate }}</th>
-        <th scope="col">{{ "#_deletedBy" | translate }}</th>
       </tr>
     </thead>
     <tbody>
@@ -31,7 +30,6 @@
             <td>{{ symbol.symbolName }}</td>
             <td>{{ symbol?.createdAtUtc | date : "medium" }}</td>
             <td>{{ symbol?.lastEditedAtUtc | date : "medium" }}</td>
-            <td>{{ symbol.lastEditBy }}</td>
           </tr>
         </ng-container>
       </ng-container>
@@ -51,7 +49,6 @@
             </td>
             <td>{{ symbol?.createdAtUtc | date : "medium" }}</td>
             <td>{{ symbol?.lastEditedAtUtc | date : "medium" }}</td>
-            <td>{{ symbol.lastEditBy }}</td>
           </tr>
         </ng-container>
       </ng-container>
