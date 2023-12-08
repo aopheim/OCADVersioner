@@ -4388,16 +4388,6 @@ jsesc@~0.5.0:
   resolved "https://registry.npmjs.org/jsesc/-/jsesc-0.5.0.tgz"
   integrity sha512-uZz5UnB7u4T9LvwmFqXii7pZSouaRPorGs5who1Ip7VO0wxanFvBL7GkM6dTHlgX+jhBApRetaWpnDabOeTcnA==
 
-json-diff-ts@1.2.5:
-  version "1.2.5"
-  resolved "https://registry.npmjs.org/json-diff-ts/-/json-diff-ts-1.2.5.tgz"
-  integrity sha512-36KYoqcm+i246hWpkk0ovVAL5LyO8ZQQRNavJkw4YlFNtAzVdvMUzYG3pSaJ5wvUCDwZrwpJmpX27n6EzNu0uA==
-
-json-difference@^1.15.7:
-  version "1.15.7"
-  resolved "https://registry.npmjs.org/json-difference/-/json-difference-1.15.7.tgz"
-  integrity sha512-XIL6opQfJ3Z8oX9QO6FcCF52M9ZMXH3HD6D9CTxL8RPE8L50ZW2fTVH1nydwWBpa60S283EM0JCLNaMZoOEjYA==
-
 json-parse-even-better-errors@^2.3.0, json-parse-even-better-errors@^2.3.1:
   version "2.3.1"
   resolved "https://registry.npmjs.org/json-parse-even-better-errors/-/json-parse-even-better-errors-2.3.1.tgz"
@@ -5137,13 +5127,14 @@ obuf@^1.0.0, obuf@^1.1.2:
   resolved "https://registry.npmjs.org/obuf/-/obuf-1.1.2.tgz"
   integrity sha512-PX1wu0AmAdPqOL1mWhqmlOd8kOIZQwGZw6rh7uby9fTc5lhaOWFLX3I6R1hrF9k3zUY40e6igsLGkDXK92LJNg==
 
-ocad2geojson@^2.1.12:
+ocad2geojson-test@^2.1.12:
   version "2.1.12"
-  resolved "https://registry.npmjs.org/ocad2geojson/-/ocad2geojson-2.1.12.tgz"
-  integrity sha512-hbB3QrciX/mSlab9y9PpvCaYcXK8idZ0678XtJjMtrs7udnTMZ9cWkvfJqfkX3VrLmIujhAQtTE9kMkaJ5K1Bg==
+  resolved "https://registry.yarnpkg.com/ocad2geojson-test/-/ocad2geojson-test-2.1.12.tgz#d79f11ddba992e68dd1908e2c3f961a458848524"
+  integrity sha512-PQq/Xs2vDeUlCQviXaPlgmwmLebNLr40NPmjm114x1Om1EhSlkqTVYUndM3WtIc27QbPSyVoY3CbSrTtIf5r3w==
   dependencies:
     "@turf/line-offset" "^6.5.0"
     "@turf/meta" "^6.5.0"
+    "@types/geojson" "^7946.0.13"
     arr-flatten "^1.1.0"
     bezier-js "^2.4.0"
     commander "^6.2.1"
