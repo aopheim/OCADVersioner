@@ -1,4 +1,3 @@
-import { FeatureCollection, GeoJsonObject } from 'geojson';
 import { JsonDiffService } from './json-diff-service';
 import {
   Empty,
@@ -32,7 +31,6 @@ describe('JsonDiffService', () => {
     expect(res.added.length).toBe(1);
     const added = res.added[0];
     expect(added.createdAtUtc).toBeTruthy();
-    expect(added.lastEditBy).toBeNull();
     expect(added.lastEditedAtUtc).toBe(added.createdAtUtc);
     expect(added.symbolName).toBe('Kolle');
     expect(added.symbolNumber).toBe('109');
@@ -43,7 +41,6 @@ describe('JsonDiffService', () => {
 
     const added = res.added[0];
     expect(added.createdAtUtc).toBeTruthy();
-    expect(added.lastEditBy).toBeNull();
     expect(added.lastEditedAtUtc).toBe(added.createdAtUtc);
     expect(added.symbolName).toBe('Høydepunkt');
     expect(added.symbolNumber).toBe('109');
@@ -63,7 +60,6 @@ describe('JsonDiffService', () => {
     const knoll = res.edited.filter((e) => e.symbolNumber === '109')[0];
     expect(knoll.areaSymbolDiff).toBeNull();
     expect(knoll.lineSymbolDiff).toBeNull();
-    expect(knoll.lastEditBy).toBeNull();
     expect(knoll.lastEditedAtUtc).toBeTruthy();
     expect(knoll.createdAtUtc).toBeTruthy();
     expect(knoll.lastEditedAtUtc).not.toBe(knoll.createdAtUtc);
@@ -78,7 +74,6 @@ describe('JsonDiffService', () => {
     expect(contour.areaSymbolDiff).toBeNull();
     expect(contour.pointSymbolDiff).toBeNull();
     expect(contour.lineSymbolDiff?.lengthDiffInPercent).toBeGreaterThan(0);
-    expect(contour.lastEditBy).toBeNull();
     expect(contour.lastEditedAtUtc).toBeTruthy();
     expect(contour.createdAtUtc).toBeTruthy();
     expect(contour.lastEditedAtUtc).not.toBe(contour.createdAtUtc);
@@ -92,7 +87,6 @@ describe('JsonDiffService', () => {
     expect(area.lineSymbolDiff).toBeNull();
     expect(area.pointSymbolDiff).toBeNull();
     expect(area.areaSymbolDiff?.areaDiffInPercent).toBeGreaterThan(0);
-    expect(area.lastEditBy).toBeNull();
     expect(area.lastEditedAtUtc).toBeTruthy();
     expect(area.createdAtUtc).toBeTruthy();
     expect(area.lastEditedAtUtc).not.toBe(area.createdAtUtc);
@@ -111,7 +105,6 @@ describe('JsonDiffService', () => {
     const res = jsonDiffService.getJsonDiff(PointLineArea, Empty);
 
     const knoll = res.deleted.filter((e) => e.symbolNumber === '109')[0];
-    expect(knoll.lastEditBy).toBeNull();
     expect(knoll.lastEditedAtUtc).toBeTruthy();
     expect(knoll.createdAtUtc).toBeTruthy();
     expect(knoll.lastEditedAtUtc).not.toBe(knoll.createdAtUtc);
@@ -122,7 +115,6 @@ describe('JsonDiffService', () => {
     const res = jsonDiffService.getJsonDiff(PointLineArea, Empty);
 
     const contour = res.deleted.filter((e) => e.symbolNumber === '101')[0];
-    expect(contour.lastEditBy).toBeNull();
     expect(contour.lastEditedAtUtc).toBeTruthy();
     expect(contour.createdAtUtc).toBeTruthy();
     expect(contour.lastEditedAtUtc).not.toBe(contour.createdAtUtc);
@@ -133,7 +125,6 @@ describe('JsonDiffService', () => {
     const res = jsonDiffService.getJsonDiff(PointLineArea, Empty);
 
     const area = res.deleted.filter((e) => e.symbolNumber === '403')[0];
-    expect(area.lastEditBy).toBeNull();
     expect(area.lastEditedAtUtc).toBeTruthy();
     expect(area.createdAtUtc).toBeTruthy();
     expect(area.lastEditedAtUtc).not.toBe(area.createdAtUtc);

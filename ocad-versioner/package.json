@@ -33,7 +33,7 @@
     "express": "^4.18.2",
     "leaflet": "^1.9.4",
     "lodash-es": "^4.17.21",
-    "ocad2geojson-test": "^2.1.12",
+    "ocad2geojson-test": "^2.1.13",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.14.2"

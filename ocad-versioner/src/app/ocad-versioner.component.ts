@@ -36,7 +36,6 @@ export class OcadVersionerComponent implements OnInit {
     ]).pipe(
       filter(([current, versioned]) => current !== null && versioned !== null),
       map(([current, versioned]) => {
-        console.log('calculating diff');
         return this.jsonDiffService.getJsonDiff(versioned!, current!);
       })
     );

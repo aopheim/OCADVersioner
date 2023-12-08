@@ -35,5 +35,4 @@ export interface ISymbolMetadata {
   // Nullable because some symbols have invalid dates from OCAD
   createdAtUtc?: Date;
   lastEditedAtUtc?: Date;
-  lastEditBy?: string;
 }

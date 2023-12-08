@@ -5127,10 +5127,10 @@ obuf@^1.0.0, obuf@^1.1.2:
   resolved "https://registry.npmjs.org/obuf/-/obuf-1.1.2.tgz"
   integrity sha512-PX1wu0AmAdPqOL1mWhqmlOd8kOIZQwGZw6rh7uby9fTc5lhaOWFLX3I6R1hrF9k3zUY40e6igsLGkDXK92LJNg==
 
-ocad2geojson-test@^2.1.12:
-  version "2.1.12"
-  resolved "https://registry.yarnpkg.com/ocad2geojson-test/-/ocad2geojson-test-2.1.12.tgz#d79f11ddba992e68dd1908e2c3f961a458848524"
-  integrity sha512-PQq/Xs2vDeUlCQviXaPlgmwmLebNLr40NPmjm114x1Om1EhSlkqTVYUndM3WtIc27QbPSyVoY3CbSrTtIf5r3w==
+ocad2geojson-test@^2.1.13:
+  version "2.1.13"
+  resolved "https://registry.yarnpkg.com/ocad2geojson-test/-/ocad2geojson-test-2.1.13.tgz#fae1bc3780c4ae7ce86802d80a5695bcec620f4b"
+  integrity sha512-xLPYkiJ9Ofxk2vRD1YmZV8kc359uuEtbqzPP6yrLHYjhjJyoeptIE2L3dmsUJfXJ/Wz7vMN9MFZ4Ax6FjQqMGA==
   dependencies:
     "@turf/line-offset" "^6.5.0"
     "@turf/meta" "^6.5.0"

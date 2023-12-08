@@ -41,7 +41,8 @@ export class JsonDiffService implements IJsonDiffService {
           ? oldFeatures.features[indexInOldFeatures]
           : null;
       if (isNil(matchInOldFeatures)) {
-        added.push(this.convertToAddedSymbol(newFeature));
+        if (!this.isChildFeature(newFeature))
+          added.push(this.convertToAddedSymbol(newFeature));
       } else {
         if (!this.areFeaturesEqual(newFeature, matchInOldFeatures))
           edited.push(this.convertToEditedSymbol(newFeature));
@@ -62,6 +63,11 @@ export class JsonDiffService implements IJsonDiffService {
       deleted,
       edited,
     } as OcadDiffDto;
+  }
+
+  isChildFeature(feature: Feature<Geometry, GeoJsonProperties>): boolean {
+    const parentId = feature.properties?.[OcadPropertyKeys.ParentId];
+    return !isNil(parentId) && parentId > 0;
   }
 
   private areFeaturesEqual(
@@ -174,7 +180,6 @@ export class JsonDiffService implements IJsonDiffService {
       ),
       symbolName: symbolName,
       symbolNumber: symbolName,
-      lastEditBy: '',
     };
   }
 
@@ -191,7 +196,6 @@ export class JsonDiffService implements IJsonDiffService {
       ),
       symbolName: symbolName,
       symbolNumber: symbolName,
-      lastEditBy: '',
     };
   }
 
@@ -208,7 +212,6 @@ export class JsonDiffService implements IJsonDiffService {
       ),
       symbolName: symbolName,
       symbolNumber: symbolName,
-      lastEditBy: '',
     };
   }
 }
@@ -217,4 +220,5 @@ export enum OcadPropertyKeys {
   CreationDate = 'creationDate',
   ModificationDate = 'modificationDate',
   Symbol = 'sym',
+  ParentId = 'parentId',
 }
