@@ -47,7 +47,7 @@ export class JsonDiffService implements IJsonDiffService {
       } else {
         if (!this.areFeaturesEqual(newFeature, matchInOldFeatures))
           edited.push(this.convertToEditedSymbol(newFeature));
-        // The feature is either edited or untouched. Gives fewer elements to search for.
+        // The feature is either edited or untouched. Gives fewer possible deleted elements to search for.
         oldFeatures.features.splice(indexInOldFeatures, 1);
       }
     });
@@ -165,7 +165,8 @@ export class JsonDiffService implements IJsonDiffService {
   private convertToAddedSymbol(
     feature: Feature<Geometry, GeoJsonProperties>
   ): AddedSymbolDto {
-    const symbolNameInGeoJson = feature.properties?.[OcadPropertyKeys.Symbol];
+    const symbolNameInGeoJson: number =
+      feature.properties?.[OcadPropertyKeys.Symbol];
     const symbolName: string =
       IofSymbolHelper.getSymbolName(symbolNameInGeoJson);
     const symbolNumber: string =

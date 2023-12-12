@@ -2,13 +2,12 @@ import { IofSymbolHelper } from './iof-symbol-service';
 
 describe('IofSymbolService', () => {
   const symbolNameTestCases = [
-    { geoJsonName: '109000', expectedName: '#_isom2017SymbolName109' },
-    { geoJsonName: '10900', expectedName: '10900' },
-    { geoJsonName: '1090000', expectedName: '1090000' },
+    { geoJsonName: 109000, expectedName: '#_isom2017SymbolName109' },
+    { geoJsonName: 10900, expectedName: '10900' },
+    { geoJsonName: 1090000, expectedName: '1090000' },
     { geoJsonName: null, expectedName: '' },
     { geoJsonName: undefined, expectedName: '' },
-    { geoJsonName: '109.000', expectedName: '109.000' },
-    { geoJsonName: 'abcdef', expectedName: 'abcdef' },
+    { geoJsonName: 109.0, expectedName: '109' },
   ];
 
   symbolNameTestCases.forEach((test) => {
@@ -20,10 +19,10 @@ describe('IofSymbolService', () => {
   });
 
   const symbolNumberTestCases = [
-    { geoJsonName: '109000', expectedNumber: '109' },
-    { geoJsonName: '109100', expectedNumber: '109.100' },
-    { geoJsonName: '10900', expectedNumber: '' },
-    { geoJsonName: '1090000', expectedNumber: '' },
+    { geoJsonName: 109000, expectedNumber: '109' },
+    { geoJsonName: 109100, expectedNumber: '109.100' },
+    { geoJsonName: 10900, expectedNumber: '' },
+    { geoJsonName: 1090000, expectedNumber: '' },
     { geoJsonName: null, expectedNumber: '' },
   ];
 
