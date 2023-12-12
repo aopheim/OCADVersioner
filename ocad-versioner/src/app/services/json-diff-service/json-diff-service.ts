@@ -5,7 +5,7 @@ import {
   DeletedSymbolDto,
   EditedSymbolDto,
   OcadDiffDto,
-} from '../components/ocad-diff-table/ocad-diff-table/ocad-diff-table.models';
+} from '../../components/ocad-diff-table/ocad-diff-table/ocad-diff-table.models';
 import { isNil, isEqual } from 'lodash-es';
 import {
   Feature,
@@ -19,6 +19,7 @@ import {
   Point,
   Polygon,
 } from 'geojson';
+import { IofSymbolHelper } from '../iof-symbol-service/iof-symbol-service';
 
 @Injectable()
 export class JsonDiffService implements IJsonDiffService {
@@ -45,8 +46,9 @@ export class JsonDiffService implements IJsonDiffService {
           added.push(this.convertToAddedSymbol(newFeature));
       } else {
         if (!this.areFeaturesEqual(newFeature, matchInOldFeatures))
-          edited.push(this.convertToEditedSymbol(newFeature));
-        // The feature is either edited or untouched. Gives fewer elements to search for.
+          if (!this.isChildFeature(newFeature))
+            edited.push(this.convertToEditedSymbol(newFeature));
+        // The feature is either edited or untouched. Gives fewer possible deleted elements to search for.
         oldFeatures.features.splice(indexInOldFeatures, 1);
       }
     });
@@ -156,12 +158,6 @@ export class JsonDiffService implements IJsonDiffService {
     return isEqual(a.coordinates, b.coordinates);
   }
 
-  private getSymbolName(
-    newFeature: Feature<Geometry, GeoJsonProperties>
-  ): string {
-    return (newFeature.properties?.[OcadPropertyKeys.Symbol] ?? '') as string;
-  }
-
   private getDateFromExcelDate(excelDate: number): Date | undefined {
     const date = new Date((excelDate - this.ExcelEpoch) * 86400 * 1000);
     return date instanceof Date && !isNaN(date.valueOf()) ? date : undefined;
@@ -170,23 +166,38 @@ export class JsonDiffService implements IJsonDiffService {
   private convertToAddedSymbol(
     feature: Feature<Geometry, GeoJsonProperties>
   ): AddedSymbolDto {
-    const symbolName: string = this.getSymbolName(feature);
+    const symbolNameInGeoJson: number =
+      feature.properties?.[OcadPropertyKeys.Symbol];
+    const symbolName: string =
+      IofSymbolHelper.getSymbolName(symbolNameInGeoJson);
+    const symbolNumber: string =
+      IofSymbolHelper.getSymbolNumber(symbolNameInGeoJson);
+    const creationDateAsNumber: number =
+      feature.properties?.[OcadPropertyKeys.CreationDate];
+    const lastEditedAsNumber =
+      feature.properties?.[OcadPropertyKeys.ModificationDate];
+    const createdAtUtc = this.getDateFromExcelDate(creationDateAsNumber);
+    let lastEditedAtUtc: Date | undefined =
+      this.getDateFromExcelDate(lastEditedAsNumber);
+    if (creationDateAsNumber === lastEditedAsNumber)
+      lastEditedAtUtc = undefined;
     return {
-      createdAtUtc: this.getDateFromExcelDate(
-        feature.properties?.[OcadPropertyKeys.CreationDate]
-      ),
-      lastEditedAtUtc: this.getDateFromExcelDate(
-        feature.properties?.[OcadPropertyKeys.ModificationDate]
-      ),
-      symbolName: symbolName,
-      symbolNumber: symbolName,
+      createdAtUtc,
+      lastEditedAtUtc,
+      symbolName,
+      symbolNumber,
     };
   }
 
   private convertToEditedSymbol(
     feature: Feature<Geometry, GeoJsonProperties>
   ): EditedSymbolDto {
-    const symbolName: string = this.getSymbolName(feature);
+    const symbolName: string = IofSymbolHelper.getSymbolName(
+      feature.properties?.[OcadPropertyKeys.Symbol]
+    );
+    const symbolNumber: string = IofSymbolHelper.getSymbolNumber(
+      feature.properties?.[OcadPropertyKeys.Symbol]
+    );
     return {
       createdAtUtc: this.getDateFromExcelDate(
         feature.properties?.[OcadPropertyKeys.CreationDate]
@@ -194,15 +205,23 @@ export class JsonDiffService implements IJsonDiffService {
       lastEditedAtUtc: this.getDateFromExcelDate(
         feature.properties?.[OcadPropertyKeys.ModificationDate]
       ),
-      symbolName: symbolName,
-      symbolNumber: symbolName,
+      symbolName,
+      symbolNumber,
+      areaSymbolDiff: null,
+      lineSymbolDiff: null,
+      pointSymbolDiff: null,
     };
   }
 
   private convertToDeletedSymbol(
     feature: Feature<Geometry, GeoJsonProperties>
   ): DeletedSymbolDto {
-    const symbolName: string = this.getSymbolName(feature);
+    const symbolName: string = IofSymbolHelper.getSymbolName(
+      feature.properties?.[OcadPropertyKeys.Symbol]
+    );
+    const symbolNumber: string = IofSymbolHelper.getSymbolNumber(
+      feature.properties?.[OcadPropertyKeys.Symbol]
+    );
     return {
       createdAtUtc: this.getDateFromExcelDate(
         feature.properties?.[OcadPropertyKeys.CreationDate]
@@ -210,8 +229,8 @@ export class JsonDiffService implements IJsonDiffService {
       lastEditedAtUtc: this.getDateFromExcelDate(
         feature.properties?.[OcadPropertyKeys.ModificationDate]
       ),
-      symbolName: symbolName,
-      symbolNumber: symbolName,
+      symbolName,
+      symbolNumber,
     };
   }
 }

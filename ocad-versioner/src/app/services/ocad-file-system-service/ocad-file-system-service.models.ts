@@ -1,5 +1,5 @@
-import { OcadVersionListItemDto } from '../components/ocad-version-list/ocad-version-list.models';
-import { CustomFileSystemDirectoryHandle } from '../customWindow';
+import { OcadVersionListItemDto } from '../../components/ocad-version-list/ocad-version-list.models';
+import { CustomFileSystemDirectoryHandle } from '../../customWindow';
 
 export interface IOcadFileSystemService {
   copyOcdFileToNewReleaseFolder(

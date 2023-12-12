@@ -7,7 +7,7 @@ import { CustomFileSystemDirectoryHandle } from './customWindow';
 import { OcadDirectoryHelper } from './components/project-directory-selector/project-directory-selector.helper';
 import { OcadVersionListItemDto } from './components/ocad-version-list/ocad-version-list.models';
 import { OcadVersionMetaData } from './components/create-version/create-version.models';
-import { OcadFileSystemService } from './services/ocad-file-system-service';
+import { OcadFileSystemService } from './services/ocad-file-system-service/ocad-file-system-service';
 import { BehaviorSubject } from 'rxjs';
 import { orderBy } from 'lodash-es';
 
