@@ -46,7 +46,8 @@ export class JsonDiffService implements IJsonDiffService {
           added.push(this.convertToAddedSymbol(newFeature));
       } else {
         if (!this.areFeaturesEqual(newFeature, matchInOldFeatures))
-          edited.push(this.convertToEditedSymbol(newFeature));
+          if (!this.isChildFeature(newFeature))
+            edited.push(this.convertToEditedSymbol(newFeature));
         // The feature is either edited or untouched. Gives fewer possible deleted elements to search for.
         oldFeatures.features.splice(indexInOldFeatures, 1);
       }
@@ -206,6 +207,9 @@ export class JsonDiffService implements IJsonDiffService {
       ),
       symbolName,
       symbolNumber,
+      areaSymbolDiff: null,
+      lineSymbolDiff: null,
+      pointSymbolDiff: null,
     };
   }
 

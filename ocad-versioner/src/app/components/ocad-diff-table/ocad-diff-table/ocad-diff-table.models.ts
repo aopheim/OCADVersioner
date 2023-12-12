@@ -5,9 +5,9 @@ export interface OcadDiffDto {
 }
 
 export interface EditedSymbolDto extends ISymbol, ISymbolMetadata {
-  pointSymbolDiff?: PointSymbolDiff;
-  lineSymbolDiff?: LineSymbolDiff;
-  areaSymbolDiff?: AreaSymbolDiff;
+  pointSymbolDiff?: PointSymbolDiff | null;
+  lineSymbolDiff?: LineSymbolDiff | null;
+  areaSymbolDiff?: AreaSymbolDiff | null;
 }
 
 export interface AddedSymbolDto extends ISymbol, ISymbolMetadata {}
