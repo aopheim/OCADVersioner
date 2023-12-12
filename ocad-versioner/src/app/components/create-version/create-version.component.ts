@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
-import { OcadFileSystemService } from '../../services/ocad-file-system-service';
+import { OcadFileSystemService } from '../../services/ocad-file-system-service/ocad-file-system-service';
 import { OcadVersionerProvider } from '../../ocad-versioner.provider';
 import { OcadDirectoryHelper } from '../project-directory-selector/project-directory-selector.helper';
 import { OcadVersionListItemDto } from '../ocad-version-list/ocad-version-list.models';

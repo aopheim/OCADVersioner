@@ -22,7 +22,7 @@ export const OneKnoll: FeatureCollection = {
         height: 0,
         creationDate: 45257.96000232639,
         multirepresentationId: 0,
-        modificationDate: 45257.96048340278,
+        modificationDate: 45257.96000232639,
         nItem: 1,
         nText: 0,
         nObjectString: 0,

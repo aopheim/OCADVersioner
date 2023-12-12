@@ -1,11 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { FeatureCollection } from 'geojson';
 import { BehaviorSubject, Observable, combineLatest, filter, map } from 'rxjs';
-import { JsonDiffService } from './services/json-diff-service';
+import { JsonDiffService } from './services/json-diff-service/json-diff-service';
 import { OcadDiffDto } from './components/ocad-diff-table/ocad-diff-table/ocad-diff-table.models';
 import { OcadDiffTableView } from './components/ocad-diff-table/ocad-diff-table/ocad-diff-table.component';
 import { OcadVersionerProvider } from './ocad-versioner.provider';
-import { OcadReaderService } from './services/ocad-reader-service';
+import { OcadReaderService } from './services/ocad-reader-service/ocad-reader-service';
 import { OcadDirectoryHelper } from './components/project-directory-selector/project-directory-selector.helper';
 
 @Component({

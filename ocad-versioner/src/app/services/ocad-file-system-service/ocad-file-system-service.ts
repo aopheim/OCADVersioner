@@ -1,9 +1,9 @@
 import { Injectable } from '@angular/core';
 import { IOcadFileSystemService } from './ocad-file-system-service.models';
-import { OcadVersionListItemDto } from '../components/ocad-version-list/ocad-version-list.models';
-import { OcadVersionMetaData } from '../components/create-version/create-version.models';
-import { OcadDirectoryHelper } from '../components/project-directory-selector/project-directory-selector.helper';
-import { CustomFileSystemDirectoryHandle } from '../customWindow';
+import { OcadVersionListItemDto } from '../../components/ocad-version-list/ocad-version-list.models';
+import { OcadVersionMetaData } from '../../components/create-version/create-version.models';
+import { OcadDirectoryHelper } from '../../components/project-directory-selector/project-directory-selector.helper';
+import { CustomFileSystemDirectoryHandle } from '../../customWindow';
 
 @Injectable()
 export class OcadFileSystemService implements IOcadFileSystemService {

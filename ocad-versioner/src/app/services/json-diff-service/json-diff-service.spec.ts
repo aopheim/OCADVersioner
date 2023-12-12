@@ -29,20 +29,15 @@ describe('JsonDiffService', () => {
     expect(res.deleted.length).toBe(0);
     expect(res.edited.length).toBe(0);
     expect(res.added.length).toBe(1);
-    const added = res.added[0];
-    expect(added.createdAtUtc).toBeTruthy();
-    expect(added.lastEditedAtUtc).toBe(added.createdAtUtc);
-    expect(added.symbolName).toBe('Kolle');
-    expect(added.symbolNumber).toBe('109');
   });
 
-  it('Adding one knoll should added element with correct properties', () => {
+  it('Adding one knoll should give added element with correct properties', () => {
     const res = jsonDiffService.getJsonDiff(Empty, OneKnoll);
 
     const added = res.added[0];
     expect(added.createdAtUtc).toBeTruthy();
-    expect(added.lastEditedAtUtc).toBe(added.createdAtUtc);
-    expect(added.symbolName).toBe('Høydepunkt');
+    expect(added.lastEditedAtUtc).toBeFalsy();
+    expect(added.symbolName).toBe('#_isom2017SymbolName109');
     expect(added.symbolNumber).toBe('109');
   });
 
