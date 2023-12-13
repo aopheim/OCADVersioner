@@ -7,7 +7,7 @@ import {
   OcadDiffDto,
   PointSymbolDiff,
 } from '../../components/ocad-diff-table/ocad-diff-table/ocad-diff-table.models';
-import { isNil, isEqual, clone, cloneDeep } from 'lodash-es';
+import { isNil, isEqual, cloneDeep } from 'lodash-es';
 import {
   Feature,
   FeatureCollection,
