@@ -26,8 +26,8 @@
       >
         <ng-container *ngFor="let symbol of getAddedOrDeletedSymbols() ?? []">
           <tr>
-            <th>{{ symbol.symbolNumber }}</th>
-            <td>{{ symbol.symbolName }}</td>
+            <th>{{ symbol.symbolNumber | translate }}</th>
+            <td>{{ symbol.symbolName | translate }}</td>
             <td>{{ symbol?.createdAtUtc | date : "medium" }}</td>
             <td>{{ symbol?.lastEditedAtUtc | date : "medium" }}</td>
           </tr>
@@ -36,8 +36,8 @@
       <ng-container *ngIf="tableView === OcadDiffTableView.Updated">
         <ng-container *ngFor="let symbol of getUpdatedSymbols() ?? []">
           <tr>
-            <th>{{ symbol.symbolNumber }}</th>
-            <td>{{ symbol.symbolName }}</td>
+            <th>{{ symbol.symbolNumber | translate }}</th>
+            <td>{{ symbol.symbolName | translate }}</td>
             <td>
               {{ symbol?.pointSymbolDiff?.movementInMeters }}
             </td>

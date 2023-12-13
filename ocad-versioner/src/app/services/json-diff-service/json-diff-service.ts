@@ -5,8 +5,9 @@ import {
   DeletedSymbolDto,
   EditedSymbolDto,
   OcadDiffDto,
+  PointSymbolDiff,
 } from '../../components/ocad-diff-table/ocad-diff-table/ocad-diff-table.models';
-import { isNil, isEqual } from 'lodash-es';
+import { isNil, isEqual, cloneDeep } from 'lodash-es';
 import {
   Feature,
   FeatureCollection,
@@ -20,43 +21,43 @@ import {
   Polygon,
 } from 'geojson';
 import { IofSymbolHelper } from '../iof-symbol-service/iof-symbol-service';
+import { getDistance } from 'geolib';
 
 @Injectable()
 export class JsonDiffService implements IJsonDiffService {
   // Interesting... https://knowledge.broadcom.com/external/article/57052/how-to-convert-unix-epoch-time-values-in.html
   private readonly ExcelEpoch: number = 25569;
 
-  getJsonDiff(
-    oldFeatures: FeatureCollection,
-    newFeatures: FeatureCollection
-  ): OcadDiffDto {
+  getJsonDiff(old: FeatureCollection, newest: FeatureCollection): OcadDiffDto {
     const added: AddedSymbolDto[] = [];
     const edited: EditedSymbolDto[] = [];
     const deleted: DeletedSymbolDto[] = [];
-    newFeatures.features.forEach((newFeature) => {
-      const indexInOldFeatures = oldFeatures.features.findIndex(
-        (f) => f.id === newFeature.id
+    let oldFeatures = cloneDeep(old.features);
+    const newFeatures = cloneDeep(newest.features);
+    newFeatures.forEach((newFeature) => {
+      if (this.isChildFeature(newFeature)) return;
+      const indexInOldFeatures = oldFeatures.findIndex((oldFeature) =>
+        isSameFeature(oldFeature, newFeature)
       );
       const matchInOldFeatures =
-        indexInOldFeatures > -1
-          ? oldFeatures.features[indexInOldFeatures]
-          : null;
+        indexInOldFeatures > -1 ? oldFeatures[indexInOldFeatures] : null;
       if (isNil(matchInOldFeatures)) {
-        if (!this.isChildFeature(newFeature))
-          added.push(this.convertToAddedSymbol(newFeature));
+        added.push(this.convertToAddedSymbol(newFeature));
       } else {
         if (!this.areFeaturesEqual(newFeature, matchInOldFeatures))
-          if (!this.isChildFeature(newFeature))
-            edited.push(this.convertToEditedSymbol(newFeature));
+          edited.push(
+            this.convertToEditedSymbol(newFeature, matchInOldFeatures)
+          );
         // The feature is either edited or untouched. Gives fewer possible deleted elements to search for.
-        oldFeatures.features.splice(indexInOldFeatures, 1);
+        oldFeatures.splice(indexInOldFeatures, 1);
       }
     });
-    oldFeatures.features.forEach((oldFeature) => {
-      const indexInNewFeatures = newFeatures.features.findIndex(
-        (f) => f.id === oldFeature.id
+    oldFeatures.forEach((oldFeature) => {
+      if (this.isChildFeature(oldFeature)) return;
+      const indexInNewFeatures = newFeatures.findIndex((newFeature) =>
+        isSameFeature(oldFeature, newFeature)
       );
-      if (indexInNewFeatures > -1)
+      if (indexInNewFeatures === -1)
         deleted.push(this.convertToDeletedSymbol(oldFeature));
     });
 
@@ -65,9 +66,22 @@ export class JsonDiffService implements IJsonDiffService {
       deleted,
       edited,
     } as OcadDiffDto;
+
+    function isSameFeature(
+      oldFeature: Feature<Geometry, GeoJsonProperties>,
+      newFeature: Feature<Geometry, GeoJsonProperties>
+    ): unknown {
+      return (
+        oldFeature.id === newFeature.id &&
+        (oldFeature.properties?.[OcadPropertyKeys.CreationDate] as number) ===
+          (newFeature.properties?.[OcadPropertyKeys.CreationDate] as number)
+      );
+    }
   }
 
-  isChildFeature(feature: Feature<Geometry, GeoJsonProperties>): boolean {
+  private isChildFeature(
+    feature: Feature<Geometry, GeoJsonProperties>
+  ): boolean {
     const parentId = feature.properties?.[OcadPropertyKeys.ParentId];
     return !isNil(parentId) && parentId > 0;
   }
@@ -190,27 +204,49 @@ export class JsonDiffService implements IJsonDiffService {
   }
 
   private convertToEditedSymbol(
-    feature: Feature<Geometry, GeoJsonProperties>
+    newFeature: Feature<Geometry, GeoJsonProperties>,
+    oldFeature: Feature<Geometry, GeoJsonProperties>
   ): EditedSymbolDto {
     const symbolName: string = IofSymbolHelper.getSymbolName(
-      feature.properties?.[OcadPropertyKeys.Symbol]
+      newFeature.properties?.[OcadPropertyKeys.Symbol]
     );
     const symbolNumber: string = IofSymbolHelper.getSymbolNumber(
-      feature.properties?.[OcadPropertyKeys.Symbol]
+      newFeature.properties?.[OcadPropertyKeys.Symbol]
     );
+    const pointSymbolDiff =
+      newFeature.geometry.type === 'Point' &&
+      oldFeature.geometry.type === 'Point'
+        ? this.getPointSymbolDiff(newFeature, oldFeature)
+        : null;
     return {
       createdAtUtc: this.getDateFromExcelDate(
-        feature.properties?.[OcadPropertyKeys.CreationDate]
+        newFeature.properties?.[OcadPropertyKeys.CreationDate]
       ),
       lastEditedAtUtc: this.getDateFromExcelDate(
-        feature.properties?.[OcadPropertyKeys.ModificationDate]
+        newFeature.properties?.[OcadPropertyKeys.ModificationDate]
       ),
       symbolName,
       symbolNumber,
       areaSymbolDiff: null,
       lineSymbolDiff: null,
-      pointSymbolDiff: null,
+      pointSymbolDiff,
     };
+  }
+
+  private getPointSymbolDiff(
+    newFeature: Feature<Geometry, GeoJsonProperties>,
+    oldFeature: Feature<Geometry, GeoJsonProperties>
+  ): PointSymbolDiff {
+    const newGeometry = newFeature.geometry as Point;
+    const oldGeometry = oldFeature.geometry as Point;
+    const movementInMeters = getDistance(
+      {
+        lat: newGeometry.coordinates[0],
+        lon: newGeometry.coordinates[1],
+      },
+      { lat: oldGeometry.coordinates[0], lon: oldGeometry.coordinates[1] }
+    );
+    return { movementInMeters };
   }
 
   private convertToDeletedSymbol(
