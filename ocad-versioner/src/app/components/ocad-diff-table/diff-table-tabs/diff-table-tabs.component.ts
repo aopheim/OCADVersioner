@@ -1,5 +1,6 @@
-import { Component, EventEmitter, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { OcadDiffTableView } from '../ocad-diff-table/ocad-diff-table.component';
+import { OcadDiffDto } from '../ocad-diff-table/ocad-diff-table.models';
 
 @Component({
   selector: 'diff-table-tabs',
@@ -8,6 +9,8 @@ import { OcadDiffTableView } from '../ocad-diff-table/ocad-diff-table.component'
 })
 export class DiffTableTabsComponent {
   public OcadDiffTableView = OcadDiffTableView;
+  @Input()
+  public diffTable: OcadDiffDto | null = null;
   @Output()
   public selectedTableView: EventEmitter<OcadDiffTableView> =
     new EventEmitter();

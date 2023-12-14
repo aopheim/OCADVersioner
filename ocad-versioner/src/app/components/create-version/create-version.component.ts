@@ -20,6 +20,12 @@ export class CreateVersionComponent {
 
   @Input({ required: true })
   public newVersionName: string = '';
+  @Input({ required: true })
+  public versionDiffMetaData: VersionDiffMetaData = {
+    numberOfAddedSymbols: 0,
+    numberOfDeletedSymbols: 0,
+    numberOfEditedSymbols: 0,
+  };
   public showSpinner: boolean = false;
 
   public form: FormGroup = new FormGroup({
@@ -43,9 +49,9 @@ export class CreateVersionComponent {
       title: this.form.value.title,
       description: this.form.value.description,
       versionNumber,
-      numberOfAddedSymbols: 0,
-      numberOfDeletedSymbols: 0,
-      numberOfEditedSymbols: 0,
+      numberOfAddedSymbols: this.versionDiffMetaData.numberOfAddedSymbols,
+      numberOfDeletedSymbols: this.versionDiffMetaData.numberOfDeletedSymbols,
+      numberOfEditedSymbols: this.versionDiffMetaData.numberOfEditedSymbols,
     };
     const releaseDirectoryHandle =
       await this.versionProvider.getReleasesDirectoryHandle();
@@ -67,4 +73,10 @@ export class CreateVersionComponent {
     await this.versionProvider.updateFileHandleTree();
     this.showSpinner = false;
   }
+}
+
+interface VersionDiffMetaData {
+  numberOfAddedSymbols: number;
+  numberOfEditedSymbols: number;
+  numberOfDeletedSymbols: number;
 }
