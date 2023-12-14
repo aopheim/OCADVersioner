@@ -8,6 +8,7 @@ import { DiffTableTabsComponent } from './ocad-diff-table/diff-table-tabs/diff-t
 import { CreateVersionComponent } from './create-version/create-version.component';
 import { ReactiveFormsModule } from '@angular/forms';
 import { OcadVersionListComponent } from './ocad-version-list/ocad-version-list.component';
+import { CurrentVersionComparisonComponent } from './current-version-comparison/current-version-comparison.component';
 
 @NgModule({
   imports: [CommonModule, TranslateModule, ReactiveFormsModule],
@@ -18,6 +19,7 @@ import { OcadVersionListComponent } from './ocad-version-list/ocad-version-list.
     DiffTableTabsComponent,
     CreateVersionComponent,
     OcadVersionListComponent,
+    CurrentVersionComparisonComponent,
   ],
   exports: [
     OcadDiffTableComponent,
@@ -26,6 +28,7 @@ import { OcadVersionListComponent } from './ocad-version-list/ocad-version-list.
     DiffTableTabsComponent,
     CreateVersionComponent,
     OcadVersionListComponent,
+    CurrentVersionComparisonComponent,
   ],
 })
 export class OcadVersionerComponetsModule {}

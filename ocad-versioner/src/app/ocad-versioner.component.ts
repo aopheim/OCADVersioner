@@ -7,6 +7,7 @@ import { OcadDiffTableView } from './components/ocad-diff-table/ocad-diff-table/
 import { OcadVersionerProvider } from './ocad-versioner.provider';
 import { OcadReaderService } from './services/ocad-reader-service/ocad-reader-service';
 import { OcadDirectoryHelper } from './components/project-directory-selector/project-directory-selector.helper';
+import { isNil } from 'lodash-es';
 
 @Component({
   selector: 'ocad-versioner',
@@ -16,8 +17,12 @@ import { OcadDirectoryHelper } from './components/project-directory-selector/pro
 export class OcadVersionerComponent implements OnInit {
   public newestVersion$: BehaviorSubject<FeatureCollection | null> =
     new BehaviorSubject<FeatureCollection | null>(null);
+  public newestVersionMetaData$: BehaviorSubject<VersionMetaData | null> =
+    new BehaviorSubject<VersionMetaData | null>(null);
   public oldestVersion$: BehaviorSubject<FeatureCollection | null> =
     new BehaviorSubject<FeatureCollection | null>(null);
+  public oldestVersionMetaData$: BehaviorSubject<VersionMetaData | null> =
+    new BehaviorSubject<VersionMetaData | null>(null);
   public diffTable$: Observable<OcadDiffDto> = new Observable();
   public selectedTableView$: BehaviorSubject<OcadDiffTableView> =
     new BehaviorSubject<OcadDiffTableView>(OcadDiffTableView.Added);
@@ -54,16 +59,23 @@ export class OcadVersionerComponent implements OnInit {
   }
 
   public async setSelectedVersion(selectedVersionNumber: number) {
-    const selectedOcdFile = this.provider.getOcdFileHandle(
-      OcadDirectoryHelper.getVersionNameFromVersionNumber(selectedVersionNumber)
-    );
+    const newestVersionName =
+      OcadDirectoryHelper.getVersionNameFromVersionNumber(
+        selectedVersionNumber
+      );
+    const selectedOcdFile = this.provider.getOcdFileHandle(newestVersionName);
     const newestFeatureCollection = await this.ocadReader.getGeoJsonFromOcdFile(
       await selectedOcdFile.getFile()
     );
+    const newestVersionMetaData: VersionMetaData = {
+      versionName:
+        selectedVersionNumber === 0 ? selectedOcdFile.name : newestVersionName,
+      versionNumber: selectedVersionNumber,
+    };
+    this.newestVersionMetaData$.next(newestVersionMetaData);
 
     const versionNumberToCompare: number | null =
       this.getVersionNumberToCompare(selectedVersionNumber);
-
     const ocdFileToCompare = versionNumberToCompare
       ? this.provider.getOcdFileHandle(
           OcadDirectoryHelper.getVersionNameFromVersionNumber(
@@ -71,6 +83,16 @@ export class OcadVersionerComponent implements OnInit {
           )
         )
       : null;
+    const oldestVersionMetaData: VersionMetaData = {
+      versionNumber: versionNumberToCompare ?? 0,
+      versionName:
+        ocdFileToCompare && !isNil(versionNumberToCompare)
+          ? OcadDirectoryHelper.getVersionNameFromVersionNumber(
+              versionNumberToCompare
+            )
+          : '#_empty',
+    };
+    this.oldestVersionMetaData$.next(oldestVersionMetaData);
 
     if (!ocdFileToCompare) {
       this.oldestVersion$.next({ features: [], type: 'FeatureCollection' });
@@ -93,4 +115,9 @@ export class OcadVersionerComponent implements OnInit {
     if (selectedVersionNumber === 1) return null;
     return selectedVersionNumber - 1;
   }
+}
+
+interface VersionMetaData {
+  versionName: string;
+  versionNumber: number;
 }

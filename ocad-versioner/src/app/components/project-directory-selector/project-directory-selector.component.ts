@@ -2,7 +2,9 @@ import {
   AfterViewInit,
   Component,
   ElementRef,
+  EventEmitter,
   Inject,
+  Output,
   ViewChild,
 } from '@angular/core';
 import { WINDOW } from '@ng-web-apis/common';
@@ -23,6 +25,8 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
   private projectDirectoryHandle: CustomFileSystemDirectoryHandle | null = null;
   public ocadFileNamesInProjectDirectory: string[] = [];
   public errorMessages: string[] = [];
+  @Output()
+  public projectLoaded: EventEmitter<boolean> = new EventEmitter<boolean>();
   @ViewChild('openModalButton') openModalButton: ElementRef | null = null;
   @ViewChild('closeModalButton') closeModalButton: ElementRef | null = null;
 
@@ -79,15 +83,16 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
         );
         return;
       }
-      this.ocadVersionerProvider.setFileHandleTree(
+      await this.ocadVersionerProvider.setFileHandleTree(
         this.projectDirectoryHandle,
         currentOcdFileHandle
       );
       // This should be rewritten. setFileHandleTree is being called twice. Use observables?
-      this.ocadVersionerProvider.updateFileHandleTree();
+      await this.ocadVersionerProvider.updateFileHandleTree();
       // Setting to null to ensure that the component do not keep a reference to the handle. That is the job of the provider.
       this.projectDirectoryHandle = null;
       this.closeModalButton?.nativeElement.click();
+      this.projectLoaded.emit(true);
       return;
     }
   }

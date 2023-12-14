@@ -5,12 +5,16 @@
       (click)="setSelectedTableView(OcadDiffTableView.Added)"
     >
       <a
-        class="nav-link"
+        class="nav-link fst-normal"
         [ngClass]="{
           active: currentView === OcadDiffTableView.Added
         }"
-        >{{ "#_added" | translate }}</a
-      >
+        style="color: black; cursor: pointer"
+        >{{ "#_added" | translate }}
+        <span class="mx-2 badge text-bg-secondary">{{
+          diffTable?.added?.length ?? 0
+        }}</span>
+      </a>
     </li>
     <li
       class="nav-item"
@@ -21,7 +25,11 @@
         [ngClass]="{
           active: currentView === OcadDiffTableView.Updated
         }"
-        >{{ "#_edited" | translate }}</a
+        style="color: black; cursor: pointer"
+        >{{ "#_edited" | translate }}
+        <span class="mx-2 badge text-bg-secondary">{{
+          diffTable?.edited?.length ?? 0
+        }}</span></a
       >
     </li>
     <li
@@ -33,7 +41,11 @@
         [ngClass]="{
           active: currentView === OcadDiffTableView.Deleted
         }"
-        >{{ "#_deleted" | translate }}</a
+        style="color: black; cursor: pointer"
+        >{{ "#_deleted" | translate }}
+        <span class="mx-2 badge text-bg-secondary">{{
+          diffTable?.deleted?.length ?? 0
+        }}</span></a
       >
     </li>
   </ul>

@@ -10,6 +10,6 @@ export class OcadReaderService implements IOcadReaderService {
     const parsedOcdFile = await readOcad(
       Buffer.from(await ocadFile.arrayBuffer())
     );
-    return ocadToGeoJson(parsedOcdFile);
+    return ocadToGeoJson(parsedOcdFile, { generateSymbolElements: false });
   }
 }
