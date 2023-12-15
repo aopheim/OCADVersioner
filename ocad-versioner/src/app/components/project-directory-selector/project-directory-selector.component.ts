@@ -83,17 +83,10 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
         );
         return;
       }
-      await this.ocadVersionerProvider.setFileHandleTree(
+      await this.setFileHandleTree(
         this.projectDirectoryHandle,
         currentOcdFileHandle
       );
-      // This should be rewritten. setFileHandleTree is being called twice. Use observables?
-      await this.ocadVersionerProvider.updateFileHandleTree();
-      // Setting to null to ensure that the component do not keep a reference to the handle. That is the job of the provider.
-      this.projectDirectoryHandle = null;
-      this.closeModalButton?.nativeElement.click();
-      this.projectLoaded.emit(true);
-      return;
     }
   }
 
@@ -111,13 +104,27 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
       return;
     }
     if (currentOcdFileHandle && this.projectDirectoryHandle)
-      this.ocadVersionerProvider.setFileHandleTree(
+      await this.setFileHandleTree(
         this.projectDirectoryHandle,
         currentOcdFileHandle
       );
-    // This should be rewritten.
-    this.ocadVersionerProvider.updateFileHandleTree();
-    this.closeModalButton?.nativeElement?.click();
+  }
+
+  private async setFileHandleTree(
+    projectDirectoryHandle: CustomFileSystemDirectoryHandle,
+    currentOcdFileHandle: FileSystemFileHandle
+  ): Promise<void> {
+    await this.ocadVersionerProvider.setFileHandleTree(
+      projectDirectoryHandle,
+      currentOcdFileHandle
+    );
+    // This should be rewritten. setFileHandleTree is being called twice. Use observables?
+    await this.ocadVersionerProvider.updateFileHandleTree();
+    // Setting to null to ensure that the component do not keep a reference to the handle. That is the job of the provider.
+    this.projectDirectoryHandle = null;
+    this.closeModalButton?.nativeElement.click();
+    this.projectLoaded.emit(true);
+    return;
   }
 
   private getErrorMessageForErrorType(
