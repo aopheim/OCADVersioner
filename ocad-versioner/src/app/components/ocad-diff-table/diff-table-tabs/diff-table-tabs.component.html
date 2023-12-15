@@ -11,9 +11,11 @@
         }"
         style="color: black; cursor: pointer"
         >{{ "#_added" | translate }}
-        <span class="mx-2 badge text-bg-secondary">{{
-          diffTable?.added?.length ?? 0
-        }}</span>
+        <span
+          *ngIf="(diffTable?.added?.length ?? 0) > 0"
+          class="mx-2 badge text-bg-secondary"
+          >{{ diffTable?.added?.length ?? 0 }}</span
+        >
       </a>
     </li>
     <li
@@ -27,9 +29,11 @@
         }"
         style="color: black; cursor: pointer"
         >{{ "#_edited" | translate }}
-        <span class="mx-2 badge text-bg-secondary">{{
-          diffTable?.edited?.length ?? 0
-        }}</span></a
+        <span
+          *ngIf="(diffTable?.edited?.length ?? 0) > 0"
+          class="mx-2 badge text-bg-secondary"
+          >{{ diffTable?.edited?.length ?? 0 }}</span
+        ></a
       >
     </li>
     <li
@@ -43,9 +47,11 @@
         }"
         style="color: black; cursor: pointer"
         >{{ "#_deleted" | translate }}
-        <span class="mx-2 badge text-bg-secondary">{{
-          diffTable?.deleted?.length ?? 0
-        }}</span></a
+        <span
+          *ngIf="(diffTable?.deleted?.length ?? 0) > 0"
+          class="mx-2 badge text-bg-secondary"
+          >{{ diffTable?.deleted?.length ?? 0 }}</span
+        ></a
       >
     </li>
   </ul>
