@@ -1,4 +1,3 @@
-import { GeolibInputCoordinates } from 'geolib/es/types';
 import { toLatLon } from 'utm';
 
 export class CoordinatesHelper {

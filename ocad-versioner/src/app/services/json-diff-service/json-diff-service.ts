@@ -23,7 +23,6 @@ import {
 import { IofSymbolHelper } from '../iof-symbol-service/iof-symbol-service';
 import { getAreaOfPolygon, getDistance, getPathLength } from 'geolib';
 import { GeolibInputCoordinates } from 'geolib/es/types';
-import { toLatLon } from 'utm';
 import { CoordinatesHelper } from '../coordinates-helper/coordinates-helper.service';
 
 @Injectable()
