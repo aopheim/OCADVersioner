@@ -25,6 +25,17 @@ describe('JsonDiffService - Distance tests', () => {
     expect(res.added[0].symbolLengthInMeters).toBeLessThan(102);
   });
 
+  it('Deleting 100m road should give 100m road deleted', () => {
+    const res = jsonDiffService.getJsonDiff(
+      V2_Add100mRoad,
+      V1_GeoreferencedEmptyMap
+    );
+
+    expect(res.deleted.length).toBe(1);
+    expect(res.deleted[0].symbolLengthInMeters).toBeGreaterThan(98);
+    expect(res.deleted[0].symbolLengthInMeters).toBeLessThan(102);
+  });
+
   it('Adding 400m circular path should give 400m added', () => {
     const res = jsonDiffService.getJsonDiff(
       V1_GeoreferencedEmptyMap,
@@ -45,6 +56,17 @@ describe('JsonDiffService - Distance tests', () => {
     expect(res.added.length).toBe(1);
     expect(res.added[0].symbolAreaInSquareMeters).toBeGreaterThan(10190);
     expect(res.added[0].symbolLengthInMeters).toBeLessThan(10193);
+  });
+
+  it('Deleting polygon should give deleted area', () => {
+    const res = jsonDiffService.getJsonDiff(
+      V4_AddPolygon,
+      V1_GeoreferencedEmptyMap
+    );
+
+    expect(res.deleted.length).toBe(1);
+    expect(res.deleted[0].symbolAreaInSquareMeters).toBeGreaterThan(10190);
+    expect(res.deleted[0].symbolAreaInSquareMeters).toBeLessThan(10193);
   });
 
   it('Moving point 100m should give 100m moved in edited', () => {

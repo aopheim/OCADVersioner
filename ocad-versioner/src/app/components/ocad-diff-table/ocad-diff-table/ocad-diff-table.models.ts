@@ -15,7 +15,10 @@ export interface AddedSymbolDto extends ISymbol, ISymbolMetadata {
   symbolAreaInSquareMeters?: number | null;
 }
 
-export interface DeletedSymbolDto extends ISymbol, ISymbolMetadata {}
+export interface DeletedSymbolDto extends ISymbol, ISymbolMetadata {
+  symbolLengthInMeters?: number | null;
+  symbolAreaInSquareMeters?: number | null;
+}
 
 export interface PointSymbolDiff {
   movementInMeters: number;
