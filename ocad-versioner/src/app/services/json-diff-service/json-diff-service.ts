@@ -315,6 +315,12 @@ export class JsonDiffService implements IJsonDiffService {
     const symbolNumber: string = IofSymbolHelper.getSymbolNumber(
       feature.properties?.[OcadPropertyKeys.Symbol]
     );
+    let symbolLengthInMeters: number | null = null;
+    if (feature.geometry.type === 'LineString')
+      symbolLengthInMeters = this.getLengthOfLine(feature);
+    let symbolAreaInSquareMeters: number | null = null;
+    if (feature.geometry.type === 'Polygon')
+      symbolAreaInSquareMeters = this.getAreaOfPolygon(feature);
     return {
       createdAtUtc: this.getDateFromExcelDate(
         feature.properties?.[OcadPropertyKeys.CreationDate]
@@ -324,6 +330,8 @@ export class JsonDiffService implements IJsonDiffService {
       ),
       symbolName,
       symbolNumber,
+      symbolAreaInSquareMeters,
+      symbolLengthInMeters,
     };
   }
 }

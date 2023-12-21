@@ -4,6 +4,24 @@
       <tr>
         <th scope="col">{{ "#_symbolNumber" | translate }}</th>
         <th scope="col">{{ "#_symbolName" | translate }}</th>
+        <th
+          *ngIf="
+            tableView === OcadDiffTableView.Added ||
+            tableView === OcadDiffTableView.Deleted
+          "
+          scope="col"
+        >
+          {{ "#_lengthInMeters" | translate }}
+        </th>
+        <th
+          *ngIf="
+            tableView === OcadDiffTableView.Added ||
+            tableView === OcadDiffTableView.Deleted
+          "
+          scope="col"
+        >
+          {{ "#_areaInSquareMeters" | translate }}
+        </th>
         <th *ngIf="tableView === OcadDiffTableView.Updated" scope="col">
           {{ "#_movedNumberOfMeters" | translate }}
         </th>
@@ -28,6 +46,8 @@
           <tr>
             <th>{{ symbol.symbolNumber | translate }}</th>
             <td>{{ symbol.symbolName | translate }}</td>
+            <td>{{ symbol?.symbolLengthInMeters | number : "1.0-1" }}</td>
+            <td>{{ symbol?.symbolAreaInSquareMeters | number : "1.0-1" }}</td>
             <td>{{ symbol?.createdAtUtc | date : "medium" }}</td>
             <td>{{ symbol?.lastEditedAtUtc | date : "medium" }}</td>
           </tr>

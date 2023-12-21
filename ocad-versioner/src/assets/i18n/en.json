@@ -1,5 +1,6 @@
 {
   "#_added": "Added",
+  "#_areaInSquareMeters": "Area [m²]",
   "#_edited": "Edited",
   "#_chooseOcadDirectory": "Choose directory where the OCAD file is saved",
   "#_createdAt": "Created at",
@@ -19,6 +20,7 @@
   "#_isom2017SymbolName109": "Small knoll",
   "#_isom2017SymbolName112": "Pit",
   "#_lastEditedAt": "Last edit",
+  "#_lengthInMeters": "Length [m]",
   "#_movedNumberOfMeters": "Moved nr of meters",
   "#_name": "Name",
   "#_newVersionSubmitText": "Create {{newVersionName}} of {{fileName}}",
