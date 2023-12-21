@@ -21,7 +21,10 @@ import {
   Polygon,
 } from 'geojson';
 import { IofSymbolHelper } from '../iof-symbol-service/iof-symbol-service';
-import { getDistance } from 'geolib';
+import { getAreaOfPolygon, getDistance, getPathLength } from 'geolib';
+import { GeolibInputCoordinates } from 'geolib/es/types';
+import { toLatLon } from 'utm';
+import { CoordinatesHelper } from '../coordinates-helper/coordinates-helper.service';
 
 @Injectable()
 export class JsonDiffService implements IJsonDiffService {
@@ -195,11 +198,19 @@ export class JsonDiffService implements IJsonDiffService {
       this.getDateFromExcelDate(lastEditedAsNumber);
     if (creationDateAsNumber === lastEditedAsNumber)
       lastEditedAtUtc = undefined;
+    let symbolLengthInMeters: number | null = null;
+    if (feature.geometry.type === 'LineString')
+      symbolLengthInMeters = this.getLengthOfLine(feature);
+    let symbolAreaInSquareMeters: number | null = null;
+    if (feature.geometry.type === 'Polygon')
+      symbolAreaInSquareMeters = this.getAreaOfPolygon(feature);
     return {
       createdAtUtc,
       lastEditedAtUtc,
       symbolName,
       symbolNumber,
+      symbolLengthInMeters,
+      symbolAreaInSquareMeters,
     };
   }
 
@@ -240,13 +251,60 @@ export class JsonDiffService implements IJsonDiffService {
     const newGeometry = newFeature.geometry as Point;
     const oldGeometry = oldFeature.geometry as Point;
     const movementInMeters = getDistance(
-      {
-        lat: newGeometry.coordinates[0],
-        lon: newGeometry.coordinates[1],
-      },
-      { lat: oldGeometry.coordinates[0], lon: oldGeometry.coordinates[1] }
+      CoordinatesHelper.getLatLongCoordinateFromUtm(
+        oldGeometry.coordinates[0],
+        oldGeometry.coordinates[1],
+        32,
+        'N'
+      ),
+      CoordinatesHelper.getLatLongCoordinateFromUtm(
+        newGeometry.coordinates[0],
+        newGeometry.coordinates[1],
+        32,
+        'N'
+      )
     );
     return { movementInMeters };
+  }
+
+  private getLengthOfLine(
+    feature: Feature<Geometry, GeoJsonProperties>
+  ): number {
+    const geometry = feature.geometry as LineString;
+    return getPathLength(
+      geometry.coordinates.map((c) => {
+        const latLongCoords = CoordinatesHelper.getLatLongCoordinateFromUtm(
+          c[0],
+          c[1],
+          32,
+          'N'
+        );
+        return {
+          lon: latLongCoords.longitude,
+          lat: latLongCoords.latitude,
+        } as GeolibInputCoordinates;
+      })
+    );
+  }
+
+  getAreaOfPolygon(
+    feature: Feature<Geometry, GeoJsonProperties>
+  ): number | null {
+    const geometry = feature.geometry as Polygon;
+
+    const points: GeolibInputCoordinates[] = [];
+    geometry.coordinates.forEach((positions) => {
+      positions.forEach((p) => {
+        const latLong = CoordinatesHelper.getLatLongCoordinateFromUtm(
+          p[0],
+          p[1],
+          32,
+          'N'
+        );
+        points.push({ lat: latLong.latitude, lon: latLong.longitude });
+      });
+    });
+    return getAreaOfPolygon(points);
   }
 
   private convertToDeletedSymbol(
