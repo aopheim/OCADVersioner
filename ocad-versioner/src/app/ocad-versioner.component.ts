@@ -1,5 +1,10 @@
 import { Component, OnInit } from '@angular/core';
-import { FeatureCollection } from 'geojson';
+import {
+  FeatureCollection,
+  GeoJsonProperties,
+  Geometry,
+  Position,
+} from 'geojson';
 import { BehaviorSubject, Observable, combineLatest, filter, map } from 'rxjs';
 import { JsonDiffService } from './services/json-diff-service/json-diff-service';
 import { OcadDiffDto } from './components/ocad-diff-table/ocad-diff-table/ocad-diff-table.models';
@@ -8,6 +13,8 @@ import { OcadVersionerProvider } from './ocad-versioner.provider';
 import { OcadReaderService } from './services/ocad-reader-service/ocad-reader-service';
 import { OcadDirectoryHelper } from './components/project-directory-selector/project-directory-selector.helper';
 import { isNil } from 'lodash-es';
+import bbox from '@turf/bbox';
+import { CoordinatesHelper } from './services/coordinates-helper/coordinates-helper.service';
 
 @Component({
   selector: 'ocad-versioner',
@@ -26,6 +33,8 @@ export class OcadVersionerComponent implements OnInit {
   public diffTable$: Observable<OcadDiffDto> = new Observable();
   public selectedTableView$: BehaviorSubject<OcadDiffTableView> =
     new BehaviorSubject<OcadDiffTableView>(OcadDiffTableView.Added);
+  public bboxOfNewestVersion$: BehaviorSubject<Position[]> =
+    new BehaviorSubject<Position[]>([[]]);
 
   constructor(
     private jsonDiffService: JsonDiffService,
@@ -67,6 +76,10 @@ export class OcadVersionerComponent implements OnInit {
     const newestFeatureCollection = await this.ocadReader.getGeoJsonFromOcdFile(
       await selectedOcdFile.getFile()
     );
+    const bboxOfNewest = this.getBoundingBoxOfFeatureCollection(
+      newestFeatureCollection
+    );
+    this.bboxOfNewestVersion$.next(bboxOfNewest);
     const newestVersionMetaData: VersionMetaData = {
       versionName:
         selectedVersionNumber === 0 ? selectedOcdFile.name : newestVersionName,
@@ -105,6 +118,30 @@ export class OcadVersionerComponent implements OnInit {
 
     this.newestVersion$.next(newestFeatureCollection);
     this.oldestVersion$.next(oldestFeatureCollection);
+  }
+
+  private getBoundingBoxOfFeatureCollection(
+    featureCollection: FeatureCollection<Geometry, GeoJsonProperties>
+  ): Position[] {
+    const bboxOfMap = bbox(featureCollection);
+
+    const minLatLon = CoordinatesHelper.getLatLongCoordinateFromUtm(
+      bboxOfMap[0],
+      bboxOfMap[1],
+      32,
+      'N'
+    );
+    const maxLatLon = CoordinatesHelper.getLatLongCoordinateFromUtm(
+      bboxOfMap[2],
+      bboxOfMap[3],
+      32,
+      'N'
+    );
+
+    return [
+      [minLatLon.latitude, minLatLon.longitude],
+      [maxLatLon.latitude, maxLatLon.longitude],
+    ];
   }
 
   private getVersionNumberToCompare(
