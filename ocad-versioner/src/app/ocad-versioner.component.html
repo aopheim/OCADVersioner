@@ -38,6 +38,10 @@
           [isHistory]="(newestVersionMetaData$ | async)?.versionNumber !== 0"
         ></current-version-comparison>
       </div>
+      <ocad-map-viewer
+        *ngIf="bboxOfNewestVersion$ | async as bbox"
+        [bboxOfMap]="bbox"
+      ></ocad-map-viewer>
       <diff-table-tabs
         [diffTable]="diffTable"
         (selectedTableView)="setSelectedTableView($event)"
