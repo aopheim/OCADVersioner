@@ -6,7 +6,19 @@ export class CoordinatesHelper {
     northing: number,
     zoneNumber: number,
     zoneLetter: string
-  ) {
-    return toLatLon(easting, northing, zoneNumber, zoneLetter);
+  ): {
+    latitude: number;
+    longitude: number;
+  } {
+    // if (!this.isValidEasting(easting) || !this.isValidNorthing(northing))
+    //   return { latitude: easting, longitude: northing };
+    return toLatLon(
+      easting,
+      northing,
+      zoneNumber,
+      zoneLetter,
+      undefined,
+      false
+    );
   }
 }

@@ -6,7 +6,7 @@ import {
   V4_ChangedSymbolOfYellowToGreen,
 } from './json-diff-service.spec.models.polygons';
 
-describe('JsonDiffService', () => {
+describe('JsonDiffService - Polygons', () => {
   let jsonDiffService: JsonDiffService;
   beforeEach(() => {
     jsonDiffService = new JsonDiffService();
