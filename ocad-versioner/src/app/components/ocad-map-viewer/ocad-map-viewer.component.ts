@@ -21,8 +21,8 @@ export class OcadMapViewerComponent implements AfterViewInit {
   ngAfterViewInit(): void {
     // Need to do it with this dynamic import, because Leaflet access the 'window' property, which is not defined when building the Angular app or in a server environment.
     // It seems like 'window' is referenced by Leaflet as soon as you import anything from Leaflet node_module.
-    import('leaflet').then(async (leaflet) => {
-      this.leaflet = leaflet;
+    import('leaflet').then(async (leafletImport) => {
+      this.leaflet = await leafletImport;
       await this.initMap();
     });
   }
