@@ -26,7 +26,7 @@ export class OcadReaderService implements IOcadReaderService {
     return await this.getGeoJsonFromOcadObject(parsedOcdFile);
   }
 
-  async getSvgFromOcadObject(ocadFileHandle: File): Promise<HTMLElement> {
+  async getSvgFromOcadObject(ocadFileHandle: File): Promise<SVGElement> {
     const parsedOcdFile = await this.getOcdObjectFromOcdFile(ocadFileHandle);
     return await ocadToSvg(parsedOcdFile);
   }
