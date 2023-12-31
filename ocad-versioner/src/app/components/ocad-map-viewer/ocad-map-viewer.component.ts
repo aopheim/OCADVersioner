@@ -2,6 +2,7 @@ import { AfterViewInit, Component, Input } from '@angular/core';
 import { OcadVersionerProvider } from '../../ocad-versioner.provider';
 import { OcadReaderService } from '../../services/ocad-reader-service/ocad-reader-service';
 import { Position } from 'geojson';
+import { LatLng, LatLngBounds, map, svgOverlay, tileLayer } from 'leaflet';
 
 @Component({
   selector: 'ocad-map-viewer',
@@ -9,7 +10,6 @@ import { Position } from 'geojson';
   styleUrl: './ocad-map-viewer.component.scss',
 })
 export class OcadMapViewerComponent implements AfterViewInit {
-  private leaflet: any | null = null;
   @Input({ required: true })
   public bboxOfMap: Position[] = [[]];
   private useOsmLayer: boolean = false;
@@ -18,34 +18,35 @@ export class OcadMapViewerComponent implements AfterViewInit {
     private ocadReader: OcadReaderService
   ) {}
 
-  ngAfterViewInit(): void {
-    // Need to do it with this dynamic import, because Leaflet access the 'window' property, which is not defined when building the Angular app or in a server environment.
-    // It seems like 'window' is referenced by Leaflet as soon as you import anything from Leaflet node_module.
-    import('leaflet').then(async (leafletImport) => {
-      this.leaflet = await leafletImport;
-      await this.initMap();
-    });
+  async ngAfterViewInit(): Promise<void> {
+    await this.initMap();
   }
 
   private async initMap(): Promise<void> {
-    const map = this.leaflet.map('map').setView(this.bboxOfMap[0], 13);
+    const myMap = map('map').setView(
+      { lat: this.bboxOfMap[0][0], lng: this.bboxOfMap[0][1] },
+      13
+    );
     if (this.useOsmLayer)
-      this.leaflet
-        .tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution:
-            '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        })
-        .addTo(map);
+      tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution:
+          '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(myMap);
 
     const currentOcdFile = this.provider.getOcdFileHandle('current');
     const svgElement = await this.ocadReader.getSvgFromOcadObject(
       await currentOcdFile.getFile()
     );
-    this.leaflet
-      .svgOverlay(svgElement, [this.bboxOfMap[0], this.bboxOfMap[1]], {
-        opacity: 2.0,
-      })
-      .addTo(map);
+    svgOverlay(
+      svgElement,
+      new LatLngBounds(
+        new LatLng(this.bboxOfMap[0][0], this.bboxOfMap[0][1]),
+        new LatLng(this.bboxOfMap[1][0], this.bboxOfMap[1][1])
+      ),
+      {
+        opacity: 1.0,
+      }
+    ).addTo(myMap);
   }
 }
