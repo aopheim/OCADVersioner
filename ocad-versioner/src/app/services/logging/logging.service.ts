@@ -6,6 +6,7 @@ import {
 } from '@microsoft/applicationinsights-web';
 import { environment } from '../../../environments/environment.prod';
 import { GlobalConstants } from '../../app.constants';
+import { isNil } from 'lodash-es';
 
 @Injectable()
 export class LoggingService {
@@ -13,6 +14,11 @@ export class LoggingService {
   constructor() {
     if (isDevMode()) {
       this.appInsights = null;
+      return;
+    }
+    if(isNil(environment.AZURE_APP_CONFIG_CONNECTION_STRING))
+    {
+      console.warn('Missing config to setup App Insights');
       return;
     }
     const appConfigClient = new AppConfigurationClient(
