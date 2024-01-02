@@ -27,6 +27,7 @@ if (!existsSync(envDirectory)) {
 
 //creates the `environment.prod.ts` and `environment.ts` file if it does not exist
 writeFileUsingFS('./src/environments/environment.prod.ts', '');
+writeFileUsingFS('./src/environments/environment.ts', '');
 
 // Checks whether command line argument of `prod` was provided signifying production mode
 const isProduction = environment === 'prod';
@@ -44,6 +45,7 @@ const environmentFileContent = `
     AZURE_APP_CONFIG_CONNECTION_STRING: '${process.env.AZURE_APP_CONFIG_CONNECTION_STRING}'
   };
 `;
+console.log('Wrote the following environment file: ', environmentFileContent);
 
 writeFileUsingFS(targetPath, environmentFileContent); // appending data into the target file
 
