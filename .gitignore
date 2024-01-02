@@ -40,3 +40,8 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Angular environment variables created in CI pipeline  
+environment.prod.ts
+environment.ts
+.env
