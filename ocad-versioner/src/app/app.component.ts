@@ -1,8 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, ErrorHandler } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { OcadVersionerModule } from './ocad-versioner.module';
 import { TranslateService } from '@ngx-translate/core';
+import { LoggingService } from './services/logging/logging.service';
+import { ErrorHandlerService } from './services/error-handler/error-handler.service';
 
 @Component({
   selector: 'app-root',
@@ -10,9 +12,13 @@ import { TranslateService } from '@ngx-translate/core';
   imports: [CommonModule, RouterOutlet, OcadVersionerModule],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
+  providers: [
+    { provide: ErrorHandler, useClass: ErrorHandlerService },
+    LoggingService,
+  ],
 })
 export class AppComponent {
-  title = 'ocad-versioner';
+  title = 'OCADVersioner';
   constructor(translate: TranslateService) {
     // this language will be used as a fallback when a translation isn't found in the current language
     translate.setDefaultLang('no');
