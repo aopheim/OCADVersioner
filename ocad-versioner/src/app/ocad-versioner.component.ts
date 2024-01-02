@@ -15,6 +15,7 @@ import { OcadDirectoryHelper } from './components/project-directory-selector/pro
 import { isNil } from 'lodash-es';
 import bbox from '@turf/bbox';
 import { CoordinatesHelper } from './services/coordinates-helper/coordinates-helper.service';
+import { LoggingService } from './services/logging/logging.service';
 
 @Component({
   selector: 'ocad-versioner',
@@ -39,8 +40,11 @@ export class OcadVersionerComponent implements OnInit {
   constructor(
     private jsonDiffService: JsonDiffService,
     public provider: OcadVersionerProvider,
-    private ocadReader: OcadReaderService
-  ) {}
+    private ocadReader: OcadReaderService,
+    private logging: LoggingService
+  ) {
+    this.logging.logPageView('ocadversioner.com', 'ocadversioner.com');
+  }
 
   public OcadDiffTableView = OcadDiffTableView;
   ngOnInit(): void {
