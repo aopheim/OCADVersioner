@@ -16,7 +16,7 @@ jobs:
       - name: "Create env file"
         run: |
           touch .env
-          printf "AZURE_APP_CONFIG_CONNECTION_STRING=%s\n" "${{ secrets.AZURE_APP_CONFIG_CONNECTION_STRING }}" > .env
+          printf "APPINSIGHTSINSTRUMENTATIONKEY=%s\n" "${{ secrets.APPINSIGHTSINSTRUMENTATIONKEY }}" > .env
           echo ".env file created and contains: "
           cat .env
       - name: Archive production artifacts

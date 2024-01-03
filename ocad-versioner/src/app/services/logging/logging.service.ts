@@ -1,10 +1,8 @@
 import { Injectable, isDevMode } from '@angular/core';
-import { AppConfigurationClient } from '@azure/app-configuration';
 import {
   ApplicationInsights,
   eSeverityLevel,
 } from '@microsoft/applicationinsights-web';
-import { GlobalConstants } from '../../app.constants';
 import { isNil } from 'lodash-es';
 import { environment } from '../../../environments/environment.prod';
 
@@ -17,38 +15,20 @@ export class LoggingService {
       this.appInsights = null;
       return;
     }
-    if (isNil(environment.AZURE_APP_CONFIG_CONNECTION_STRING)) {
+    if (isNil(environment.APPINSIGHTSINSTRUMENTATIONKEY)) {
       console.warn('Missing config to setup App Insights');
       console.log('environment: ', environment);
       return;
     }
-    const appConfigClient = new AppConfigurationClient(
-      environment.AZURE_APP_CONFIG_CONNECTION_STRING
-    );
-    this.getSecret(
-      appConfigClient,
-      GlobalConstants.AppInsightsInstrumentationKey
-    ).then((instrumentationKey) => {
-      this.appInsights = new ApplicationInsights({
-        config: {
-          instrumentationKey,
-          enableAutoRouteTracking: true,
-        },
-      });
-      this.appInsights.loadAppInsights();
-      console.log('App Insights set up');
+    const instrumentationKey = environment.APPINSIGHTSINSTRUMENTATIONKEY;
+    this.appInsights = new ApplicationInsights({
+      config: {
+        instrumentationKey,
+        enableAutoRouteTracking: true,
+      },
     });
-  }
-
-  private async getSecret(
-    client: AppConfigurationClient,
-    key: string
-  ): Promise<string | undefined> {
-    const setting = await client.getConfigurationSetting({
-      key,
-    });
-
-    return setting.value;
+    this.appInsights.loadAppInsights();
+    console.log('App Insights set up');
   }
 
   public logPageView(name?: string, url?: string) {
