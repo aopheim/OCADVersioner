@@ -15,11 +15,13 @@ jobs:
     steps:
       - name: "Create env file"
         run: |
-          mkdir -p ocad-versioner
-          touch ocad-versioner/.env
-          echo AZURE_APP_CONFIG_CONNECTION_STRING=${{ secrets.AZURE_APP_CONFIG_CONNECTION_STRING }} >> ocad-versioner/.env
-          pwd
-          ls
+          touch .env
+          echo AZURE_APP_CONFIG_CONNECTION_STRING=${{ secrets.AZURE_APP_CONFIG_CONNECTION_STRING }} >> .env
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: env-file
+          path: .env
 
   build_and_deploy_job:
     needs: create-envfile
@@ -27,6 +29,11 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and Deploy Job
     steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: env-file
+          path: .
       - uses: actions/checkout@v3
         with:
           submodules: true
@@ -43,6 +50,7 @@ jobs:
           app_location: "/ocad-versioner" # App source code path
           api_location: "" # Api source code path - optional
           output_location: "/dist/ocad-versioner/browser" # Built app content directory - optional
+          skip_deploy_on_missing_secrets: true
           ###### End of Repository/Build Configurations ######
 
   close_pull_request_job:
