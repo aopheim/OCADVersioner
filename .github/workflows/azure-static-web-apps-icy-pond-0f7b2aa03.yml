@@ -19,7 +19,7 @@ jobs:
           touch ocad-versioner/.env
           echo AZURE_APP_CONFIG_CONNECTION_STRING=${{ secrets.AZURE_APP_CONFIG_CONNECTION_STRING }} >> ocad-versioner/.env
           pwd
-          ls -l ocad-versioner
+          ls
 
   build_and_deploy_job:
     needs: create-envfile
