@@ -41,12 +41,6 @@ jobs:
         with:
           name: env-file
           path: .
-      - name: Print .env file
-        run: cat .env
-      # - name: Run yarn build
-      #   run: |
-      #     cd ocad-versioner
-      #     yarn build
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
