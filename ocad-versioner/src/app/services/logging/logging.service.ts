@@ -13,13 +13,13 @@ export class LoggingService {
   private appInsights: ApplicationInsights | null = null;
   constructor() {
     if (isDevMode()) {
+      console.warn('App is running locally. Not setting up App Insights.');
       this.appInsights = null;
       return;
     }
-    if(isNil(environment.AZURE_APP_CONFIG_CONNECTION_STRING))
-    {
+    if (isNil(environment.AZURE_APP_CONFIG_CONNECTION_STRING)) {
       console.warn('Missing config to setup App Insights');
-      console.log('environment: ', environment)
+      console.log('environment: ', environment);
       return;
     }
     const appConfigClient = new AppConfigurationClient(
@@ -36,6 +36,7 @@ export class LoggingService {
         },
       });
       this.appInsights.loadAppInsights();
+      console.log('App Insights set up');
     });
   }
 
@@ -80,7 +81,11 @@ export class LoggingService {
     });
   }
 
-  public logInformation(message: string, properties?: { [key: string]: any }) {
+  public logInformation(
+    message: string,
+    properties?: { [key: string]: any },
+    logToConsole: boolean = false
+  ) {
     this.appInsights?.trackTrace(
       {
         message,
@@ -88,9 +93,14 @@ export class LoggingService {
       },
       properties
     );
+    if (logToConsole) console.log(message);
   }
 
-  public logWarning(message: string, properties?: { [key: string]: any }) {
+  public logWarning(
+    message: string,
+    properties?: { [key: string]: any },
+    logToConsole: boolean = false
+  ) {
     this.appInsights?.trackTrace(
       {
         message,
@@ -98,9 +108,14 @@ export class LoggingService {
       },
       properties
     );
+    if (logToConsole) console.warn(message);
   }
 
-  public logError(message: string, properties?: { [key: string]: any }) {
+  public logError(
+    message: string,
+    properties?: { [key: string]: any },
+    logToConsole: boolean = false
+  ) {
     this.appInsights?.trackTrace(
       {
         message,
@@ -108,5 +123,6 @@ export class LoggingService {
       },
       properties
     );
+    if (logToConsole) console.error(message);
   }
 }

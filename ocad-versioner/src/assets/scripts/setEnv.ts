@@ -9,7 +9,6 @@ require('dotenv').config({
   path: path.join(process.env.GITHUB_WORKSPACE, '.env'),
 });
 
-console.log(process.env.AZURE_APP_CONFIG_CONNECTION_STRING);
 const environment = argv.environment;
 if (!process.env.AZURE_APP_CONFIG_CONNECTION_STRING) {
   console.error('Error: AZURE_APP_CONFIG_CONNECTION_STRING is not set');
