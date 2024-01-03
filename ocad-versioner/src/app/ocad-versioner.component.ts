@@ -41,9 +41,9 @@ export class OcadVersionerComponent implements OnInit {
     private jsonDiffService: JsonDiffService,
     public provider: OcadVersionerProvider,
     private ocadReader: OcadReaderService,
-    private logging: LoggingService
+    private logger: LoggingService
   ) {
-    this.logging.logPageView('ocadversioner.com', 'ocadversioner.com');
+    this.logger.logPageView('ocadversioner.com', 'ocadversioner.com');
   }
 
   public OcadDiffTableView = OcadDiffTableView;
@@ -76,9 +76,13 @@ export class OcadVersionerComponent implements OnInit {
       OcadDirectoryHelper.getVersionNameFromVersionNumber(
         selectedVersionNumber
       );
-    const selectedOcdFile = this.provider.getOcdFileHandle(newestVersionName);
+    const selectedOcdFile = await this.provider
+      .getOcdFileHandle(newestVersionName)
+      .getFile();
+    if (selectedVersionNumber === 0)
+      this.logger.logInformation(`Loaded map named ${selectedOcdFile.name}`);
     const newestFeatureCollection = await this.ocadReader.getGeoJsonFromOcdFile(
-      await selectedOcdFile.getFile()
+      selectedOcdFile
     );
     const bboxOfNewest = this.getBoundingBoxOfFeatureCollection(
       newestFeatureCollection
