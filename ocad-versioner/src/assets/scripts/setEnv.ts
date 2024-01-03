@@ -3,12 +3,12 @@
 const { writeFile, existsSync, mkdirSync } = require('fs');
 const { argv } = require('yargs');
 
-require('dotenv').config();
+require('dotenv').config({ path: './.env' });
 const environment = argv.environment;
 if (!process.env.AZURE_APP_CONFIG_CONNECTION_STRING) {
-  console.error("Error: AZURE_APP_CONFIG_CONNECTION_STRING is not set");
+  console.error('Error: AZURE_APP_CONFIG_CONNECTION_STRING is not set');
   process.exit(1);
- }
+}
 
 function writeFileUsingFS(targetPath, environmentFileContent) {
   writeFile(targetPath, environmentFileContent, function (err) {
