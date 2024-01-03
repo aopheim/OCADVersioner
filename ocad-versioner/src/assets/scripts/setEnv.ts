@@ -3,7 +3,8 @@
 const { writeFile, existsSync, mkdirSync } = require('fs');
 const { argv } = require('yargs');
 
-require('dotenv').config({ path: './.env' });
+require('dotenv').config({ path: __dirname + '/.env' });
+
 console.log(process.env.AZURE_APP_CONFIG_CONNECTION_STRING);
 const environment = argv.environment;
 if (!process.env.AZURE_APP_CONFIG_CONNECTION_STRING) {
