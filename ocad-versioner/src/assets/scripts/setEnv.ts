@@ -1,9 +1,13 @@
 /* tslint:disable */
 // @ts-nocheck
+const path = require('path');
 const { writeFile, existsSync, mkdirSync } = require('fs');
 const { argv } = require('yargs');
 
-require('dotenv').config({ path: __dirname + '/.env' });
+console.log('Current working directory:', process.cwd());
+require('dotenv').config({
+  path: path.join(process.env.GITHUB_WORKSPACE, '.env'),
+});
 
 console.log(process.env.AZURE_APP_CONFIG_CONNECTION_STRING);
 const environment = argv.environment;
