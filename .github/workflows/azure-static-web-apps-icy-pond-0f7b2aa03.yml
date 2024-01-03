@@ -17,6 +17,8 @@ jobs:
         run: |
           touch .env
           echo AZURE_APP_CONFIG_CONNECTION_STRING=${{ secrets.AZURE_APP_CONFIG_CONNECTION_STRING }} >> .env
+          echo ".env file created and contains: "
+          cat .env
       - name: Archive production artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -34,6 +36,8 @@ jobs:
         with:
           name: env-file
           path: .
+      - name: Print .env file
+        run: cat .env
       - uses: actions/checkout@v3
         with:
           submodules: true
