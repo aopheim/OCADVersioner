@@ -4,7 +4,7 @@ const path = require('path');
 const { writeFile, existsSync, mkdirSync } = require('fs');
 const { argv } = require('yargs');
 
-console.log('Current working directory:', process.cwd());
+console.log('Current working directory: ', process.cwd());
 require('dotenv').config({
   path: path.join(process.env.GITHUB_WORKSPACE ?? '.', '.env'),
 });
