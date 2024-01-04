@@ -28,6 +28,8 @@
   "#_oldVersion": "Old version",
   "#_percentageLengthDiff": "Percentage length difference",
   "#_percentageAreaDiff": "Percentage area difference",
+  "#_projectDirectorySelectorText": "Welcome to OCADVersioner. A versioning tool for the map drawing program OCAD. This tools allows you to create versions of the map, and easily visualize what has changed between versions.",
+  "#_projectDirectorySelectorTextPt2": "Choose the folder where the OCAD file is saved to get started",
   "#_selectVersionForComparison": "Select version for comparison",
   "#_symbolName": "Symbol name",
   "#_symbolNumber": "Symbol number",
