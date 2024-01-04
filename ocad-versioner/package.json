@@ -9,6 +9,7 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "yarn setEnvs --environment=prod && ng build",
+    "build:pr": "yarn build && yarn test",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "serve:ssr:ocad-versioner": "node dist/ocad-versioner/server/server.mjs"
