@@ -1,4 +1,4 @@
-name: Azure Static Web Apps CI/CD
+name: OCADVersioner PROD Deploy
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
       - name: "Create env file"
         run: |
           touch .env
-          printf "APPINSIGHTSINSTRUMENTATIONKEY=%s\n" "${{ secrets.APPINSIGHTSINSTRUMENTATIONKEY }}" > .env
+          printf "APPINSIGHTSINSTRUMENTATIONKEY=%s\n" "${{ secrets.APPINSIGHTSINSTRUMENTATIONKEY_PROD }}" > .env
           echo ".env file created and contains: "
           cat .env
       - name: Archive production artifacts
