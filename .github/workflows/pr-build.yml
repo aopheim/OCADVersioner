@@ -20,10 +20,8 @@ jobs:
         with:
           node-version: "20.9"
 
-      - name: Install dependencies
-        run: yarn install
-
       - name: Run yarn build:pr
         run: |
           cd ocad-versioner
+          yarn install
           yarn build:pr
