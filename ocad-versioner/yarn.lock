@@ -2035,7 +2035,14 @@
   resolved "https://registry.npmjs.org/@types/json-schema/-/json-schema-7.0.15.tgz"
   integrity sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==
 
-"@types/leaflet@^1.9.8":
+"@types/leaflet.sync@^0.2.3":
+  version "0.2.3"
+  resolved "https://registry.yarnpkg.com/@types/leaflet.sync/-/leaflet.sync-0.2.3.tgz#17a32fce44b5ac4e4284c7dea6aeda940f14a1d9"
+  integrity sha512-Sn7KemC6memDt88TJhx6EvAIZnca/gOgBKVFj7L/qlLLnA4DnPr6OpDuBDYGja7MId4qzvxyIjmKBhVq8+kDEw==
+  dependencies:
+    "@types/leaflet" "*"
+
+"@types/leaflet@*", "@types/leaflet@^1.9.8":
   version "1.9.8"
   resolved "https://registry.npmjs.org/@types/leaflet/-/leaflet-1.9.8.tgz"
   integrity sha512-EXdsL4EhoUtGm2GC2ZYtXn+Fzc6pluVgagvo2VC1RHWToLGlTRwVYoDpqS/7QXa01rmDyBjJk3Catpf60VMkwg==
@@ -4719,6 +4726,11 @@ launch-editor@^2.6.0:
   dependencies:
     picocolors "^1.0.0"
     shell-quote "^1.8.1"
+
+leaflet.sync@^0.2.4:
+  version "0.2.4"
+  resolved "https://registry.yarnpkg.com/leaflet.sync/-/leaflet.sync-0.2.4.tgz#76d4095a61470882d72e092190090d0a1fa55ca2"
+  integrity sha512-e59CcQNMFFZJWCAGzyFxcsVldWd0cU7G71q2Zh5a5Pbe7ua4G7CNQcKz51IALf0NzOyRF7ws6gjnndiVWkYN+w==
 
 leaflet@^1.9.4:
   version "1.9.4"
