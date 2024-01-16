@@ -33,7 +33,8 @@
               "node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"
             ],
             "server": "src/main.server.ts",
-            "prerender": false
+            "prerender": false,
+            "webWorkerTsConfig": "tsconfig.worker.json"
           },
           "configurations": {
             "production": {
@@ -86,6 +87,8 @@
             "assets": ["src/favicon.ico", "src/assets"],
             "styles": ["src/styles.scss"],
             "scripts": []
+            // This results in building the web worker, which fails in testing, because it references 'Window' and other elements not available in a server environment
+            // "webWorkerTsConfig": "tsconfig.worker.json"
           }
         }
       }

@@ -9,13 +9,8 @@ import {
 } from './json-diff-service.spec.models';
 
 describe('JsonDiffService', () => {
-  let jsonDiffService: JsonDiffService;
-  beforeEach(() => {
-    jsonDiffService = new JsonDiffService();
-  });
-
   it('Empty input should give empty results', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       { features: [], type: 'FeatureCollection' },
       { features: [], type: 'FeatureCollection' }
     );
@@ -26,7 +21,7 @@ describe('JsonDiffService', () => {
   });
 
   it('Adding one knoll should give one element as added', () => {
-    const res = jsonDiffService.getJsonDiff(V1Empty, V2OneKnoll);
+    const res = JsonDiffService.calculateJsonDiff(V1Empty, V2OneKnoll);
 
     expect(res.deleted.length).toBe(0);
     expect(res.edited.length).toBe(0);
@@ -34,7 +29,7 @@ describe('JsonDiffService', () => {
   });
 
   it('Adding one knoll should give added element with correct properties', () => {
-    const res = jsonDiffService.getJsonDiff(V1Empty, V2OneKnoll);
+    const res = JsonDiffService.calculateJsonDiff(V1Empty, V2OneKnoll);
 
     const added = res.added[0];
     expect(added.createdAtUtc).toBeTruthy();
@@ -44,7 +39,7 @@ describe('JsonDiffService', () => {
   });
 
   it('Moving knoll should give one element in edited', () => {
-    const res = jsonDiffService.getJsonDiff(V2OneKnoll, V3OneKnollMoved);
+    const res = JsonDiffService.calculateJsonDiff(V2OneKnoll, V3OneKnollMoved);
 
     expect(res.deleted.length).toBe(0);
     expect(res.added.length).toBe(0);
@@ -52,7 +47,7 @@ describe('JsonDiffService', () => {
   });
 
   it('Moving knoll should give knoll element in edited with correct properties', () => {
-    const res = jsonDiffService.getJsonDiff(V2OneKnoll, V3OneKnollMoved);
+    const res = JsonDiffService.calculateJsonDiff(V2OneKnoll, V3OneKnollMoved);
 
     const knoll = res.edited[0];
     expect(knoll.areaSymbolDiff).toBeNull();
@@ -65,7 +60,7 @@ describe('JsonDiffService', () => {
   });
 
   it('Deleting knoll, added depression should give one in deleted, one in added', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       V3OneKnollMoved,
       V4DeletedKnoll_AddedDepression
     );
@@ -76,7 +71,7 @@ describe('JsonDiffService', () => {
   });
 
   it('Deleting knoll, added depression should give depression in added', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       V3OneKnollMoved,
       V4DeletedKnoll_AddedDepression
     );
@@ -89,7 +84,7 @@ describe('JsonDiffService', () => {
   });
 
   it('Deleting knoll, added depression should give knoll in deleted', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       V3OneKnollMoved,
       V4DeletedKnoll_AddedDepression
     );
@@ -103,7 +98,7 @@ describe('JsonDiffService', () => {
   });
 
   it('Adding contour should give one element in added', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       V4DeletedKnoll_AddedDepression,
       V5AddedContour
     );
@@ -114,7 +109,7 @@ describe('JsonDiffService', () => {
   });
 
   it('Added contour should give one element in added with correct properties', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       V4DeletedKnoll_AddedDepression,
       V5AddedContour
     );
@@ -127,7 +122,7 @@ describe('JsonDiffService', () => {
   });
 
   it('Removing all features should give two deleted elements', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       V5AddedContour,
       V6RemovedAllObjects
     );
@@ -138,7 +133,7 @@ describe('JsonDiffService', () => {
   });
 
   it('Removing all features should give deleted contour and depression', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       V5AddedContour,
       V6RemovedAllObjects
     );
