@@ -9,13 +9,8 @@ import {
 } from './json-diff-service.spec.models.distance';
 
 describe('JsonDiffService - Distance tests', () => {
-  let jsonDiffService: JsonDiffService;
-  beforeEach(() => {
-    jsonDiffService = new JsonDiffService();
-  });
-
   it('Add 100m road should give 100m road added', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       V1_GeoreferencedEmptyMap,
       V2_Add100mRoad
     );
@@ -26,7 +21,7 @@ describe('JsonDiffService - Distance tests', () => {
   });
 
   it('Deleting 100m road should give 100m road deleted', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       V2_Add100mRoad,
       V1_GeoreferencedEmptyMap
     );
@@ -37,7 +32,7 @@ describe('JsonDiffService - Distance tests', () => {
   });
 
   it('Adding 400m circular path should give 400m added', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       V1_GeoreferencedEmptyMap,
       V3_Add400mPath
     );
@@ -48,7 +43,7 @@ describe('JsonDiffService - Distance tests', () => {
   });
 
   it('Adding polygon should give added area', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       V1_GeoreferencedEmptyMap,
       V4_AddPolygon
     );
@@ -59,7 +54,7 @@ describe('JsonDiffService - Distance tests', () => {
   });
 
   it('Deleting polygon should give deleted area', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       V4_AddPolygon,
       V1_GeoreferencedEmptyMap
     );
@@ -70,7 +65,10 @@ describe('JsonDiffService - Distance tests', () => {
   });
 
   it('Moving point 100m should give 100m moved in edited', () => {
-    const res = jsonDiffService.getJsonDiff(V5_AddPoint, V6_MovePoint100m);
+    const res = JsonDiffService.calculateJsonDiff(
+      V5_AddPoint,
+      V6_MovePoint100m
+    );
 
     expect(res.added.length).toBe(0);
     expect(res.deleted.length).toBe(0);

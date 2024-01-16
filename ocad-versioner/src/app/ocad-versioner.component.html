@@ -1,4 +1,17 @@
 <div class="container">
+  <div *ngIf="appProgress$ | async as appProgress">
+    <div class="progress" style="height: 2px" *ngIf="appProgress.isLoading">
+      <div
+        class="progress-bar"
+        role="progressbar"
+        [style.width.%]="appProgress.currentProgress"
+        aria-valuenow="appProgress.currentProgress"
+        aria-valuemin="0"
+        aria-valuemax="100"
+      ></div>
+    </div>
+    <div *ngIf="!appProgress.isLoading" style="height: 2px"></div>
+  </div>
   <h3 class="my-2">{{ "#_OCADVersioner" | translate }}</h3>
   <project-directory-selector
     (projectLoaded)="setSelectedVersion(0)"

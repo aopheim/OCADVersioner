@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-import { IJsonDiffService } from './json-diff-service.models';
 import {
   AddedSymbolDto,
   DeletedSymbolDto,
@@ -26,17 +25,25 @@ import { GeolibInputCoordinates } from 'geolib/es/types';
 import { CoordinatesHelper } from '../coordinates-helper/coordinates-helper.service';
 
 @Injectable()
-export class JsonDiffService implements IJsonDiffService {
+export class JsonDiffService {
   // Interesting... https://knowledge.broadcom.com/external/article/57052/how-to-convert-unix-epoch-time-values-in.html
-  private readonly ExcelEpoch: number = 25569;
+  private static readonly ExcelEpoch: number = 25569;
 
-  getJsonDiff(old: FeatureCollection, newest: FeatureCollection): OcadDiffDto {
+  public static calculateJsonDiff(
+    old: FeatureCollection,
+    newest: FeatureCollection,
+    reportProgress?: (progress: number) => void
+  ): OcadDiffDto {
     const added: AddedSymbolDto[] = [];
     const edited: EditedSymbolDto[] = [];
     const deleted: DeletedSymbolDto[] = [];
     let oldFeatures = cloneDeep(old.features);
     const newFeatures = cloneDeep(newest.features);
-    newFeatures.forEach((newFeature) => {
+    const reportEveryN = this.getReportEveryNFeature(newFeatures.length);
+    const numberOfNewFeatures: number = newFeatures.length;
+    newFeatures.forEach((newFeature, i) => {
+      if (i % reportEveryN === 0 && reportProgress)
+        reportProgress((i / numberOfNewFeatures) * 100 * 0.8);
       if (this.isChildFeature(newFeature)) return;
       const indexInOldFeatures = oldFeatures.findIndex((oldFeature) =>
         isSameFeature(oldFeature, newFeature)
@@ -54,7 +61,12 @@ export class JsonDiffService implements IJsonDiffService {
         oldFeatures.splice(indexInOldFeatures, 1);
       }
     });
-    oldFeatures.forEach((oldFeature) => {
+
+    const numberOfOldFeatures = oldFeatures.length;
+    oldFeatures.forEach((oldFeature, i) => {
+      if (i % reportEveryN === 0 && reportProgress)
+        reportProgress(80 + (i / numberOfOldFeatures) * 100 * 0.2);
+
       if (this.isChildFeature(oldFeature)) return;
       const indexInNewFeatures = newFeatures.findIndex((newFeature) =>
         isSameFeature(oldFeature, newFeature)
@@ -62,6 +74,7 @@ export class JsonDiffService implements IJsonDiffService {
       if (indexInNewFeatures === -1)
         deleted.push(this.convertToDeletedSymbol(oldFeature));
     });
+    if (reportProgress) reportProgress(100);
 
     return {
       added,
@@ -80,15 +93,20 @@ export class JsonDiffService implements IJsonDiffService {
       );
     }
   }
+  private static getReportEveryNFeature(totalFeatures: number): number {
+    if (totalFeatures > 0 && totalFeatures < 100) return 10;
+    if (totalFeatures >= 100 && totalFeatures < 10000) return 100;
+    return 100;
+  }
 
-  private isChildFeature(
+  private static isChildFeature(
     feature: Feature<Geometry, GeoJsonProperties>
   ): boolean {
     const parentId = feature.properties?.[OcadPropertyKeys.ParentId];
     return !isNil(parentId) && parentId > 0;
   }
 
-  private areFeaturesEqual(
+  private static areFeaturesEqual(
     a: Feature<Geometry, GeoJsonProperties>,
     b: Feature<Geometry, GeoJsonProperties>
   ): boolean {
@@ -155,7 +173,7 @@ export class JsonDiffService implements IJsonDiffService {
     return true;
   }
 
-  private geometriesAreEqual(
+  private static geometriesAreEqual(
     a:
       | LineString
       | MultiLineString
@@ -174,12 +192,14 @@ export class JsonDiffService implements IJsonDiffService {
     return isEqual(a.coordinates, b.coordinates);
   }
 
-  private getDateFromExcelDate(excelDate: number): Date | undefined {
-    const date = new Date((excelDate - this.ExcelEpoch) * 86400 * 1000);
+  private static getDateFromExcelDate(excelDate: number): Date | undefined {
+    const date = new Date(
+      (excelDate - JsonDiffService.ExcelEpoch) * 86400 * 1000
+    );
     return date instanceof Date && !isNaN(date.valueOf()) ? date : undefined;
   }
 
-  private convertToAddedSymbol(
+  private static convertToAddedSymbol(
     feature: Feature<Geometry, GeoJsonProperties>
   ): AddedSymbolDto {
     const symbolNameInGeoJson: number =
@@ -213,7 +233,7 @@ export class JsonDiffService implements IJsonDiffService {
     };
   }
 
-  private convertToEditedSymbol(
+  private static convertToEditedSymbol(
     newFeature: Feature<Geometry, GeoJsonProperties>,
     oldFeature: Feature<Geometry, GeoJsonProperties>
   ): EditedSymbolDto {
@@ -243,7 +263,7 @@ export class JsonDiffService implements IJsonDiffService {
     };
   }
 
-  private getPointSymbolDiff(
+  private static getPointSymbolDiff(
     newFeature: Feature<Geometry, GeoJsonProperties>,
     oldFeature: Feature<Geometry, GeoJsonProperties>
   ): PointSymbolDiff {
@@ -266,7 +286,7 @@ export class JsonDiffService implements IJsonDiffService {
     return { movementInMeters };
   }
 
-  private getLengthOfLine(
+  private static getLengthOfLine(
     feature: Feature<Geometry, GeoJsonProperties>
   ): number {
     const geometry = feature.geometry as LineString;
@@ -286,7 +306,7 @@ export class JsonDiffService implements IJsonDiffService {
     );
   }
 
-  getAreaOfPolygon(
+  private static getAreaOfPolygon(
     feature: Feature<Geometry, GeoJsonProperties>
   ): number | null {
     const geometry = feature.geometry as Polygon;
@@ -306,7 +326,7 @@ export class JsonDiffService implements IJsonDiffService {
     return getAreaOfPolygon(points);
   }
 
-  private convertToDeletedSymbol(
+  private static convertToDeletedSymbol(
     feature: Feature<Geometry, GeoJsonProperties>
   ): DeletedSymbolDto {
     const symbolName: string = IofSymbolHelper.getSymbolName(

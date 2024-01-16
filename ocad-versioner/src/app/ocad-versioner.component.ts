@@ -5,8 +5,14 @@ import {
   Geometry,
   Position,
 } from 'geojson';
-import { BehaviorSubject, Observable, combineLatest, filter, map } from 'rxjs';
-import { JsonDiffService } from './services/json-diff-service/json-diff-service';
+import {
+  BehaviorSubject,
+  Observable,
+  filter,
+  map,
+  of,
+  withLatestFrom,
+} from 'rxjs';
 import { OcadDiffDto } from './components/ocad-diff-table/ocad-diff-table/ocad-diff-table.models';
 import { OcadDiffTableView } from './components/ocad-diff-table/ocad-diff-table/ocad-diff-table.component';
 import { OcadVersionerProvider } from './ocad-versioner.provider';
@@ -16,6 +22,9 @@ import { isNil } from 'lodash-es';
 import bbox from '@turf/bbox';
 import { CoordinatesHelper } from './services/coordinates-helper/coordinates-helper.service';
 import { LoggingService } from './services/logging/logging.service';
+import { ProgressIndicatorService } from './services/progress-indicator-service/progress-indicator.service';
+import { JsonDiffServiceInput } from './services/json-diff-service/json-diff-service.models';
+import { AppProgress } from './services/progress-indicator-service/progress-indicator.service.models';
 
 @Component({
   selector: 'ocad-versioner',
@@ -37,34 +46,80 @@ export class OcadVersionerComponent implements OnInit {
   public bboxOfNewestVersion$: BehaviorSubject<Position[]> =
     new BehaviorSubject<Position[]>([[]]);
 
+  public appProgress$: Observable<AppProgress> =
+    this.progressService.getAppProgress();
+  private _jsonDiffWorker: Worker | null;
+  private triggerJsonDiff$: BehaviorSubject<boolean> =
+    new BehaviorSubject<boolean>(false);
+
   constructor(
-    private jsonDiffService: JsonDiffService,
     public provider: OcadVersionerProvider,
     private ocadReader: OcadReaderService,
-    private logger: LoggingService
+    private logger: LoggingService,
+    private progressService: ProgressIndicatorService
   ) {
     this.logger.logPageView('ocadversioner.com', 'ocadversioner.com');
+
+    if (typeof Worker !== 'undefined') {
+      this._jsonDiffWorker = new Worker(
+        new URL('./web-worker/diff-service.worker', import.meta.url)
+      );
+    } else {
+      // TODO: This check should probably be done already in directory-selector. The app will not run if the browser does not support web workers
+      console.error(
+        'The browser does not support service workers! More info: https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API '
+      );
+      this._jsonDiffWorker = null;
+    }
   }
 
   public OcadDiffTableView = OcadDiffTableView;
   ngOnInit(): void {
-    this.diffTable$ = combineLatest([
-      this.newestVersion$,
-      this.oldestVersion$,
-    ]).pipe(
-      filter(([current, versioned]) => current !== null && versioned !== null),
-      map(([current, versioned]) => {
-        return this.jsonDiffService.getJsonDiff(versioned!, current!);
-      })
-    );
-  }
+    this.triggerJsonDiff$
+      .pipe(
+        withLatestFrom(this.newestVersion$, this.oldestVersion$),
+        filter(
+          ([trigger, current, versioned]) =>
+            trigger && current !== null && versioned !== null
+        ),
+        map(([_, current, versioned]) => {
+          // Posting to service worker for it to be processed in a separate thread, allowing rendering of html
+          this.progressService.setFileLoadingProgress({
+            currentProgress: 80,
+            isLoading: true,
+          });
+          this._jsonDiffWorker?.postMessage({
+            newVersion: current,
+            oldVersion: versioned,
+          } as JsonDiffServiceInput);
+        })
+      )
+      .subscribe();
 
-  public handleLoadedGeoJsonFile(
-    geoJson: FeatureCollection,
-    isOriginal: boolean
-  ) {
-    if (isOriginal) this.newestVersion$.next(geoJson);
-    else this.oldestVersion$.next(geoJson);
+    if (this._jsonDiffWorker)
+      this._jsonDiffWorker.onmessage = ({ data }) => {
+        this.handleMessageFromWebWorker(data);
+      };
+  }
+  private handleMessageFromWebWorker(data: any): void {
+    const currentProgress: number = data as number;
+    const diffTable = data as OcadDiffDto;
+    if (!isNil(currentProgress) && currentProgress >= 0) {
+      const isLoading = data < 100 && data > 0;
+      this.progressService.setJsonDiffProgress({
+        isLoading,
+        currentProgress: isLoading ? data : 0,
+      });
+      return;
+    }
+    if (!isNil(diffTable)) {
+      this.diffTable$ = of(data as OcadDiffDto);
+      this.progressService.setFileLoadingProgress({
+        currentProgress: 0,
+        isLoading: false,
+      });
+      return;
+    }
   }
 
   public setSelectedTableView(selectedView: OcadDiffTableView): void {
@@ -72,6 +127,10 @@ export class OcadVersionerComponent implements OnInit {
   }
 
   public async setSelectedVersion(selectedVersionNumber: number) {
+    this.progressService.setFileLoadingProgress({
+      currentProgress: 5,
+      isLoading: true,
+    });
     const newestVersionName =
       OcadDirectoryHelper.getVersionNameFromVersionNumber(
         selectedVersionNumber
@@ -84,6 +143,10 @@ export class OcadVersionerComponent implements OnInit {
     const newestFeatureCollection = await this.ocadReader.getGeoJsonFromOcdFile(
       selectedOcdFile
     );
+    this.progressService.setFileLoadingProgress({
+      currentProgress: 10,
+      isLoading: true,
+    });
     const bboxOfNewest = this.getBoundingBoxOfFeatureCollection(
       newestFeatureCollection
     );
@@ -114,10 +177,15 @@ export class OcadVersionerComponent implements OnInit {
           : '#_empty',
     };
     this.oldestVersionMetaData$.next(oldestVersionMetaData);
+    this.progressService.setFileLoadingProgress({
+      currentProgress: 20,
+      isLoading: true,
+    });
 
     if (!ocdFileToCompare) {
       this.oldestVersion$.next({ features: [], type: 'FeatureCollection' });
       this.newestVersion$.next(newestFeatureCollection);
+      this.triggerJsonDiff$.next(true);
       return;
     }
     const oldestFeatureCollection = await this.ocadReader.getGeoJsonFromOcdFile(
@@ -126,6 +194,7 @@ export class OcadVersionerComponent implements OnInit {
 
     this.newestVersion$.next(newestFeatureCollection);
     this.oldestVersion$.next(oldestFeatureCollection);
+    this.triggerJsonDiff$.next(true);
   }
 
   private getBoundingBoxOfFeatureCollection(
