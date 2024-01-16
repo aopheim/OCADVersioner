@@ -54,6 +54,8 @@
       <ocad-map-viewer
         *ngIf="bboxOfNewestVersion$ | async as bbox"
         [bboxOfMap]="bbox"
+        [newestVersionNumber]="(newestVersionNumber$ | async) ?? 0"
+        [oldestVersionNumber]="oldestVersionNumber$ | async"
       ></ocad-map-viewer>
       <diff-table-tabs
         [diffTable]="diffTable"

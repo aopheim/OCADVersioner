@@ -52,6 +52,11 @@ export class OcadVersionerComponent implements OnInit {
   private triggerJsonDiff$: BehaviorSubject<boolean> =
     new BehaviorSubject<boolean>(false);
 
+  public newestVersionNumber$: BehaviorSubject<number> =
+    new BehaviorSubject<number>(0);
+  public oldestVersionNumber$: BehaviorSubject<number | null> =
+    new BehaviorSubject<number | null>(null);
+
   constructor(
     public provider: OcadVersionerProvider,
     private ocadReader: OcadReaderService,
@@ -131,6 +136,7 @@ export class OcadVersionerComponent implements OnInit {
       currentProgress: 5,
       isLoading: true,
     });
+    this.newestVersionNumber$.next(selectedVersionNumber);
     const newestVersionName =
       OcadDirectoryHelper.getVersionNameFromVersionNumber(
         selectedVersionNumber
@@ -160,6 +166,7 @@ export class OcadVersionerComponent implements OnInit {
 
     const versionNumberToCompare: number | null =
       this.getVersionNumberToCompare(selectedVersionNumber);
+    this.oldestVersionNumber$.next(versionNumberToCompare);
     const ocdFileToCompare = versionNumberToCompare
       ? this.provider.getOcdFileHandle(
           OcadDirectoryHelper.getVersionNameFromVersionNumber(
