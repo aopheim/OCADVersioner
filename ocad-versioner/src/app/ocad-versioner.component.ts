@@ -25,6 +25,7 @@ import { LoggingService } from './services/logging/logging.service';
 import { ProgressIndicatorService } from './services/progress-indicator-service/progress-indicator.service';
 import { JsonDiffServiceInput } from './services/json-diff-service/json-diff-service.models';
 import { AppProgress } from './services/progress-indicator-service/progress-indicator.service.models';
+import { SelectedVersionNumberDto } from './components/ocad-map-viewer/ocad-map-viewer.component';
 
 @Component({
   selector: 'ocad-versioner',
@@ -52,10 +53,8 @@ export class OcadVersionerComponent implements OnInit {
   private triggerJsonDiff$: BehaviorSubject<boolean> =
     new BehaviorSubject<boolean>(false);
 
-  public newestVersionNumber$: BehaviorSubject<number> =
-    new BehaviorSubject<number>(0);
-  public oldestVersionNumber$: BehaviorSubject<number | null> =
-    new BehaviorSubject<number | null>(null);
+  public selectedVersionNumbers$: BehaviorSubject<SelectedVersionNumberDto | null> =
+    new BehaviorSubject<SelectedVersionNumberDto | null>(null);
 
   constructor(
     public provider: OcadVersionerProvider,
@@ -132,11 +131,17 @@ export class OcadVersionerComponent implements OnInit {
   }
 
   public async setSelectedVersion(selectedVersionNumber: number) {
+    const oldestVersionNumber: number | null = this.getVersionNumberToCompare(
+      selectedVersionNumber
+    );
+    this.selectedVersionNumbers$.next({
+      newestVersionNumber: selectedVersionNumber,
+      oldestVersionNumber,
+    });
     this.progressService.setFileLoadingProgress({
-      currentProgress: 5,
+      currentProgress: 10,
       isLoading: true,
     });
-    this.newestVersionNumber$.next(selectedVersionNumber);
     const newestVersionName =
       OcadDirectoryHelper.getVersionNameFromVersionNumber(
         selectedVersionNumber
@@ -164,22 +169,19 @@ export class OcadVersionerComponent implements OnInit {
     };
     this.newestVersionMetaData$.next(newestVersionMetaData);
 
-    const versionNumberToCompare: number | null =
-      this.getVersionNumberToCompare(selectedVersionNumber);
-    this.oldestVersionNumber$.next(versionNumberToCompare);
-    const ocdFileToCompare = versionNumberToCompare
+    const ocdFileToCompare = oldestVersionNumber
       ? this.provider.getOcdFileHandle(
           OcadDirectoryHelper.getVersionNameFromVersionNumber(
-            versionNumberToCompare
+            oldestVersionNumber
           )
         )
       : null;
     const oldestVersionMetaData: VersionMetaData = {
-      versionNumber: versionNumberToCompare ?? 0,
+      versionNumber: oldestVersionNumber ?? 0,
       versionName:
-        ocdFileToCompare && !isNil(versionNumberToCompare)
+        ocdFileToCompare && !isNil(oldestVersionNumber)
           ? OcadDirectoryHelper.getVersionNameFromVersionNumber(
-              versionNumberToCompare
+              oldestVersionNumber
             )
           : '#_empty',
     };
