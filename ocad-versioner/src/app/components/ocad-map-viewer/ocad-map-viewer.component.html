@@ -1,20 +1,8 @@
-<div class="row g-0">
-    <div class="col-sm-6">
-        <div *ngIf="newestMapLoading">
-            <span
-                class="spinner-border spinner-border-sm"
-                aria-hidden="true"
-            ></span>
-        </div>
-        <div *ngIf="!newestMapLoading" id="newestMap" class="mapDiv"></div>
-    </div>
-    <div class="col-sm-6">
-        <div *ngIf="oldestMapLoading">
-            <span
-                class="spinner-border spinner-border-sm"
-                aria-hidden="true"
-            ></span>
-        </div>
-        <div *ngIf="!oldestMapLoading" id="oldestMap" class="mapDiv"></div>
-    </div>
+<div class="row g-1">
+  <div class="col-sm-6">
+    <div id="newestMap" class="mapDiv"></div>
+  </div>
+  <div class="col-sm-6">
+    <div id="oldestMap" class="mapDiv"></div>
+  </div>
 </div>
