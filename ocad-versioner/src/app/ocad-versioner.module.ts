@@ -10,6 +10,7 @@ import { OcadVersionerProvider } from './ocad-versioner.provider';
 import { OcadFileSystemService } from './services/ocad-file-system-service/ocad-file-system-service';
 import { OcadReaderService } from './services/ocad-reader-service/ocad-reader-service';
 import { ProgressIndicatorService } from './services/progress-indicator-service/progress-indicator.service';
+import { FileWatcherService } from './services/file-watcher/file-watcher.service';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -37,6 +38,7 @@ export function HttpLoaderFactory(http: HttpClient) {
     OcadFileSystemService,
     OcadReaderService,
     ProgressIndicatorService,
+    FileWatcherService,
   ],
 })
 export class OcadVersionerModule {}
