@@ -26,6 +26,7 @@ import { ProgressIndicatorService } from './services/progress-indicator-service/
 import { JsonDiffServiceInput } from './services/json-diff-service/json-diff-service.models';
 import { AppProgress } from './services/progress-indicator-service/progress-indicator.service.models';
 import { SelectedVersionNumberDto } from './components/ocad-map-viewer/ocad-map-viewer.component';
+import { FileWatcherService } from './services/file-watcher/file-watcher.service';
 
 @Component({
   selector: 'ocad-versioner',
@@ -33,6 +34,9 @@ import { SelectedVersionNumberDto } from './components/ocad-map-viewer/ocad-map-
   styleUrl: './ocad-versioner.component.scss',
 })
 export class OcadVersionerComponent implements OnInit {
+  private _jsonDiffWorker: Worker | null;
+  private triggerJsonDiff$: BehaviorSubject<boolean> =
+    new BehaviorSubject<boolean>(false);
   public newestVersion$: BehaviorSubject<FeatureCollection | null> =
     new BehaviorSubject<FeatureCollection | null>(null);
   public newestVersionMetaData$: BehaviorSubject<VersionMetaData | null> =
@@ -49,9 +53,6 @@ export class OcadVersionerComponent implements OnInit {
 
   public appProgress$: Observable<AppProgress> =
     this.progressService.getAppProgress();
-  private _jsonDiffWorker: Worker | null;
-  private triggerJsonDiff$: BehaviorSubject<boolean> =
-    new BehaviorSubject<boolean>(false);
 
   public selectedVersionNumbers$: BehaviorSubject<SelectedVersionNumberDto | null> =
     new BehaviorSubject<SelectedVersionNumberDto | null>(null);
@@ -60,7 +61,8 @@ export class OcadVersionerComponent implements OnInit {
     public provider: OcadVersionerProvider,
     private ocadReader: OcadReaderService,
     private logger: LoggingService,
-    private progressService: ProgressIndicatorService
+    private progressService: ProgressIndicatorService,
+    private fileWatcherService: FileWatcherService
   ) {
     this.logger.logPageView('ocadversioner.com', 'ocadversioner.com');
 
@@ -104,6 +106,14 @@ export class OcadVersionerComponent implements OnInit {
       this._jsonDiffWorker.onmessage = ({ data }) => {
         this.handleMessageFromWebWorker(data);
       };
+    this.fileWatcherService.currentOcdFileHasChanged$.subscribe(
+      async (hasChanged) => {
+        if (isNil(hasChanged) || !hasChanged) {
+          return;
+        }
+        await this.setSelectedVersion(0);
+      }
+    );
   }
   private handleMessageFromWebWorker(data: any): void {
     const currentProgress: number = data as number;
