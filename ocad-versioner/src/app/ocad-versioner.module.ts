@@ -1,7 +1,7 @@
 import { NgModule } from '@angular/core';
 import { OcadVersionerComponent } from './ocad-versioner.component';
 import { JsonDiffService } from './services/json-diff-service/json-diff-service';
-import { OcadVersionerComponetsModule as OcadVersionerComponentsModule } from './components/ocad-versioner-components.module';
+import { OcadVersionerComponentsModule as OcadVersionerComponentsModule } from './components/ocad-versioner-components.module';
 import { CommonModule } from '@angular/common';
 import { TranslateLoader, TranslateModule } from '@ngx-translate/core';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
@@ -11,6 +11,7 @@ import { OcadFileSystemService } from './services/ocad-file-system-service/ocad-
 import { OcadReaderService } from './services/ocad-reader-service/ocad-reader-service';
 import { ProgressIndicatorService } from './services/progress-indicator-service/progress-indicator.service';
 import { FileWatcherService } from './services/file-watcher/file-watcher.service';
+import { AppSettingsService } from './services/app-settings-service/app-settings-service';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -39,6 +40,7 @@ export function HttpLoaderFactory(http: HttpClient) {
     OcadReaderService,
     ProgressIndicatorService,
     FileWatcherService,
+    AppSettingsService,
   ],
 })
 export class OcadVersionerModule {}

@@ -21,11 +21,9 @@ export class FileWatcherService {
         ?.getFile();
       const size = currentFile?.size;
       if (isNil(size) || size === this._currentFileSize) {
-        console.log('no changes. Exiting');
         return false;
       }
       this._currentFileSize = size;
-      console.log('changes! New file size is ', size);
       return true;
     })
   );

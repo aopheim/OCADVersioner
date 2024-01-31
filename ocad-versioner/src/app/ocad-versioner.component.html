@@ -12,10 +12,19 @@
     </div>
     <div *ngIf="!appProgress.isLoading" style="height: 2px"></div>
   </div>
-  <h3 class="my-2">{{ "#_OCADVersioner" | translate }}</h3>
+  <div class="d-flex justify-content-between align-items-center">
+    <h3 class="my-2">{{ "#_OCADVersioner" | translate }}</h3>
+    <i
+      class="bi bi-sliders cursorPointer"
+      data-bs-toggle="modal"
+      data-bs-target="#appSettingsModal"
+    >
+    </i>
+  </div>
   <project-directory-selector
     (projectLoaded)="setSelectedVersion(0)"
   ></project-directory-selector>
+  <app-settings-modal></app-settings-modal>
   <div class="row" *ngIf="diffTable$ | async as diffTable">
     <div class="col-md-3">
       <ocad-version-list
