@@ -8,7 +8,7 @@ export class CoordinatesHelper {
   // WGS84
   private static Wgs84EpsgCode: number = 4326;
   // Google Maps Global Mercator. Default EPSG of Leaflet
-  private static DefaultEpsgCode: number = 900913;
+  public static DefaultEpsgCode: number = 900913;
 
   public static getLatLongCoordinateFromUtm(
     easting: number,

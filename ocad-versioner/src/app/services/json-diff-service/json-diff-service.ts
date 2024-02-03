@@ -32,6 +32,7 @@ export class JsonDiffService {
   public static calculateJsonDiff(
     old: FeatureCollection,
     newest: FeatureCollection,
+    epsgCode: number = CoordinatesHelper.DefaultEpsgCode,
     reportProgress?: (progress: number) => void
   ): OcadDiffDto {
     const added: AddedSymbolDto[] = [];
@@ -51,11 +52,11 @@ export class JsonDiffService {
       const matchInOldFeatures =
         indexInOldFeatures > -1 ? oldFeatures[indexInOldFeatures] : null;
       if (isNil(matchInOldFeatures)) {
-        added.push(this.convertToAddedSymbol(newFeature));
+        added.push(this.convertToAddedSymbol(newFeature, epsgCode));
       } else {
         if (!this.areFeaturesEqual(newFeature, matchInOldFeatures))
           edited.push(
-            this.convertToEditedSymbol(newFeature, matchInOldFeatures)
+            this.convertToEditedSymbol(newFeature, matchInOldFeatures, epsgCode)
           );
         // The feature is either edited or untouched. Gives fewer possible deleted elements to search for.
         oldFeatures.splice(indexInOldFeatures, 1);
@@ -72,7 +73,7 @@ export class JsonDiffService {
         isSameFeature(oldFeature, newFeature)
       );
       if (indexInNewFeatures === -1)
-        deleted.push(this.convertToDeletedSymbol(oldFeature));
+        deleted.push(this.convertToDeletedSymbol(oldFeature, epsgCode));
     });
     if (reportProgress) reportProgress(100);
 
@@ -200,7 +201,8 @@ export class JsonDiffService {
   }
 
   private static convertToAddedSymbol(
-    feature: Feature<Geometry, GeoJsonProperties>
+    feature: Feature<Geometry, GeoJsonProperties>,
+    epsgCode: number
   ): AddedSymbolDto {
     const symbolNameInGeoJson: number =
       feature.properties?.[OcadPropertyKeys.Symbol];
@@ -219,10 +221,10 @@ export class JsonDiffService {
       lastEditedAtUtc = undefined;
     let symbolLengthInMeters: number | null = null;
     if (feature.geometry.type === 'LineString')
-      symbolLengthInMeters = this.getLengthOfLine(feature);
+      symbolLengthInMeters = this.getLengthOfLine(feature, epsgCode);
     let symbolAreaInSquareMeters: number | null = null;
     if (feature.geometry.type === 'Polygon')
-      symbolAreaInSquareMeters = this.getAreaOfPolygon(feature);
+      symbolAreaInSquareMeters = this.getAreaOfPolygon(feature, epsgCode);
     return {
       createdAtUtc,
       lastEditedAtUtc,
@@ -235,7 +237,8 @@ export class JsonDiffService {
 
   private static convertToEditedSymbol(
     newFeature: Feature<Geometry, GeoJsonProperties>,
-    oldFeature: Feature<Geometry, GeoJsonProperties>
+    oldFeature: Feature<Geometry, GeoJsonProperties>,
+    epsgCode: number
   ): EditedSymbolDto {
     const symbolName: string = IofSymbolHelper.getSymbolName(
       newFeature.properties?.[OcadPropertyKeys.Symbol]
@@ -246,7 +249,7 @@ export class JsonDiffService {
     const pointSymbolDiff =
       newFeature.geometry.type === 'Point' &&
       oldFeature.geometry.type === 'Point'
-        ? this.getPointSymbolDiff(newFeature, oldFeature)
+        ? this.getPointSymbolDiff(newFeature, oldFeature, epsgCode)
         : null;
     return {
       createdAtUtc: this.getDateFromExcelDate(
@@ -265,39 +268,39 @@ export class JsonDiffService {
 
   private static getPointSymbolDiff(
     newFeature: Feature<Geometry, GeoJsonProperties>,
-    oldFeature: Feature<Geometry, GeoJsonProperties>
+    oldFeature: Feature<Geometry, GeoJsonProperties>,
+    epsgCode: number
   ): PointSymbolDiff {
     const newGeometry = newFeature.geometry as Point;
     const oldGeometry = oldFeature.geometry as Point;
     const movementInMeters = getDistance(
-      CoordinatesHelper.getLatLongCoordinateFromUtm(
+      CoordinatesHelper.getLatLongCoordinatesFromEpsgCode(
         oldGeometry.coordinates[0],
         oldGeometry.coordinates[1],
-        32,
-        'N'
+        epsgCode
       ),
-      CoordinatesHelper.getLatLongCoordinateFromUtm(
+      CoordinatesHelper.getLatLongCoordinatesFromEpsgCode(
         newGeometry.coordinates[0],
         newGeometry.coordinates[1],
-        32,
-        'N'
+        epsgCode
       )
     );
     return { movementInMeters };
   }
 
   private static getLengthOfLine(
-    feature: Feature<Geometry, GeoJsonProperties>
+    feature: Feature<Geometry, GeoJsonProperties>,
+    epsgCode: number
   ): number {
     const geometry = feature.geometry as LineString;
     return getPathLength(
       geometry.coordinates.map((c) => {
-        const latLongCoords = CoordinatesHelper.getLatLongCoordinateFromUtm(
-          c[0],
-          c[1],
-          32,
-          'N'
-        );
+        const latLongCoords =
+          CoordinatesHelper.getLatLongCoordinatesFromEpsgCode(
+            c[0],
+            c[1],
+            epsgCode
+          );
         return {
           lon: latLongCoords.longitude,
           lat: latLongCoords.latitude,
@@ -307,18 +310,18 @@ export class JsonDiffService {
   }
 
   private static getAreaOfPolygon(
-    feature: Feature<Geometry, GeoJsonProperties>
+    feature: Feature<Geometry, GeoJsonProperties>,
+    epsgCode: number
   ): number | null {
     const geometry = feature.geometry as Polygon;
 
     const points: GeolibInputCoordinates[] = [];
     geometry.coordinates.forEach((positions) => {
       positions.forEach((p) => {
-        const latLong = CoordinatesHelper.getLatLongCoordinateFromUtm(
+        const latLong = CoordinatesHelper.getLatLongCoordinatesFromEpsgCode(
           p[0],
           p[1],
-          32,
-          'N'
+          epsgCode
         );
         points.push({ lat: latLong.latitude, lon: latLong.longitude });
       });
@@ -327,7 +330,8 @@ export class JsonDiffService {
   }
 
   private static convertToDeletedSymbol(
-    feature: Feature<Geometry, GeoJsonProperties>
+    feature: Feature<Geometry, GeoJsonProperties>,
+    epsgCode: number
   ): DeletedSymbolDto {
     const symbolName: string = IofSymbolHelper.getSymbolName(
       feature.properties?.[OcadPropertyKeys.Symbol]
@@ -337,10 +341,10 @@ export class JsonDiffService {
     );
     let symbolLengthInMeters: number | null = null;
     if (feature.geometry.type === 'LineString')
-      symbolLengthInMeters = this.getLengthOfLine(feature);
+      symbolLengthInMeters = this.getLengthOfLine(feature, epsgCode);
     let symbolAreaInSquareMeters: number | null = null;
     if (feature.geometry.type === 'Polygon')
-      symbolAreaInSquareMeters = this.getAreaOfPolygon(feature);
+      symbolAreaInSquareMeters = this.getAreaOfPolygon(feature, epsgCode);
     return {
       createdAtUtc: this.getDateFromExcelDate(
         feature.properties?.[OcadPropertyKeys.CreationDate]
