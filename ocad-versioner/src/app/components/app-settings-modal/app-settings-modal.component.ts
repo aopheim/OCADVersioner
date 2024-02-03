@@ -30,12 +30,12 @@ export class AppSettingsModalComponent implements OnInit, AfterViewInit {
   constructor(
     private appSettingsService: AppSettingsService // private translate: TranslateService
   ) {
-    const appSettings = appSettingsService.appSettings;
+    const appSettings = appSettingsService.appSettings$.value;
     this.form = new FormGroup<AppSettingsForm>({
       georeferencing: new FormGroup<GeoReferenceSettingsForm>({
         epsgNumber: new FormControl(
           appSettings?.georeferencing?.epsgNumber ?? null,
-          [Validators.min(1024), Validators.max(32767)]
+          [Validators.min(1)]
         ),
       }),
     });
@@ -107,7 +107,7 @@ export class AppSettingsModalComponent implements OnInit, AfterViewInit {
 
   public onSaveClicked(): void {
     if (!this.form.valid) return;
-    this.appSettingsService.appSettings = this.form.value;
+    this.appSettingsService.setAppSetting(this.form.value);
   }
 }
 
@@ -119,7 +119,7 @@ interface GeoReferenceSettingsForm {
   epsgNumber?: FormControl<number | null>;
 }
 
-interface EpsgIndexItem {
+export interface EpsgIndexItem {
   code: string;
   kind: string;
   name: string;
@@ -131,6 +131,6 @@ interface EpsgIndexItem {
   accuracy: number | null;
 }
 
-interface EpsgIndex {
+export interface EpsgIndex {
   [index: string]: EpsgIndexItem;
 }
