@@ -8,6 +8,7 @@ import {
 import {
   BehaviorSubject,
   Observable,
+  distinctUntilChanged,
   filter,
   map,
   of,
@@ -27,6 +28,8 @@ import { JsonDiffServiceInput } from './services/json-diff-service/json-diff-ser
 import { AppProgress } from './services/progress-indicator-service/progress-indicator.service.models';
 import { SelectedVersionNumberDto } from './components/ocad-map-viewer/ocad-map-viewer.component';
 import { FileWatcherService } from './services/file-watcher/file-watcher.service';
+import { AppSettingsService } from './services/app-settings-service/app-settings-service';
+import { AppSettings } from './services/app-settings-service/app-settings.models';
 
 @Component({
   selector: 'ocad-versioner',
@@ -35,6 +38,7 @@ import { FileWatcherService } from './services/file-watcher/file-watcher.service
 })
 export class OcadVersionerComponent implements OnInit {
   private _jsonDiffWorker: Worker | null;
+  private _currentAppSettings: AppSettings = {};
   private triggerJsonDiff$: BehaviorSubject<boolean> =
     new BehaviorSubject<boolean>(false);
   public newestVersion$: BehaviorSubject<FeatureCollection | null> =
@@ -62,7 +66,8 @@ export class OcadVersionerComponent implements OnInit {
     private ocadReader: OcadReaderService,
     private logger: LoggingService,
     private progressService: ProgressIndicatorService,
-    private fileWatcherService: FileWatcherService
+    private fileWatcherService: FileWatcherService,
+    appSettings: AppSettingsService
   ) {
     this.logger.logPageView('ocadversioner.com', 'ocadversioner.com');
 
@@ -77,6 +82,16 @@ export class OcadVersionerComponent implements OnInit {
       );
       this._jsonDiffWorker = null;
     }
+    appSettings.appSettings$
+      .pipe(
+        distinctUntilChanged(this.appSettingsComparer),
+        withLatestFrom(this.selectedVersionNumbers$)
+      )
+      .subscribe(([appSettings, versions]) => {
+        this._currentAppSettings = appSettings;
+        if ((versions?.newestVersionNumber ?? -1) >= 0)
+          this.setSelectedVersion(versions!.newestVersionNumber);
+      });
   }
 
   public OcadDiffTableView = OcadDiffTableView;
@@ -171,7 +186,7 @@ export class OcadVersionerComponent implements OnInit {
     const bboxOfNewest = this.getBoundingBoxOfFeatureCollection(
       newestFeatureCollection
     );
-    this.bboxOfNewestVersion$.next(bboxOfNewest);
+    if (!isNil(bboxOfNewest)) this.bboxOfNewestVersion$.next(bboxOfNewest);
     const newestVersionMetaData: VersionMetaData = {
       versionName:
         selectedVersionNumber === 0 ? selectedOcdFile.name : newestVersionName,
@@ -218,22 +233,22 @@ export class OcadVersionerComponent implements OnInit {
 
   private getBoundingBoxOfFeatureCollection(
     featureCollection: FeatureCollection<Geometry, GeoJsonProperties>
-  ): Position[] {
+  ): Position[] | null {
     const bboxOfMap = bbox(featureCollection);
 
-    const minLatLon = CoordinatesHelper.getLatLongCoordinateFromUtm(
+    const currentEpsg =
+      this._currentAppSettings.georeferencing?.epsgNumber ?? null;
+    const minLatLon = CoordinatesHelper.getLatLongCoordinatesFromEpsgCode(
       bboxOfMap[0],
       bboxOfMap[1],
-      32,
-      'N'
+      currentEpsg
     );
-    const maxLatLon = CoordinatesHelper.getLatLongCoordinateFromUtm(
+    const maxLatLon = CoordinatesHelper.getLatLongCoordinatesFromEpsgCode(
       bboxOfMap[2],
       bboxOfMap[3],
-      32,
-      'N'
+      currentEpsg
     );
-
+    if (isNil(minLatLon) || isNil(maxLatLon)) return null;
     return [
       [minLatLon.latitude, minLatLon.longitude],
       [maxLatLon.latitude, maxLatLon.longitude],
@@ -247,6 +262,13 @@ export class OcadVersionerComponent implements OnInit {
       return this.provider.getHighestVersionNumber();
     if (selectedVersionNumber === 1) return null;
     return selectedVersionNumber - 1;
+  }
+
+  private appSettingsComparer(
+    previous: AppSettings,
+    current: AppSettings
+  ): boolean {
+    return JSON.stringify(previous) === JSON.stringify(current);
   }
 }
 

@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { OcadVersionerComponent } from './ocad-versioner.component';
 import { JsonDiffService } from './services/json-diff-service/json-diff-service';
-import { OcadVersionerComponetsModule as OcadVersionerComponentsModule } from './components/ocad-versioner-components.module';
+import { OcadVersionerComponentsModule as OcadVersionerComponentsModule } from './components/ocad-versioner-components.module';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 describe('OcadVersionerComponent', () => {
