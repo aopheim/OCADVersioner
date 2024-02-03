@@ -1,18 +1,24 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  OnInit,
+  ViewChild,
+} from '@angular/core';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { AppSettingsService } from '../../services/app-settings-service/app-settings-service';
 import fullEpsgIndex from 'epsg-index/all.json';
 import { BehaviorSubject, Observable, filter, map, of } from 'rxjs';
 import { isNil } from 'lodash-es';
-import { Popover } from 'bootstrap';
-import { TranslateService } from '@ngx-translate/core';
+// import { TranslateService } from '@ngx-translate/core';
+// import Popover from 'bootstrap/js/dist/popover';
 
 @Component({
   selector: 'app-settings-modal',
   templateUrl: './app-settings-modal.component.html',
   styleUrl: './app-settings-modal.component.scss',
 })
-export class AppSettingsModalComponent implements OnInit {
+export class AppSettingsModalComponent implements OnInit, AfterViewInit {
   @ViewChild('openModalButton') openModalButton: ElementRef | null = null;
 
   private _epsgIndex: EpsgIndex;
@@ -22,8 +28,7 @@ export class AppSettingsModalComponent implements OnInit {
     new BehaviorSubject<EpsgIndexItem | null>(null);
 
   constructor(
-    private appSettingsService: AppSettingsService,
-    private translate: TranslateService
+    private appSettingsService: AppSettingsService // private translate: TranslateService
   ) {
     const appSettings = appSettingsService.appSettings;
     this.form = new FormGroup<AppSettingsForm>({
@@ -39,15 +44,25 @@ export class AppSettingsModalComponent implements OnInit {
     if (appSettings?.georeferencing?.epsgNumber)
       this.onEpsgItemSelected(appSettings.georeferencing.epsgNumber);
   }
+  ngAfterViewInit(): void {
+    // TODO: This currently breaks the dropdown component in directory-selector. It is something with the import ordering of bootstrap which causes it.
+    // import Popover from 'bootstrap' breaks it.
+    // https://stackoverflow.com/questions/51173263/import-static-json-file-from-assets-dir-in-component-angular
+    // https://discourse.aurelia.io/t/bootstrap-import-bootstrap-breaks-dropdown-menu-in-navbar/641
+    // this.translate
+    //   .get('#_georeferencingExplanation')
+    //   .subscribe((translation) => {
+    //     const popoverTriggerList = document.querySelectorAll(
+    //       '[data-bs-toggle="popover"]'
+    //     );
+    //     popoverTriggerList.forEach(
+    //       (popoverTriggerEl) =>
+    //         new Popover(popoverTriggerEl, { content: translation })
+    //     );
+    //   });
+  }
+
   ngOnInit(): void {
-    this.translate.get('#_georeferencingExplanation').subscribe((trans) => {
-      const popoverTriggerList = document.querySelectorAll(
-        '[data-bs-toggle="popover"]'
-      );
-      popoverTriggerList.forEach(
-        (popoverTriggerEl) => new Popover(popoverTriggerEl, { content: trans })
-      );
-    });
     this.epsgSuggestions$ =
       this.form.controls.georeferencing?.controls.epsgNumber?.valueChanges.pipe(
         filter(
