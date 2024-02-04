@@ -53,12 +53,16 @@ export class LoggingService {
     this.appInsights?.trackMetric({ name: name, average: average }, properties);
   }
 
-  public logException(exception: Error, severityLevel?: number) {
-    if (isDevMode()) return;
+  public logException(
+    exception: Error,
+    severityLevel?: number,
+    logToConsole: boolean = true
+  ) {
     this.appInsights?.trackException({
       exception: exception,
       severityLevel: severityLevel,
     });
+    if (logToConsole) console.error(exception);
   }
 
   public logInformation(
