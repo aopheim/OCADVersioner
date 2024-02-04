@@ -8,7 +8,7 @@
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header d-flex">
-        <div class="w-100 d-flex">
+        <div class="w-100 d-flex align-items-center">
           <i class="bi bi-sliders mx-2"></i>
           <h1 class="modal-title fs-3" id="exampleModalLabel">
             {{ "#_settings" | translate }}
@@ -24,7 +24,73 @@
       <div class="modal-body">
         <div class="mb-3">
           <form [formGroup]="form" class="needs-validation" novalidate>
-            <div formGroupName="georeferencing">
+            <div formGroupName="languageSelection">
+              <label class="form-label" for="languageSelection">{{
+                "#_language" | translate
+              }}</label>
+              <div
+                class="row"
+                *ngIf="selectedLanguageCode$ | async as selectedLanguageCode"
+              >
+                <div class="col-1" (click)="onLanguageSelected('no')">
+                  <div
+                    class="border"
+                    [ngClass]="{
+                      'border-4 border-success': selectedLanguageCode === 'no'
+                    }"
+                  >
+                    <span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        id="flag-icons-no"
+                        viewBox="0 0 640 480"
+                      >
+                        <path fill="#ed2939" d="M0 0h640v480H0z" />
+                        <path fill="#fff" d="M180 0h120v480H180z" />
+                        <path fill="#fff" d="M0 180h640v120H0z" />
+                        <path fill="#002664" d="M210 0h60v480h-60z" />
+                        <path fill="#002664" d="M0 210h640v60H0z" />
+                      </svg>
+                    </span>
+                  </div>
+                </div>
+                <div class="col-1" (click)="onLanguageSelected('en')">
+                  <div
+                    class="border"
+                    [ngClass]="{
+                      'border-4 border-success': selectedLanguageCode === 'en'
+                    }"
+                  >
+                    <span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        id="flag-icons-gb"
+                        viewBox="0 0 640 480"
+                      >
+                        <path fill="#012169" d="M0 0h640v480H0z" />
+                        <path
+                          fill="#FFF"
+                          d="m75 0 244 181L562 0h78v62L400 241l240 178v61h-80L320 301 81 480H0v-60l239-178L0 64V0z"
+                        />
+                        <path
+                          fill="#C8102E"
+                          d="m424 281 216 159v40L369 281zm-184 20 6 35L54 480H0zM640 0v3L391 191l2-44L590 0zM0 0l239 176h-60L0 42z"
+                        />
+                        <path
+                          fill="#FFF"
+                          d="M241 0v480h160V0zM0 160v160h640V160z"
+                        />
+                        <path
+                          fill="#C8102E"
+                          d="M0 193v96h640v-96zM273 0v480h96V0z"
+                        />
+                      </svg>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div formGroupName="georeferencing" class="mt-2">
               <label class="form-label" for="epsgNumber"
                 >{{ "#_georeferencing" | translate }}
               </label>
