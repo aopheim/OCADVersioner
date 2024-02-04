@@ -1,0 +1,175 @@
+<div class="container py-4">
+  <header class="pb-3 mb-4 border-bottom">
+    <div
+      class="d-flex align-items-center text-body-emphasis text-decoration-none"
+    >
+      <title>
+        {{ "#_OCADVersioner" | translate }} - {{ "#_about" | translate }}
+      </title>
+      <span class="fs-4">{{ "#_OCADVersioner" | translate }}</span>
+    </div>
+  </header>
+
+  <div class="row p-5 mb-4 bg-body-tertiary rounded-3">
+    <div class="col-md-8 container-fluid py-5">
+      <h1 class="display-5 fw-bold">{{ "#_jumbo1Title" | translate }}</h1>
+      <p class="col-md-8 fs-4">
+        OCADVersioner hjelper deg med å opprette og sammenligne versjoner av
+        ditt OCAD-kart på en enkel og oversiktlig måte.
+      </p>
+    </div>
+    <div class="col-md-4">
+      <div class="bg-body-secondary">
+        <p>Sett inn skjermbilde her</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="row align-items-md-stretch">
+    <div class="col-md-6">
+      <div class="h-100 p-5 text-bg-primary rounded-3">
+        <div class="d-flex align-items-stretch">
+          <h2 class="mx-2">
+            <i class="bi bi-laptop"></i>
+            Alt foregår lokalt
+          </h2>
+        </div>
+        <p>
+          OCADVersioner er et program som kjører i nettleseren, og trenger ikke
+          installeres. Alt foregår lokalt på din enhet, og ingen kartfiler blir
+          lastet opp til en server.
+        </p>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="h-100 p-5 text-bg-dark rounded-3">
+        <div class="d-flex align-items-stretch">
+          <h2 class="mx-2">
+            <i class="bi bi-plus-slash-minus"></i>
+            Se hvilke endringer som er gjort i kartet ditt
+          </h2>
+        </div>
+        <div class="d-flex">
+          <div class="col-md-6">
+            <p>
+              Splitt-visningen av kartet lar deg enkelt se hvilke symboler som
+              er lagt til mellom versjoner
+            </p>
+          </div>
+          <div class="col-md-6">
+            <p>GIF av diff-visning!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row p-5 mb-4 bg-body-tertiary rounded-3">
+    <h1>Hvordan fungerer det?</h1>
+    <div class="row">
+      <div class="col-md-6 d-flex align-items-center">
+        <p>
+          OCADVersioner baserer seg på at du har lagret OCAD-filen du vil
+          versjonere i en egen mappe for kartprosjektet. Denne mappen velger du
+          ved oppstart. Ved å gjøre det gir du nettleseren lese- og
+          skrivetilgang til filene i mappen.
+        </p>
+      </div>
+      <div class="col-md-6">
+        <img src="../../../assets/img/projectFolder.png" class="my-3" />
+        <img src="../../../assets/img/userConfirmation.png" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-6 d-flex align-items-center">
+        <p>
+          Etter å ha valgt prosjektmappen der du har lagret kartfilen, leses
+          kartet inn. OCADVersioner har nå opprettet en tom mappe i
+          prosjekt-mappen som heter "Releases". Dette er den eneste mappen
+          OCADVersioner kommer til å lese og skrive fra, så du kan trygt lagre
+          andre filer i prosjektmappen eller opprette mapper med andre navn.
+        </p>
+      </div>
+      <div class="col-md-6">
+        <img src="../../../assets/img/releases.png" class="my-3" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-6 d-flex align-items-center">
+        <p>
+          Når kartet er lest inn, er du klar for å opprette den første versjonen
+          av kartet. Ettersom det ikke finnes andre versjoner av kartet,
+          sammenlignes kartet med en tom kartfil.
+        </p>
+      </div>
+      <div class="col-md-6">
+        <img src="../../../assets/img/v1.png" class="my-3" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-6 d-flex align-items-center">
+        <p>
+          I det du lager en ny versjon av kartet, kopierer OCADVersioner
+          kartfilen inn i en mappe under Releases kalt V1.
+          <strong>V1.ocd</strong> er OCAD-filen slik den så ut på
+          versjonerings-tidspunktet. <strong>V1.json</strong> er en indeks-fil
+          brukt internt av OCADVersioner.
+        </p>
+      </div>
+      <div class="col-md-6">
+        <img src="../../../assets/img/v1Folder.png" class="my-3" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-6 d-flex align-items-center">
+        <p>
+          Når du nå lagrer endringer i OCAD, vil disse bli oppdaget av
+          OCADVersioner, som sammenligner symbolene i den valgte kartfilen med
+          siste versjon du har opprettet.
+        </p>
+      </div>
+      <div class="col-md-6">
+        <img src="../../../assets/img/noDiff.png" class="my-3 w-100" />
+        <img src="../../../assets/img/noDiff.png" class="my-3 w-100" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-6 d-flex align-items-center">
+        <p>
+          Denne tabellen viser hvilke symboler som er endret mellom versjonene.
+          Slik får du enkelt en oversikt over hva som er gjort siden sist, og du
+          kan kvalitetssikre at det som er lagt til, slettet og redigert stemmer
+          med hva som er gjort siden forrige versjon.
+        </p>
+      </div>
+      <div class="col-md-6">
+        <img src="../../../assets/img/diffTable.png" class="my-3 w-100" />
+      </div>
+    </div>
+  </div>
+
+  <div class="row p-5 my-4 bg-body-tertiary rounded-3">
+    <h1>Ofte stilte spørsmål</h1>
+    <p>Et avsnitt om støttede nettlesere</p>
+  </div>
+
+  <div class="row p-5 my-4 bg-body-tertiary rounded-3">
+    <h1 id="supportedBrowsers">Støttede nettlesere</h1>
+    <p>
+      OCADVersioner bruker
+      <a href="https://developer.mozilla.org/en-US/docs/Web/API/File_System_API"
+        >File System API</a
+      >
+      til å lese og skrive filer lokalt på din enhet. Dette støttes av de mest
+      populære nettleserne.
+      <a
+        href="https://developer.mozilla.org/en-US/docs/Web/API/window/showDirectoryPicker#browser_compatibility"
+        >Her ligger en oversikt</a
+      >
+      over hvilke nettlesere som har støtte for dette API-et, og dermed kan
+      bruke OCADVersioner.
+    </p>
+  </div>
+
+  <footer class="pt-3 my-4 text-body-secondary border-top">© 2023</footer>
+</div>

@@ -22,6 +22,7 @@ import {
 import { IofSymbolHelper } from '../iof-symbol-service/iof-symbol-service';
 import { getAreaOfPolygon, getDistance, getPathLength } from 'geolib';
 import { GeolibInputCoordinates } from 'geolib/es/types';
+// This import uses the complete EPSG index. Makes it many times larger than necessary. Consider optimizing!
 import { CoordinatesHelper } from '../coordinates-helper/coordinates-helper.service';
 
 @Injectable()
