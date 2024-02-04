@@ -5,6 +5,8 @@ import { BehaviorSubject } from 'rxjs';
 
 @Injectable()
 export class AppSettingsService {
+  public static DefaultLanguageCode: string = 'en';
+
   public appSettings$: BehaviorSubject<AppSettings> =
     new BehaviorSubject<AppSettings>({});
 
@@ -19,7 +21,12 @@ export class AppSettingsService {
 
   private readAppSettingsAsJson(): AppSettings {
     const json = localStorage.getItem('appSettings');
-    if (isNil(json)) return {};
+    if (isNil(json))
+      return {
+        languageSelection: {
+          selectedLanguageCode: AppSettingsService.DefaultLanguageCode,
+        },
+      };
     return JSON.parse(json);
   }
 }

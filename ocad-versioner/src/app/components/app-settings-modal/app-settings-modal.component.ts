@@ -5,7 +5,12 @@ import {
   OnInit,
   ViewChild,
 } from '@angular/core';
-import { FormControl, FormGroup, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormControl,
+  FormGroup,
+  Validators,
+} from '@angular/forms';
 import { AppSettingsService } from '../../services/app-settings-service/app-settings-service';
 import fullEpsgIndex from 'epsg-index/all.json';
 import { BehaviorSubject, Observable, filter, map, of } from 'rxjs';
@@ -19,6 +24,7 @@ import { isNil } from 'lodash-es';
   styleUrl: './app-settings-modal.component.scss',
 })
 export class AppSettingsModalComponent implements OnInit, AfterViewInit {
+  private static AcceptedLanguageCodes: string[] = ['en', 'no'];
   @ViewChild('openModalButton') openModalButton: ElementRef | null = null;
 
   private _epsgIndex: EpsgIndex;
@@ -26,6 +32,8 @@ export class AppSettingsModalComponent implements OnInit, AfterViewInit {
   public form: FormGroup<AppSettingsForm>;
   public selectedEpsgIndexItem$: BehaviorSubject<EpsgIndexItem | null> =
     new BehaviorSubject<EpsgIndexItem | null>(null);
+  public selectedLanguageCode$: BehaviorSubject<string> =
+    new BehaviorSubject<string>('');
 
   constructor(
     private appSettingsService: AppSettingsService // private translate: TranslateService
@@ -38,9 +46,19 @@ export class AppSettingsModalComponent implements OnInit, AfterViewInit {
           [Validators.min(1)]
         ),
       }),
+      languageSelection: new FormGroup<LanguageSelectionForm>({
+        selectedLanguageCode: new FormControl(
+          appSettings?.languageSelection?.selectedLanguageCode ?? 'en',
+          { validators: [this.languageCodeValidator] }
+        ),
+      }),
     });
     this._epsgIndex = fullEpsgIndex as EpsgIndex;
     this.epsgSuggestions$ = of([]);
+    this.selectedLanguageCode$.next(
+      appSettings?.languageSelection?.selectedLanguageCode ??
+        AppSettingsService.DefaultLanguageCode
+    );
     if (appSettings?.georeferencing?.epsgNumber)
       this.onEpsgItemSelected(appSettings.georeferencing.epsgNumber);
   }
@@ -95,6 +113,13 @@ export class AppSettingsModalComponent implements OnInit, AfterViewInit {
     this.selectedEpsgIndexItem$.next(this._epsgIndex[epsgIndex]);
   }
 
+  public onLanguageSelected(languageCode: string) {
+    this.form.controls.languageSelection?.controls.selectedLanguageCode?.setValue(
+      languageCode
+    );
+    this.selectedLanguageCode$.next(languageCode);
+  }
+
   public onRemoveEpsg(): void {
     this.form.controls.georeferencing?.controls.epsgNumber?.setValue(null);
     this.form.controls.georeferencing?.controls.epsgNumber?.enable();
@@ -109,14 +134,29 @@ export class AppSettingsModalComponent implements OnInit, AfterViewInit {
     if (!this.form.valid) return;
     this.appSettingsService.setAppSetting(this.form.value);
   }
+
+  private languageCodeValidator(
+    control: AbstractControl
+  ): { [key: string]: boolean } | null {
+    const isValid = AppSettingsModalComponent.AcceptedLanguageCodes.includes(
+      control.value
+    );
+    if (isValid) return null;
+    return { '#_notAcceptedLanguage': true };
+  }
 }
 
 interface AppSettingsForm {
   georeferencing?: FormGroup<GeoReferenceSettingsForm>;
+  languageSelection?: FormGroup<LanguageSelectionForm>;
 }
 
 interface GeoReferenceSettingsForm {
   epsgNumber?: FormControl<number | null>;
+}
+
+interface LanguageSelectionForm {
+  selectedLanguageCode?: FormControl<string | null>;
 }
 
 export interface EpsgIndexItem {
