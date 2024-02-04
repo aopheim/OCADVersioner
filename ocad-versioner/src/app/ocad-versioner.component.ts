@@ -112,6 +112,7 @@ export class OcadVersionerComponent implements OnInit {
           this._jsonDiffWorker?.postMessage({
             newVersion: current,
             oldVersion: versioned,
+            epsgcode: this._currentAppSettings?.georeferencing?.epsgNumber,
           } as JsonDiffServiceInput);
         })
       )

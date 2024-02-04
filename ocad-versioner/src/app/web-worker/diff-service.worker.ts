@@ -13,6 +13,7 @@ addEventListener('message', ({ data }) => {
   const diff: OcadDiffDto = JsonDiffService.calculateJsonDiff(
     diffDto.oldVersion,
     diffDto.newVersion,
+    diffDto?.epsgcode ?? undefined,
     reportProgress
   );
   postMessage(diff);
