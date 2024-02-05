@@ -5,14 +5,14 @@
     "node": ">=20.9.0"
   },
   "scripts": {
-    "setEnvs": "npx ts-node ./src/assets/scripts/setEnv.ts",
-    "ng": "ng",
-    "start": "ng serve",
     "build": "yarn setEnvs --environment=prod && ng build",
     "build:pr": "yarn test && ng build",
-    "watch": "ng build --watch --configuration development",
+    "ng": "ng",
+    "serve:ssr:ocad-versioner": "node dist/ocad-versioner/server/server.mjs",
+    "setEnvs": "npx ts-node ./src/assets/scripts/setEnv.ts",
+    "start": "ng serve",
     "test": "ng test",
-    "serve:ssr:ocad-versioner": "node dist/ocad-versioner/server/server.mjs"
+    "watch": "ng build --watch --configuration development"
   },
   "private": true,
   "dependencies": {
