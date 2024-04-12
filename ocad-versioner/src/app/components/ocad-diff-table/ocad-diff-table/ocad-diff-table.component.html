@@ -46,8 +46,18 @@
           <tr>
             <th>{{ symbol.symbolNumber | translate }}</th>
             <td>{{ symbol.symbolName | translate }}</td>
-            <td>{{ symbol?.symbolLengthInMeters | number : "1.0-1" }}</td>
-            <td>{{ symbol?.symbolAreaInSquareMeters | number : "1.0-1" }}</td>
+            <td>
+              {{ symbol?.symbolLengthInMeters | number : "1.0-0" }}
+              <span *ngIf="symbol?.symbolLengthInMeters">{{
+                "#_mAbbreviation" | translate
+              }}</span>
+            </td>
+            <td>
+              {{ symbol?.symbolAreaInSquareMeters | number : "1.0-0"
+              }}<span *ngIf="symbol?.symbolAreaInSquareMeters">
+                {{ "#_m2Abbreviation" | translate }}
+              </span>
+            </td>
             <td>{{ symbol?.createdAtUtc | date : "medium" }}</td>
             <td>{{ symbol?.lastEditedAtUtc | date : "medium" }}</td>
           </tr>

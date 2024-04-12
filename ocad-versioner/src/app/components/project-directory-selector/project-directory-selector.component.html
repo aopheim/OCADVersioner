@@ -51,7 +51,7 @@
         >
           <button
             id="selectCorrectOcadFileButton"
-            class="btn btn-primary dropdown-toggle"
+            class="btn btn-warning dropdown-toggle"
             type="button"
             data-bs-toggle="dropdown"
             aria-expanded="false"
@@ -69,7 +69,14 @@
         </div>
       </div>
       <ng-container *ngFor="let errorMessage of errorMessages">
-        <p class="text-danger">{{ errorMessage | translate }}</p>
+        <p class="text-danger">{{ errorMessage[1] | translate }}</p>
+        <a
+          *ngIf="
+            errorMessage[0] === DirectorySelectorErrorTypes.UnsupportedBrowser
+          "
+          href="./about#supportedBrowsers"
+          >{{ "#_supportedBrowsers" | translate }}</a
+        >
       </ng-container>
     </div>
   </div>

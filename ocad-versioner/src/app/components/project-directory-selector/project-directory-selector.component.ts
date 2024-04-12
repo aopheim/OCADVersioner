@@ -24,7 +24,8 @@ import { isNil } from 'lodash-es';
 export class ProjectDirectorySelectorComponent implements AfterViewInit {
   private projectDirectoryHandle: CustomFileSystemDirectoryHandle | null = null;
   public ocadFileNamesInProjectDirectory: string[] = [];
-  public errorMessages: string[] = [];
+  public errorMessages: [DirectorySelectorErrorTypes, string][] = [];
+  public DirectorySelectorErrorTypes = DirectorySelectorErrorTypes;
   @Output()
   public projectLoaded: EventEmitter<boolean> = new EventEmitter<boolean>();
   @ViewChild('openModalButton') openModalButton: ElementRef | null = null;
@@ -36,11 +37,12 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
   ) {
     this.projectDirectoryHandle = null;
     if (isNil(this.window.showDirectoryPicker))
-      this.errorMessages.push(
+      this.errorMessages.push([
+        DirectorySelectorErrorTypes.UnsupportedBrowser,
         this.getErrorMessageForErrorType(
           DirectorySelectorErrorTypes.UnsupportedBrowser
-        )
-      );
+        ),
+      ]);
   }
   ngAfterViewInit(): void {
     // Found no other way to trigger the modal without using jQuery...
@@ -62,11 +64,12 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
         this.ocadFileNamesInProjectDirectory.push(fileOrDirectoryName);
     }
     if (this.ocadFileNamesInProjectDirectory.length === 0) {
-      this.errorMessages.push(
+      this.errorMessages.push([
+        DirectorySelectorErrorTypes.MissingOcdFileInProjectDirectory,
         this.getErrorMessageForErrorType(
           DirectorySelectorErrorTypes.MissingOcdFileInProjectDirectory
-        )
-      );
+        ),
+      ]);
       return;
     }
     if (this.ocadFileNamesInProjectDirectory.length === 1) {
@@ -78,9 +81,10 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
           }
         );
       if (!currentOcdFileHandle) {
-        this.errorMessages.push(
-          `Could not read .ocd file ${this.ocadFileNamesInProjectDirectory[0]}`
-        );
+        this.errorMessages.push([
+          DirectorySelectorErrorTypes.CouldNotReadOcadFile,
+          `Could not read .ocd file ${this.ocadFileNamesInProjectDirectory[0]}`,
+        ]);
         return;
       }
       await this.setFileHandleTree(
@@ -100,7 +104,10 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
         create: false,
       });
     if (!currentOcdFileHandle) {
-      this.errorMessages.push(`Could not read .ocd file ${fileName}`);
+      this.errorMessages.push([
+        DirectorySelectorErrorTypes.CouldNotReadOcadFile,
+        `Could not read .ocd file ${fileName}`,
+      ]);
       return;
     }
     if (currentOcdFileHandle && this.projectDirectoryHandle)
@@ -145,4 +152,5 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
 enum DirectorySelectorErrorTypes {
   UnsupportedBrowser = 1,
   MissingOcdFileInProjectDirectory = 2,
+  CouldNotReadOcadFile = 3,
 }

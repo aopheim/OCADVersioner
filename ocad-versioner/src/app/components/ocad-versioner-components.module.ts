@@ -9,6 +9,7 @@ import { CreateVersionComponent } from './create-version/create-version.componen
 import { ReactiveFormsModule } from '@angular/forms';
 import { OcadVersionListComponent } from './ocad-version-list/ocad-version-list.component';
 import { CurrentVersionComparisonComponent } from './current-version-comparison/current-version-comparison.component';
+import { AppSettingsModalComponent } from './app-settings-modal/app-settings-modal.component';
 
 @NgModule({
   imports: [CommonModule, TranslateModule, ReactiveFormsModule],
@@ -20,6 +21,7 @@ import { CurrentVersionComparisonComponent } from './current-version-comparison/
     CreateVersionComponent,
     OcadVersionListComponent,
     CurrentVersionComparisonComponent,
+    AppSettingsModalComponent,
   ],
   exports: [
     OcadDiffTableComponent,
@@ -29,6 +31,7 @@ import { CurrentVersionComparisonComponent } from './current-version-comparison/
     CreateVersionComponent,
     OcadVersionListComponent,
     CurrentVersionComparisonComponent,
+    AppSettingsModalComponent,
   ],
 })
-export class OcadVersionerComponetsModule {}
+export class OcadVersionerComponentsModule {}

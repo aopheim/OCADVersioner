@@ -7,13 +7,8 @@ import {
 } from './json-diff-service.spec.models.polygons';
 
 describe('JsonDiffService - Polygons', () => {
-  let jsonDiffService: JsonDiffService;
-  beforeEach(() => {
-    jsonDiffService = new JsonDiffService();
-  });
-
   it('Adding three polygons should give three added', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       { features: [], type: 'FeatureCollection' },
       V1_Open_Marsh_Stones
     );
@@ -22,7 +17,7 @@ describe('JsonDiffService - Polygons', () => {
   });
 
   it('Editing three polygons should give three edited', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       V1_Open_Marsh_Stones,
       V2_EditAllThreePolygons
     );
@@ -34,7 +29,7 @@ describe('JsonDiffService - Polygons', () => {
   });
 
   it('Replacing marsh should give one deleted, one added', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       V2_EditAllThreePolygons,
       V3_ReplacedMarsh
     );
@@ -47,7 +42,7 @@ describe('JsonDiffService - Polygons', () => {
   });
 
   it('Change symbol from yellow to green should give one deleted one added', () => {
-    const res = jsonDiffService.getJsonDiff(
+    const res = JsonDiffService.calculateJsonDiff(
       V3_ReplacedMarsh,
       V4_ChangedSymbolOfYellowToGreen
     );
