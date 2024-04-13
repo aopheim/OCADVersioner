@@ -1,5 +1,6 @@
 {
-  "about": "Om",
+  "#_about": "Om",
+  "#_aboutPageLinkPt1": "Les mer om OCADVersioner her",
   "#_added": "Lagt til",
   "#_areaInSquareMeters": "Areal [m²]",
   "#_cancel": "Avbryt",

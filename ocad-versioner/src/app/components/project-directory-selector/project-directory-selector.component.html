@@ -1,5 +1,5 @@
 <div
-  class="modal fade"
+  class="modal"
   id="staticBackdrop"
   data-bs-backdrop="static"
   data-bs-keyboard="false"
@@ -18,9 +18,14 @@
         <p>
           {{ "#_projectDirectorySelectorText" | translate }}
         </p>
-        <p>
-          {{ "#_projectDirectorySelectorTextPt2" | translate }}
-        </p>
+        <div class="d-flex justify-content-start">
+          <a href="./about" class="btn btn-outline d-flex align-items-end">
+            <i class="bi bi-book h2"></i>
+            <p class="m-3">
+              {{ "#_aboutPageLinkPt1" | translate }}<a href="./about"></a>
+            </p>
+          </a>
+        </div>
         <button
           type="button"
           data-bs-toggle="modal"
@@ -36,10 +41,13 @@
         ></button>
       </div>
       <div class="modal-footer">
-        <div *ngIf="ocadFileNamesInProjectDirectory?.length === 0">
+        <div
+          *ngIf="ocadFileNamesInProjectDirectory?.length === 0"
+          class="w-100"
+        >
           <button
             type="button"
-            class="btn btn-primary"
+            class="btn btn-primary w-100"
             (click)="setProjectDirectory()"
           >
             {{ "#_chooseOcadDirectory" | translate }}
@@ -47,11 +55,11 @@
         </div>
         <div
           *ngIf="(ocadFileNamesInProjectDirectory?.length ?? 0) > 1"
-          class="dropdown"
+          class="dropdown w-100"
         >
           <button
             id="selectCorrectOcadFileButton"
-            class="btn btn-warning dropdown-toggle"
+            class="btn btn-warning dropdown-toggle w-100 text-wrap"
             type="button"
             data-bs-toggle="dropdown"
             aria-expanded="false"

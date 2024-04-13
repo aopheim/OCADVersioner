@@ -4,6 +4,7 @@ import {
   ElementRef,
   EventEmitter,
   Inject,
+  OnDestroy,
   Output,
   ViewChild,
 } from '@angular/core';
@@ -21,7 +22,9 @@ import { isNil } from 'lodash-es';
   templateUrl: './project-directory-selector.component.html',
   styleUrl: './project-directory-selector.component.scss',
 })
-export class ProjectDirectorySelectorComponent implements AfterViewInit {
+export class ProjectDirectorySelectorComponent
+  implements AfterViewInit, OnDestroy
+{
   private projectDirectoryHandle: CustomFileSystemDirectoryHandle | null = null;
   public ocadFileNamesInProjectDirectory: string[] = [];
   public errorMessages: [DirectorySelectorErrorTypes, string][] = [];
@@ -44,6 +47,10 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
         ),
       ]);
   }
+  ngOnDestroy(): void {
+    this.openModalButton?.nativeElement.click();
+  }
+
   ngAfterViewInit(): void {
     // Found no other way to trigger the modal without using jQuery...
     this.openModalButton?.nativeElement.click();

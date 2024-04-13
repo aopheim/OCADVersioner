@@ -14,12 +14,17 @@
   </div>
   <div class="d-flex justify-content-between align-items-center">
     <h3 class="my-2">{{ "#_OCADVersioner" | translate }}</h3>
-    <i
-      class="bi bi-sliders cursorPointer"
-      data-bs-toggle="modal"
-      data-bs-target="#appSettingsModal"
-    >
-    </i>
+    <div>
+      <a href="./about" target="_blank">
+        <i class="bi bi-book cursorPointer mx-3 h4 noColor"></i>
+      </a>
+      <i
+        class="bi bi-sliders cursorPointer mx-3 h4"
+        data-bs-toggle="modal"
+        data-bs-target="#appSettingsModal"
+      >
+      </i>
+    </div>
   </div>
   <project-directory-selector
     (projectLoaded)="setSelectedVersion(0)"
