@@ -8,6 +8,7 @@ export class ErrorHandlerService extends ErrorHandler {
   }
 
   public override handleError(error: Error) {
+    console.log('ErrorHandlerService received ', error);
     this.loggingService.logException(error);
   }
 }

@@ -49,6 +49,11 @@ export class ProjectDirectorySelectorComponent implements AfterViewInit {
     this.openModalButton?.nativeElement.click();
   }
 
+  public makeError(isNull?: string | null) {
+    // This will intentionally give NullException
+    isNull!.charAt(2);
+  }
+
   public async setProjectDirectory() {
     const directoryPickerOptions: ShowDirectoryPickerOptions = {
       mode: 'readwrite',
