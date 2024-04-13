@@ -1,5 +1,6 @@
 {
-  "about": "About",
+  "#_about": "About",
+  "#_aboutPageLinkPt1": "Read more about OCADVersioner here",
   "#_added": "Added",
   "#_areaInSquareMeters": "Area [m²]",
   "#_cancel": "Cancel",

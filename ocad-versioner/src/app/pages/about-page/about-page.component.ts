@@ -1,12 +1,23 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { TranslateModule } from '@ngx-translate/core';
+import { Router } from '@angular/router';
+import { TranslateService } from '@ngx-translate/core';
 
 @Component({
   selector: 'about-page',
-  standalone: true,
-  imports: [CommonModule, TranslateModule],
   templateUrl: './about-page.component.html',
   styleUrl: './about-page.component.scss',
 })
-export class AboutPageComponent {}
+export class AboutPageComponent {
+  constructor(
+    private router: Router,
+    private translateService: TranslateService
+  ) {}
+
+  public selectLanguage(countryCode: string): void {
+    this.translateService.use(countryCode);
+  }
+
+  public navigateToMainPage(): void {
+    this.router.navigate(['./']);
+  }
+}
