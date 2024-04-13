@@ -1,5 +1,5 @@
 {
-  "about": "About",
+  "#_about": "About",
   "#_added": "Added",
   "#_areaInSquareMeters": "Area [m²]",
   "#_cancel": "Cancel",
