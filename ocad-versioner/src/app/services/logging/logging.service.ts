@@ -54,15 +54,21 @@ export class LoggingService {
   }
 
   public logException(
-    exception: Error,
-    severityLevel?: number,
+    error: Error,
+    severityLevel: eSeverityLevel = eSeverityLevel.Critical,
     logToConsole: boolean = true
   ) {
     this.appInsights?.trackException({
-      exception: exception,
+      exception: error,
       severityLevel: severityLevel,
+      properties: {
+        stack: error.stack,
+        cause: error.cause,
+        message: error.message,
+        name: error.name,
+      } as LoggingDetails,
     });
-    if (logToConsole) console.error(exception);
+    if (logToConsole) console.error(error);
   }
 
   public logInformation(
@@ -109,4 +115,11 @@ export class LoggingService {
     );
     if (logToConsole) console.error(message);
   }
+}
+
+interface LoggingDetails {
+  stack: string;
+  cause: string;
+  message: string;
+  name: string;
 }
