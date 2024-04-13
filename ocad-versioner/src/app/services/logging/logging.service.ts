@@ -55,7 +55,7 @@ export class LoggingService {
 
   public logException(
     exception: Error,
-    severityLevel?: number,
+    severityLevel: eSeverityLevel = eSeverityLevel.Critical,
     logToConsole: boolean = true
   ) {
     this.appInsights?.trackException({

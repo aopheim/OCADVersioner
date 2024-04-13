@@ -45,6 +45,20 @@
             {{ "#_chooseOcadDirectory" | translate }}
           </button>
         </div>
+        <!-- 
+          Intentionally testing error logging!
+         -->
+        <div>
+          <button
+            id="exception-test"
+            class="btn btn-warning"
+            type="button"
+            aria-expanded="false"
+            (click)="makeError(null)"
+          >
+            Test exception-logging!
+          </button>
+        </div>
         <div
           *ngIf="(ocadFileNamesInProjectDirectory?.length ?? 0) > 1"
           class="dropdown"
