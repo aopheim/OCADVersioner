@@ -34,7 +34,7 @@ jobs:
           echo ".env file created and contains: "
           cat .env
       - name: Archive production artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: env-file
           path: .env
@@ -51,7 +51,7 @@ jobs:
           submodules: true
           lfs: false
       - name: Download artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: env-file
           path: .
