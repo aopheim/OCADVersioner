@@ -6,12 +6,13 @@
   },
   "scripts": {
     "build": "yarn setEnvs --environment=prod && ng build",
-    "build:pr": "yarn test && ng build",
+    "build:pr": "yarn test:server && ng build",
     "ng": "ng",
     "serve:ssr:ocad-versioner": "node dist/ocad-versioner/server/server.mjs",
     "setEnvs": "npx ts-node ./src/assets/scripts/setEnv.ts",
     "start": "ng serve",
     "test": "ng test",
+    "test:server": "ng test --browsers ChromeHeadless --watch=false",
     "watch": "ng build --watch --configuration development"
   },
   "private": true,

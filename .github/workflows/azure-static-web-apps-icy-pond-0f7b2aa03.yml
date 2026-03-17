@@ -6,6 +6,24 @@ on:
       - main
 
 jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Use Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "20.9"
+
+      - name: Run yarn test:server
+        run: |
+          cd ocad-versioner
+          yarn install
+          yarn test:server
+
   create-envfile:
     runs-on: ubuntu-latest
     steps:
@@ -16,10 +34,12 @@ jobs:
           echo ".env file created and contains: "
           cat .env
       - name: Archive production artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: env-file
-          path: .env
+          path: ./.env
+          if-no-files-found: error
+          include-hidden-files: true
 
   build_and_deploy_job:
     needs: create-envfile
@@ -33,7 +53,7 @@ jobs:
           submodules: true
           lfs: false
       - name: Download artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: env-file
           path: .

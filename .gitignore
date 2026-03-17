@@ -1,13 +1,13 @@
 # See http://help.github.com/ignore-files/ for more about ignoring files.
 
 # Compiled output
-/dist
-/tmp
-/out-tsc
-/bazel-out
+ocad-versioner/dist
+ocad-versioner/tmp
+ocad-versioner/out-tsc
+ocad-versioner/bazel-out
 
 # Node
-/node_modules
+ocad-versioner/node_modules
 npm-debug.log
 yarn-error.log
 
@@ -29,7 +29,7 @@ yarn-error.log
 .history/*
 
 # Miscellaneous
-/.angular/cache
+ocad-versioner/.angular/cache
 .sass-cache/
 /connect.lock
 /coverage
@@ -42,6 +42,6 @@ testem.log
 Thumbs.db
 
 # Angular environment variables created in CI pipeline  
-environment.prod.ts
-environment.ts
+# environment.prod.ts
+# environment.ts
 .env
