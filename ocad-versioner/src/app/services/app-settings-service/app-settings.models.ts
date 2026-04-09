@@ -1,12 +1,12 @@
 export interface AppSettings {
-  georeferencing?: GeoReferenceSettings;
-  languageSelection?: LanguageSelectionSettings;
+    georeferencing?: GeoReferenceSettings
+    languageSelection?: LanguageSelectionSettings
 }
 
 export interface GeoReferenceSettings {
-  epsgNumber?: number | null;
+    epsgNumber?: number | null
 }
 
 export interface LanguageSelectionSettings {
-  selectedLanguageCode?: string | null;
+    selectedLanguageCode?: string | null
 }

@@ -1,7 +1,7 @@
-import { FeatureCollection } from 'geojson';
+import { FeatureCollection } from 'geojson'
 
 export interface JsonDiffServiceInput {
-  oldVersion: FeatureCollection;
-  newVersion: FeatureCollection;
-  epsgcode: number | null;
+    oldVersion: FeatureCollection
+    newVersion: FeatureCollection
+    epsgcode: number | null
 }

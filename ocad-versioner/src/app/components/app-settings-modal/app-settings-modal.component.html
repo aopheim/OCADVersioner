@@ -1,198 +1,256 @@
 <div
-  class="modal fade"
-  id="appSettingsModal"
-  tabindex="-1"
-  aria-labelledby="appSettings"
-  aria-hidden="true"
+    class="modal fade"
+    id="appSettingsModal"
+    tabindex="-1"
+    aria-labelledby="appSettings"
+    aria-hidden="true"
 >
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header d-flex">
-        <div class="w-100 d-flex align-items-center">
-          <i class="bi bi-sliders mx-2"></i>
-          <h1 class="modal-title fs-3" id="exampleModalLabel">
-            {{ "#_settings" | translate }}
-          </h1>
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="modal"
-            aria-label="Close"
-          ></button>
-        </div>
-      </div>
-      <div class="modal-body">
-        <div class="mb-3">
-          <form [formGroup]="form" class="needs-validation" novalidate>
-            <div formGroupName="languageSelection">
-              <label class="form-label" for="languageSelection">{{
-                "#_language" | translate
-              }}</label>
-              <div
-                class="row"
-                *ngIf="selectedLanguageCode$ | async as selectedLanguageCode"
-              >
-                <div class="col-1" (click)="onLanguageSelected('no')">
-                  <div
-                    class="border"
-                    [ngClass]="{
-                      'border-4 border-success': selectedLanguageCode === 'no'
-                    }"
-                  >
-                    <span>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        id="flag-icons-no"
-                        viewBox="0 0 640 480"
-                      >
-                        <path fill="#ed2939" d="M0 0h640v480H0z" />
-                        <path fill="#fff" d="M180 0h120v480H180z" />
-                        <path fill="#fff" d="M0 180h640v120H0z" />
-                        <path fill="#002664" d="M210 0h60v480h-60z" />
-                        <path fill="#002664" d="M0 210h640v60H0z" />
-                      </svg>
-                    </span>
-                  </div>
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header d-flex">
+                <div class="w-100 d-flex align-items-center">
+                    <i class="bi bi-sliders mx-2"></i>
+                    <h1 class="modal-title fs-3" id="exampleModalLabel">
+                        {{ '#_settings' | translate }}
+                    </h1>
+                    <button
+                        type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Close"
+                    ></button>
                 </div>
-                <div class="col-1" (click)="onLanguageSelected('en')">
-                  <div
-                    class="border"
-                    [ngClass]="{
-                      'border-4 border-success': selectedLanguageCode === 'en'
-                    }"
-                  >
-                    <span>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        id="flag-icons-gb"
-                        viewBox="0 0 640 480"
-                      >
-                        <path fill="#012169" d="M0 0h640v480H0z" />
-                        <path
-                          fill="#FFF"
-                          d="m75 0 244 181L562 0h78v62L400 241l240 178v61h-80L320 301 81 480H0v-60l239-178L0 64V0z"
-                        />
-                        <path
-                          fill="#C8102E"
-                          d="m424 281 216 159v40L369 281zm-184 20 6 35L54 480H0zM640 0v3L391 191l2-44L590 0zM0 0l239 176h-60L0 42z"
-                        />
-                        <path
-                          fill="#FFF"
-                          d="M241 0v480h160V0zM0 160v160h640V160z"
-                        />
-                        <path
-                          fill="#C8102E"
-                          d="M0 193v96h640v-96zM273 0v480h96V0z"
-                        />
-                      </svg>
-                    </span>
-                  </div>
-                </div>
-              </div>
             </div>
-            <div formGroupName="georeferencing" class="mt-2">
-              <label class="form-label" for="epsgNumber"
-                >{{ "#_georeferencing" | translate }}
-              </label>
-              <a
-                data-bs-container="body"
-                data-bs-toggle="popover"
-                data-bs-placement="top"
-                data-bs-html="true"
-              >
-                <i class="bi bi-question-circle mx-2 pointer"></i>
-              </a>
-              <div class="input-group">
-                <div class="d-flex col-6">
-                  <span class="input-group-text">{{
-                    "#_epsgColon" | translate
-                  }}</span>
-                  <input
-                    id="epsgNumber"
-                    class="form-control"
-                    type="text"
-                    formControlName="epsgNumber"
-                    placeholder="{{ '#_epsgNumberPlaceholder' | translate }}"
-                  />
+            <div class="modal-body">
+                <div class="mb-3">
+                    <form
+                        [formGroup]="form"
+                        class="needs-validation"
+                        novalidate
+                    >
+                        <div formGroupName="languageSelection">
+                            <label class="form-label" for="languageSelection">{{
+                                '#_language' | translate
+                            }}</label>
+                            <div
+                                class="row"
+                                *ngIf="
+                                    selectedLanguageCode$
+                                        | async as selectedLanguageCode
+                                "
+                            >
+                                <div
+                                    class="col-1"
+                                    (click)="onLanguageSelected('no')"
+                                >
+                                    <div
+                                        class="border"
+                                        [ngClass]="{
+                                            'border-4 border-success':
+                                                selectedLanguageCode === 'no',
+                                        }"
+                                    >
+                                        <span>
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                id="flag-icons-no"
+                                                viewBox="0 0 640 480"
+                                            >
+                                                <path
+                                                    fill="#ed2939"
+                                                    d="M0 0h640v480H0z"
+                                                />
+                                                <path
+                                                    fill="#fff"
+                                                    d="M180 0h120v480H180z"
+                                                />
+                                                <path
+                                                    fill="#fff"
+                                                    d="M0 180h640v120H0z"
+                                                />
+                                                <path
+                                                    fill="#002664"
+                                                    d="M210 0h60v480h-60z"
+                                                />
+                                                <path
+                                                    fill="#002664"
+                                                    d="M0 210h640v60H0z"
+                                                />
+                                            </svg>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div
+                                    class="col-1"
+                                    (click)="onLanguageSelected('en')"
+                                >
+                                    <div
+                                        class="border"
+                                        [ngClass]="{
+                                            'border-4 border-success':
+                                                selectedLanguageCode === 'en',
+                                        }"
+                                    >
+                                        <span>
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                id="flag-icons-gb"
+                                                viewBox="0 0 640 480"
+                                            >
+                                                <path
+                                                    fill="#012169"
+                                                    d="M0 0h640v480H0z"
+                                                />
+                                                <path
+                                                    fill="#FFF"
+                                                    d="m75 0 244 181L562 0h78v62L400 241l240 178v61h-80L320 301 81 480H0v-60l239-178L0 64V0z"
+                                                />
+                                                <path
+                                                    fill="#C8102E"
+                                                    d="m424 281 216 159v40L369 281zm-184 20 6 35L54 480H0zM640 0v3L391 191l2-44L590 0zM0 0l239 176h-60L0 42z"
+                                                />
+                                                <path
+                                                    fill="#FFF"
+                                                    d="M241 0v480h160V0zM0 160v160h640V160z"
+                                                />
+                                                <path
+                                                    fill="#C8102E"
+                                                    d="M0 193v96h640v-96zM273 0v480h96V0z"
+                                                />
+                                            </svg>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div formGroupName="georeferencing" class="mt-2">
+                            <label class="form-label" for="epsgNumber"
+                                >{{ '#_georeferencing' | translate }}
+                            </label>
+                            <a
+                                data-bs-container="body"
+                                data-bs-toggle="popover"
+                                data-bs-placement="top"
+                                data-bs-html="true"
+                            >
+                                <i
+                                    class="bi bi-question-circle mx-2 pointer"
+                                ></i>
+                            </a>
+                            <div class="input-group">
+                                <div class="d-flex col-6">
+                                    <span class="input-group-text">{{
+                                        '#_epsgColon' | translate
+                                    }}</span>
+                                    <input
+                                        id="epsgNumber"
+                                        class="form-control"
+                                        type="text"
+                                        formControlName="epsgNumber"
+                                        placeholder="{{
+                                            '#_epsgNumberPlaceholder'
+                                                | translate
+                                        }}"
+                                    />
+                                </div>
+                                <div class="col-6 d-flex align-items-center">
+                                    <div
+                                        class="mx-2 d-flex justify-content-between w-100"
+                                        *ngIf="
+                                            selectedEpsgIndexItem$
+                                                | async as selectedEpsgIndexItem;
+                                            else noEpsgSelected
+                                        "
+                                    >
+                                        <div>
+                                            <span class="mx-1">
+                                                <strong>{{
+                                                    selectedEpsgIndexItem.code
+                                                }}</strong>
+                                            </span>
+                                            -
+                                            <span class="mx-1">{{
+                                                selectedEpsgIndexItem.name
+                                            }}</span>
+                                        </div>
+                                        <div
+                                            (click)="onRemoveEpsg()"
+                                            class="pointer"
+                                        >
+                                            <i class="bi bi-x-circle"></i>
+                                        </div>
+                                    </div>
+                                    <ng-template #noEpsgSelected>
+                                        <div class="mx-2">
+                                            <span>
+                                                <em>
+                                                    {{
+                                                        '#_noGeoReferencingSet'
+                                                            | translate
+                                                    }}
+                                                </em>
+                                            </span>
+                                        </div>
+                                    </ng-template>
+                                </div>
+                            </div>
+                            <div
+                                class="list-group"
+                                *ngIf="!(selectedEpsgIndexItem$ | async)"
+                            >
+                                <div
+                                    *ngFor="
+                                        let epsgItem of epsgSuggestions$ | async
+                                    "
+                                >
+                                    <a
+                                        href="#"
+                                        class="list-group-item list-group-item-action"
+                                        aria-current="true"
+                                        (click)="
+                                            onEpsgItemSelected(+epsgItem.code)
+                                        "
+                                    >
+                                        <div class="d-flex">
+                                            <p class="mx-2">
+                                                <strong>
+                                                    {{ epsgItem.code }}
+                                                </strong>
+                                            </p>
+                                            -
+                                            <p class="mx-2">
+                                                <em>
+                                                    {{ epsgItem.name }}
+                                                </em>
+                                            </p>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
                 </div>
-                <div class="col-6 d-flex align-items-center">
-                  <div
-                    class="mx-2 d-flex justify-content-between w-100"
-                    *ngIf="
-                      selectedEpsgIndexItem$ | async as selectedEpsgIndexItem;
-                      else noEpsgSelected
-                    "
-                  >
-                    <div>
-                      <span class="mx-1">
-                        <strong>{{ selectedEpsgIndexItem.code }}</strong>
-                      </span>
-                      -
-                      <span class="mx-1">{{ selectedEpsgIndexItem.name }}</span>
-                    </div>
-                    <div (click)="onRemoveEpsg()" class="pointer">
-                      <i class="bi bi-x-circle"></i>
-                    </div>
-                  </div>
-                  <ng-template #noEpsgSelected>
-                    <div class="mx-2">
-                      <span>
-                        <em>
-                          {{ "#_noGeoReferencingSet" | translate }}
-                        </em>
-                      </span>
-                    </div>
-                  </ng-template>
-                </div>
-              </div>
-              <div class="list-group" *ngIf="!(selectedEpsgIndexItem$ | async)">
-                <div *ngFor="let epsgItem of epsgSuggestions$ | async">
-                  <a
-                    href="#"
-                    class="list-group-item list-group-item-action"
-                    aria-current="true"
-                    (click)="onEpsgItemSelected(+epsgItem.code)"
-                  >
-                    <div class="d-flex">
-                      <p class="mx-2">
-                        <strong>
-                          {{ epsgItem.code }}
-                        </strong>
-                      </p>
-                      -
-                      <p class="mx-2">
-                        <em>
-                          {{ epsgItem.name }}
-                        </em>
-                      </p>
-                    </div>
-                  </a>
-                </div>
-              </div>
             </div>
-          </form>
+            <div class="modal-footer">
+                <button
+                    (click)="onCancelClicked()"
+                    type="button"
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal"
+                >
+                    {{ '#_cancel' | translate }}
+                </button>
+                <button
+                    (click)="onSaveClicked()"
+                    type="button"
+                    class="btn btn-primary"
+                    [ngClass]="!form.valid ? 'disabled' : ''"
+                    [disabled]="!form.valid"
+                    data-bs-dismiss="modal"
+                >
+                    {{ '#_save' | translate }}
+                </button>
+            </div>
         </div>
-      </div>
-      <div class="modal-footer">
-        <button
-          (click)="onCancelClicked()"
-          type="button"
-          class="btn btn-secondary"
-          data-bs-dismiss="modal"
-        >
-          {{ "#_cancel" | translate }}
-        </button>
-        <button
-          (click)="onSaveClicked()"
-          type="button"
-          class="btn btn-primary"
-          [ngClass]="!form.valid ? 'disabled' : ''"
-          [disabled]="!form.valid"
-          data-bs-dismiss="modal"
-        >
-          {{ "#_save" | translate }}
-        </button>
-      </div>
     </div>
-  </div>
 </div>

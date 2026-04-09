@@ -1,58 +1,58 @@
 <div class="mt-3">
-  <ul class="nav nav-tabs nav-fill">
-    <li
-      class="nav-item"
-      (click)="setSelectedTableView(OcadDiffTableView.Added)"
-    >
-      <a
-        class="nav-link fst-normal"
-        [ngClass]="{
-          active: currentView === OcadDiffTableView.Added
-        }"
-        style="color: black; cursor: pointer"
-        >{{ "#_added" | translate }}
-        <span
-          *ngIf="(diffTable?.added?.length ?? 0) > 0"
-          class="mx-2 badge text-bg-secondary"
-          >{{ diffTable?.added?.length ?? 0 }}</span
+    <ul class="nav nav-tabs nav-fill">
+        <li
+            class="nav-item"
+            (click)="setSelectedTableView(OcadDiffTableView.Added)"
         >
-      </a>
-    </li>
-    <li
-      class="nav-item"
-      (click)="setSelectedTableView(OcadDiffTableView.Updated)"
-    >
-      <a
-        class="nav-link"
-        [ngClass]="{
-          active: currentView === OcadDiffTableView.Updated
-        }"
-        style="color: black; cursor: pointer"
-        >{{ "#_edited" | translate }}
-        <span
-          *ngIf="(diffTable?.edited?.length ?? 0) > 0"
-          class="mx-2 badge text-bg-secondary"
-          >{{ diffTable?.edited?.length ?? 0 }}</span
-        ></a
-      >
-    </li>
-    <li
-      class="nav-item"
-      (click)="setSelectedTableView(OcadDiffTableView.Deleted)"
-    >
-      <a
-        class="nav-link"
-        [ngClass]="{
-          active: currentView === OcadDiffTableView.Deleted
-        }"
-        style="color: black; cursor: pointer"
-        >{{ "#_deleted" | translate }}
-        <span
-          *ngIf="(diffTable?.deleted?.length ?? 0) > 0"
-          class="mx-2 badge text-bg-secondary"
-          >{{ diffTable?.deleted?.length ?? 0 }}</span
-        ></a
-      >
-    </li>
-  </ul>
+            <a
+                class="nav-link fst-normal"
+                [ngClass]="{
+                    active: currentView === OcadDiffTableView.Added,
+                }"
+                style="color: black; cursor: pointer"
+                >{{ '#_added' | translate }}
+                <span
+                    *ngIf="(diffTable?.added?.length ?? 0) > 0"
+                    class="mx-2 badge text-bg-secondary"
+                    >{{ diffTable?.added?.length ?? 0 }}</span
+                >
+            </a>
+        </li>
+        <li
+            class="nav-item"
+            (click)="setSelectedTableView(OcadDiffTableView.Updated)"
+        >
+            <a
+                class="nav-link"
+                [ngClass]="{
+                    active: currentView === OcadDiffTableView.Updated,
+                }"
+                style="color: black; cursor: pointer"
+                >{{ '#_edited' | translate }}
+                <span
+                    *ngIf="(diffTable?.edited?.length ?? 0) > 0"
+                    class="mx-2 badge text-bg-secondary"
+                    >{{ diffTable?.edited?.length ?? 0 }}</span
+                ></a
+            >
+        </li>
+        <li
+            class="nav-item"
+            (click)="setSelectedTableView(OcadDiffTableView.Deleted)"
+        >
+            <a
+                class="nav-link"
+                [ngClass]="{
+                    active: currentView === OcadDiffTableView.Deleted,
+                }"
+                style="color: black; cursor: pointer"
+                >{{ '#_deleted' | translate }}
+                <span
+                    *ngIf="(diffTable?.deleted?.length ?? 0) > 0"
+                    class="mx-2 badge text-bg-secondary"
+                    >{{ diffTable?.deleted?.length ?? 0 }}</span
+                ></a
+            >
+        </li>
+    </ul>
 </div>
