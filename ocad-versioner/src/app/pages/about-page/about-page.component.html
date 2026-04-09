@@ -1,261 +1,272 @@
 <div class="container py-4">
-  <header class="pb-3 mb-4 border-bottom">
-    <div
-      class="d-flex align-items-center justify-content-between text-body-emphasis text-decoration-none"
-    >
-      <title>
-        {{ "#_OCADVersioner" | translate }} - {{ "#_about" | translate }}
-      </title>
-
-      <span class="fs-4 pointer" (click)="navigateToMainPage()"
-        >{{ "#_OCADVersioner" | translate }}
-      </span>
-
-      <div class="d-flex justify-content-end">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          id="flag-icons-no"
-          viewBox="0 0 640 480"
-          class="w-10 mx-2 pointer"
-          (click)="selectLanguage('no')"
+    <header class="pb-3 mb-4 border-bottom">
+        <div
+            class="d-flex align-items-center justify-content-between text-body-emphasis text-decoration-none"
         >
-          <path fill="#ed2939" d="M0 0h640v480H0z" />
-          <path fill="#fff" d="M180 0h120v480H180z" />
-          <path fill="#fff" d="M0 180h640v120H0z" />
-          <path fill="#002664" d="M210 0h60v480h-60z" />
-          <path fill="#002664" d="M0 210h640v60H0z" />
-        </svg>
+            <title>
+                {{ '#_OCADVersioner' | translate }} -
+                {{ '#_about' | translate }}
+            </title>
 
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          id="flag-icons-gb"
-          viewBox="0 0 640 480"
-          class="w-10 pointer"
-          (click)="selectLanguage('en')"
-        >
-          <path fill="#012169" d="M0 0h640v480H0z" />
-          <path
-            fill="#FFF"
-            d="m75 0 244 181L562 0h78v62L400 241l240 178v61h-80L320 301 81 480H0v-60l239-178L0 64V0z"
-          />
-          <path
-            fill="#C8102E"
-            d="m424 281 216 159v40L369 281zm-184 20 6 35L54 480H0zM640 0v3L391 191l2-44L590 0zM0 0l239 176h-60L0 42z"
-          />
-          <path fill="#FFF" d="M241 0v480h160V0zM0 160v160h640V160z" />
-          <path fill="#C8102E" d="M0 193v96h640v-96zM273 0v480h96V0z" />
-        </svg>
-      </div>
-    </div>
-  </header>
+            <span class="fs-4 pointer" (click)="navigateToMainPage()"
+                >{{ '#_OCADVersioner' | translate }}
+            </span>
 
-  <div class="row p-5 mb-4 bg-body-tertiary rounded-3">
-    <div class="col-md-8 container-fluid py-5">
-      <h1 class="display-5 fw-bold">{{ "#_jumbo1Title" | translate }}</h1>
-      <p class="col-md-8 fs-4">
-        OCADVersioner hjelper deg med å opprette og sammenligne versjoner av
-        ditt OCAD-kart på en enkel og oversiktlig måte.
-      </p>
-    </div>
-    <div class="col-md-4">
-      <div class="bg-body-secondary">
-        <p>Sett inn skjermbilde her</p>
-      </div>
-    </div>
-  </div>
+            <div class="d-flex justify-content-end">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    id="flag-icons-no"
+                    viewBox="0 0 640 480"
+                    class="w-10 mx-2 pointer"
+                    (click)="selectLanguage('no')"
+                >
+                    <path fill="#ed2939" d="M0 0h640v480H0z" />
+                    <path fill="#fff" d="M180 0h120v480H180z" />
+                    <path fill="#fff" d="M0 180h640v120H0z" />
+                    <path fill="#002664" d="M210 0h60v480h-60z" />
+                    <path fill="#002664" d="M0 210h640v60H0z" />
+                </svg>
 
-  <div class="row align-items-md-stretch">
-    <div class="col-md-6 my-3">
-      <div class="h-100 p-5 text-bg-primary rounded-3">
-        <div class="d-flex align-items-stretch">
-          <h2 class="mx-2">
-            <i class="bi bi-laptop"></i>
-            Alt foregår lokalt
-          </h2>
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    id="flag-icons-gb"
+                    viewBox="0 0 640 480"
+                    class="w-10 pointer"
+                    (click)="selectLanguage('en')"
+                >
+                    <path fill="#012169" d="M0 0h640v480H0z" />
+                    <path
+                        fill="#FFF"
+                        d="m75 0 244 181L562 0h78v62L400 241l240 178v61h-80L320 301 81 480H0v-60l239-178L0 64V0z"
+                    />
+                    <path
+                        fill="#C8102E"
+                        d="m424 281 216 159v40L369 281zm-184 20 6 35L54 480H0zM640 0v3L391 191l2-44L590 0zM0 0l239 176h-60L0 42z"
+                    />
+                    <path
+                        fill="#FFF"
+                        d="M241 0v480h160V0zM0 160v160h640V160z"
+                    />
+                    <path
+                        fill="#C8102E"
+                        d="M0 193v96h640v-96zM273 0v480h96V0z"
+                    />
+                </svg>
+            </div>
         </div>
-        <p>
-          OCADVersioner er et program som kjører i nettleseren, og trenger ikke
-          installeres. Alt foregår lokalt på din enhet, og ingen kartfiler blir
-          lastet opp til en server.
-        </p>
-      </div>
-    </div>
-    <div class="col-md-6 my-3">
-      <div class="h-100 p-5 text-bg-dark rounded-3">
-        <div class="d-flex align-items-stretch">
-          <h2 class="mx-2">
-            <i class="bi bi-plus-slash-minus"></i>
-            Se hvilke endringer som er gjort i kartet ditt
-          </h2>
-        </div>
-        <div class="d-flex">
-          <div>
-            <p>
-              Splitt-visningen av kartet lar deg enkelt se hvilke symboler som
-              er lagt til mellom versjoner
+    </header>
+
+    <div class="row p-5 mb-4 bg-body-tertiary rounded-3">
+        <div class="col-md-8 container-fluid py-5">
+            <h1 class="display-5 fw-bold">{{ '#_jumbo1Title' | translate }}</h1>
+            <p class="col-md-8 fs-4">
+                OCADVersioner hjelper deg med å opprette og sammenligne
+                versjoner av ditt OCAD-kart på en enkel og oversiktlig måte.
             </p>
-          </div>
         </div>
-      </div>
+        <div class="col-md-4">
+            <div class="bg-body-secondary">
+                <p>Sett inn skjermbilde her</p>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <div class="row p-5 mb-4 bg-body-tertiary rounded-3">
-    <h1>Hvordan fungerer det?</h1>
-    <div class="row">
-      <div class="col-md-6 d-flex align-items-center">
-        <p>
-          OCADVersioner baserer seg på at du har lagret OCAD-filen du vil
-          versjonere i en egen mappe for kartprosjektet. Denne mappen velger du
-          ved oppstart. Ved å gjøre det gir du nettleseren lese- og
-          skrivetilgang til filene i mappen.
-        </p>
-      </div>
-      <div class="col-md-6">
-        <a
-          href="https://ocadversioner.blob.core.windows.net/about-page-imgs/projectFolder.png"
-        >
-          <img
-            src="https://ocadversioner.blob.core.windows.net/about-page-imgs/projectFolder.png"
-            class="my-3 w-100"
-          />
-        </a>
-        <a
-          href="https://ocadversioner.blob.core.windows.net/about-page-imgs/userConfirmation.png"
-        >
-          <img
-            src="https://ocadversioner.blob.core.windows.net/about-page-imgs/userConfirmation.png"
-            class="my-3 w-100"
-          />
-        </a>
-      </div>
+    <div class="row align-items-md-stretch">
+        <div class="col-md-6 my-3">
+            <div class="h-100 p-5 text-bg-primary rounded-3">
+                <div class="d-flex align-items-stretch">
+                    <h2 class="mx-2">
+                        <i class="bi bi-laptop"></i>
+                        Alt foregår lokalt
+                    </h2>
+                </div>
+                <p>
+                    OCADVersioner er et program som kjører i nettleseren, og
+                    trenger ikke installeres. Alt foregår lokalt på din enhet,
+                    og ingen kartfiler blir lastet opp til en server.
+                </p>
+            </div>
+        </div>
+        <div class="col-md-6 my-3">
+            <div class="h-100 p-5 text-bg-dark rounded-3">
+                <div class="d-flex align-items-stretch">
+                    <h2 class="mx-2">
+                        <i class="bi bi-plus-slash-minus"></i>
+                        Se hvilke endringer som er gjort i kartet ditt
+                    </h2>
+                </div>
+                <div class="d-flex">
+                    <div>
+                        <p>
+                            Splitt-visningen av kartet lar deg enkelt se hvilke
+                            symboler som er lagt til mellom versjoner
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="row">
-      <div class="col-md-6 d-flex align-items-center">
-        <p>
-          Etter å ha valgt prosjektmappen der du har lagret kartfilen, leses
-          kartet inn. OCADVersioner har nå opprettet en tom mappe i
-          prosjekt-mappen som heter "Releases". Dette er den eneste mappen
-          OCADVersioner kommer til å lese og skrive fra, så du kan trygt lagre
-          andre filer i prosjektmappen eller opprette mapper med andre navn.
-        </p>
-      </div>
-      <div class="col-md-6">
-        <a
-          href="https://ocadversioner.blob.core.windows.net/about-page-imgs/releases.png"
-        >
-          <img
-            src="https://ocadversioner.blob.core.windows.net/about-page-imgs/releases.png"
-            class="my-3 w-100"
-          />
-        </a>
-      </div>
-    </div>
-    <div class="row">
-      <div class="col-md-6 d-flex align-items-center">
-        <p>
-          Når kartet er lest inn, er du klar for å opprette den første versjonen
-          av kartet. Ettersom det ikke finnes andre versjoner av kartet,
-          sammenlignes kartet med en tom kartfil.
-        </p>
-      </div>
-      <div class="col-md-6">
-        <a
-          href="https://ocadversioner.blob.core.windows.net/about-page-imgs/v1.png"
-        >
-          <img
-            src="https://ocadversioner.blob.core.windows.net/about-page-imgs/v1.png"
-            class="my-3 w-100"
-          />
-        </a>
-      </div>
-    </div>
-    <div class="row">
-      <div class="col-md-6 d-flex align-items-center">
-        <p>
-          I det du lager en ny versjon av kartet, kopierer OCADVersioner
-          kartfilen inn i en mappe under Releases kalt V1.
-          <strong>V1.ocd</strong> er OCAD-filen slik den så ut på
-          versjonerings-tidspunktet. <strong>V1.json</strong> er en indeks-fil
-          brukt internt av OCADVersioner.
-        </p>
-      </div>
-      <div class="col-md-6">
-        <a
-          href="https://ocadversioner.blob.core.windows.net/about-page-imgs/v1Folder.png"
-        >
-          <img
-            src="https://ocadversioner.blob.core.windows.net/about-page-imgs/v1Folder.png"
-            class="my-3 w-100"
-          />
-        </a>
-      </div>
-    </div>
-    <div class="row">
-      <div class="col-md-6 d-flex align-items-center">
-        <p>
-          Når du nå lagrer endringer i OCAD, vil disse bli oppdaget av
-          OCADVersioner, som sammenligner symbolene i den valgte kartfilen med
-          siste versjon du har opprettet.
-        </p>
-      </div>
-      <div class="col-md-6">
-        <a
-          href="https://ocadversioner.blob.core.windows.net/about-page-imgs/noDiff.png"
-        >
-          <img
-            src="https://ocadversioner.blob.core.windows.net/about-page-imgs/noDiff.png"
-            class="my-3 w-100"
-          />
-        </a>
-      </div>
-    </div>
-    <div class="row">
-      <div class="col-md-6 d-flex align-items-center">
-        <p>
-          Denne tabellen viser hvilke symboler som er endret mellom versjonene.
-          Slik får du enkelt en oversikt over hva som er gjort siden sist, og du
-          kan kvalitetssikre at det som er lagt til, slettet og redigert stemmer
-          med hva som er gjort siden forrige versjon.
-        </p>
-      </div>
-      <div class="col-md-6">
-        <a
-          href="https://ocadversioner.blob.core.windows.net/about-page-imgs/diffTable.png"
-        >
-          <img
-            src="https://ocadversioner.blob.core.windows.net/about-page-imgs/diffTable.png"
-            class="my-3 w-100"
-          />
-        </a>
-      </div>
-    </div>
-  </div>
 
-  <!-- <div class="row p-5 my-4 bg-body-tertiary rounded-3">
+    <div class="row p-5 mb-4 bg-body-tertiary rounded-3">
+        <h1>Hvordan fungerer det?</h1>
+        <div class="row">
+            <div class="col-md-6 d-flex align-items-center">
+                <p>
+                    OCADVersioner baserer seg på at du har lagret OCAD-filen du
+                    vil versjonere i en egen mappe for kartprosjektet. Denne
+                    mappen velger du ved oppstart. Ved å gjøre det gir du
+                    nettleseren lese- og skrivetilgang til filene i mappen.
+                </p>
+            </div>
+            <div class="col-md-6">
+                <a
+                    href="https://ocadversioner.blob.core.windows.net/about-page-imgs/projectFolder.png"
+                >
+                    <img
+                        src="https://ocadversioner.blob.core.windows.net/about-page-imgs/projectFolder.png"
+                        class="my-3 w-100"
+                    />
+                </a>
+                <a
+                    href="https://ocadversioner.blob.core.windows.net/about-page-imgs/userConfirmation.png"
+                >
+                    <img
+                        src="https://ocadversioner.blob.core.windows.net/about-page-imgs/userConfirmation.png"
+                        class="my-3 w-100"
+                    />
+                </a>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 d-flex align-items-center">
+                <p>
+                    Etter å ha valgt prosjektmappen der du har lagret kartfilen,
+                    leses kartet inn. OCADVersioner har nå opprettet en tom
+                    mappe i prosjekt-mappen som heter "Releases". Dette er den
+                    eneste mappen OCADVersioner kommer til å lese og skrive fra,
+                    så du kan trygt lagre andre filer i prosjektmappen eller
+                    opprette mapper med andre navn.
+                </p>
+            </div>
+            <div class="col-md-6">
+                <a
+                    href="https://ocadversioner.blob.core.windows.net/about-page-imgs/releases.png"
+                >
+                    <img
+                        src="https://ocadversioner.blob.core.windows.net/about-page-imgs/releases.png"
+                        class="my-3 w-100"
+                    />
+                </a>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 d-flex align-items-center">
+                <p>
+                    Når kartet er lest inn, er du klar for å opprette den første
+                    versjonen av kartet. Ettersom det ikke finnes andre
+                    versjoner av kartet, sammenlignes kartet med en tom kartfil.
+                </p>
+            </div>
+            <div class="col-md-6">
+                <a
+                    href="https://ocadversioner.blob.core.windows.net/about-page-imgs/v1.png"
+                >
+                    <img
+                        src="https://ocadversioner.blob.core.windows.net/about-page-imgs/v1.png"
+                        class="my-3 w-100"
+                    />
+                </a>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 d-flex align-items-center">
+                <p>
+                    I det du lager en ny versjon av kartet, kopierer
+                    OCADVersioner kartfilen inn i en mappe under Releases kalt
+                    V1.
+                    <strong>V1.ocd</strong> er OCAD-filen slik den så ut på
+                    versjonerings-tidspunktet. <strong>V1.json</strong> er en
+                    indeks-fil brukt internt av OCADVersioner.
+                </p>
+            </div>
+            <div class="col-md-6">
+                <a
+                    href="https://ocadversioner.blob.core.windows.net/about-page-imgs/v1Folder.png"
+                >
+                    <img
+                        src="https://ocadversioner.blob.core.windows.net/about-page-imgs/v1Folder.png"
+                        class="my-3 w-100"
+                    />
+                </a>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 d-flex align-items-center">
+                <p>
+                    Når du nå lagrer endringer i OCAD, vil disse bli oppdaget av
+                    OCADVersioner, som sammenligner symbolene i den valgte
+                    kartfilen med siste versjon du har opprettet.
+                </p>
+            </div>
+            <div class="col-md-6">
+                <a
+                    href="https://ocadversioner.blob.core.windows.net/about-page-imgs/noDiff.png"
+                >
+                    <img
+                        src="https://ocadversioner.blob.core.windows.net/about-page-imgs/noDiff.png"
+                        class="my-3 w-100"
+                    />
+                </a>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 d-flex align-items-center">
+                <p>
+                    Denne tabellen viser hvilke symboler som er endret mellom
+                    versjonene. Slik får du enkelt en oversikt over hva som er
+                    gjort siden sist, og du kan kvalitetssikre at det som er
+                    lagt til, slettet og redigert stemmer med hva som er gjort
+                    siden forrige versjon.
+                </p>
+            </div>
+            <div class="col-md-6">
+                <a
+                    href="https://ocadversioner.blob.core.windows.net/about-page-imgs/diffTable.png"
+                >
+                    <img
+                        src="https://ocadversioner.blob.core.windows.net/about-page-imgs/diffTable.png"
+                        class="my-3 w-100"
+                    />
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- <div class="row p-5 my-4 bg-body-tertiary rounded-3">
     <h1>Ofte stilte spørsmål</h1>
     <p>Et avsnitt om støttede nettlesere</p>
   </div> -->
 
-  <div class="row p-5 my-4 bg-body-tertiary rounded-3">
-    <h1 id="supportedBrowsers">Støttede nettlesere</h1>
-    <p>
-      OCADVersioner bruker
-      <a href="https://developer.mozilla.org/en-US/docs/Web/API/File_System_API"
-        >File System API</a
-      >
-      til å lese og skrive filer lokalt på din enhet. Dette støttes av de mest
-      populære nettleserne.
-      <a
-        href="https://developer.mozilla.org/en-US/docs/Web/API/window/showDirectoryPicker#browser_compatibility"
-        >Her ligger en oversikt</a
-      >
-      over hvilke nettlesere som har støtte for dette API-et, og dermed kan
-      bruke OCADVersioner.
-    </p>
-  </div>
+    <div class="row p-5 my-4 bg-body-tertiary rounded-3">
+        <h1 id="supportedBrowsers">Støttede nettlesere</h1>
+        <p>
+            OCADVersioner bruker
+            <a
+                href="https://developer.mozilla.org/en-US/docs/Web/API/File_System_API"
+                >File System API</a
+            >
+            til å lese og skrive filer lokalt på din enhet. Dette støttes av de
+            mest populære nettleserne.
+            <a
+                href="https://developer.mozilla.org/en-US/docs/Web/API/window/showDirectoryPicker#browser_compatibility"
+                >Her ligger en oversikt</a
+            >
+            over hvilke nettlesere som har støtte for dette API-et, og dermed
+            kan bruke OCADVersioner.
+        </p>
+    </div>
 
-  <footer class="pt-3 my-4 text-body-secondary border-top">
-    {{ "#_OCADVersioner" | translate }}
-  </footer>
+    <footer class="pt-3 my-4 text-body-secondary border-top">
+        {{ '#_OCADVersioner' | translate }}
+    </footer>
 </div>

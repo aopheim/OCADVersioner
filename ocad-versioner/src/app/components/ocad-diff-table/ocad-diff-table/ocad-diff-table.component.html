@@ -1,87 +1,91 @@
 <div class="container" id="newSymbols">
-  <table class="table table-sm table-striped table-hover">
-    <thead>
-      <tr>
-        <th scope="col">{{ "#_symbolNumber" | translate }}</th>
-        <th scope="col">{{ "#_symbolName" | translate }}</th>
-        <th
-          *ngIf="
-            tableView === OcadDiffTableView.Added ||
-            tableView === OcadDiffTableView.Deleted
-          "
-          scope="col"
-        >
-          {{ "#_lengthInMeters" | translate }}
-        </th>
-        <th
-          *ngIf="
-            tableView === OcadDiffTableView.Added ||
-            tableView === OcadDiffTableView.Deleted
-          "
-          scope="col"
-        >
-          {{ "#_areaInSquareMeters" | translate }}
-        </th>
-        <th *ngIf="tableView === OcadDiffTableView.Updated" scope="col">
-          {{ "#_movedNumberOfMeters" | translate }}
-        </th>
-        <th *ngIf="tableView === OcadDiffTableView.Updated" scope="col">
-          {{ "#_percentageLengthDiff" | translate }}
-        </th>
-        <th *ngIf="tableView === OcadDiffTableView.Updated" scope="col">
-          {{ "#_percentageAreaDiff" | translate }}
-        </th>
-        <th scope="col">{{ "#_createdAt" | translate }}</th>
-        <th scope="col">{{ "#_lastEditedAt" | translate }}</th>
-      </tr>
-    </thead>
-    <tbody>
-      <ng-container
-        *ngIf="
-          tableView === OcadDiffTableView.Added ||
-          tableView === OcadDiffTableView.Deleted
-        "
-      >
-        <ng-container *ngFor="let symbol of getAddedOrDeletedSymbols() ?? []">
-          <tr>
-            <th>{{ symbol.symbolNumber | translate }}</th>
-            <td>{{ symbol.symbolName | translate }}</td>
-            <td>
-              {{ symbol?.symbolLengthInMeters | number : "1.0-0" }}
-              <span *ngIf="symbol?.symbolLengthInMeters">{{
-                "#_mAbbreviation" | translate
-              }}</span>
-            </td>
-            <td>
-              {{ symbol?.symbolAreaInSquareMeters | number : "1.0-0"
-              }}<span *ngIf="symbol?.symbolAreaInSquareMeters">
-                {{ "#_m2Abbreviation" | translate }}
-              </span>
-            </td>
-            <td>{{ symbol?.createdAtUtc | date : "medium" }}</td>
-            <td>{{ symbol?.lastEditedAtUtc | date : "medium" }}</td>
-          </tr>
-        </ng-container>
-      </ng-container>
-      <ng-container *ngIf="tableView === OcadDiffTableView.Updated">
-        <ng-container *ngFor="let symbol of getUpdatedSymbols() ?? []">
-          <tr>
-            <th>{{ symbol.symbolNumber | translate }}</th>
-            <td>{{ symbol.symbolName | translate }}</td>
-            <td>
-              {{ symbol?.pointSymbolDiff?.movementInMeters }}
-            </td>
-            <td>
-              {{ symbol?.lineSymbolDiff?.lengthDiffInPercent }}
-            </td>
-            <td>
-              {{ symbol?.areaSymbolDiff?.areaDiffInPercent }}
-            </td>
-            <td>{{ symbol?.createdAtUtc | date : "medium" }}</td>
-            <td>{{ symbol?.lastEditedAtUtc | date : "medium" }}</td>
-          </tr>
-        </ng-container>
-      </ng-container>
-    </tbody>
-  </table>
+    <table class="table table-sm table-striped table-hover">
+        <thead>
+            <tr>
+                <th scope="col">{{ '#_symbolNumber' | translate }}</th>
+                <th scope="col">{{ '#_symbolName' | translate }}</th>
+                <th
+                    *ngIf="
+                        tableView === OcadDiffTableView.Added ||
+                        tableView === OcadDiffTableView.Deleted
+                    "
+                    scope="col"
+                >
+                    {{ '#_lengthInMeters' | translate }}
+                </th>
+                <th
+                    *ngIf="
+                        tableView === OcadDiffTableView.Added ||
+                        tableView === OcadDiffTableView.Deleted
+                    "
+                    scope="col"
+                >
+                    {{ '#_areaInSquareMeters' | translate }}
+                </th>
+                <th *ngIf="tableView === OcadDiffTableView.Updated" scope="col">
+                    {{ '#_movedNumberOfMeters' | translate }}
+                </th>
+                <th *ngIf="tableView === OcadDiffTableView.Updated" scope="col">
+                    {{ '#_percentageLengthDiff' | translate }}
+                </th>
+                <th *ngIf="tableView === OcadDiffTableView.Updated" scope="col">
+                    {{ '#_percentageAreaDiff' | translate }}
+                </th>
+                <th scope="col">{{ '#_createdAt' | translate }}</th>
+                <th scope="col">{{ '#_lastEditedAt' | translate }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            <ng-container
+                *ngIf="
+                    tableView === OcadDiffTableView.Added ||
+                    tableView === OcadDiffTableView.Deleted
+                "
+            >
+                <ng-container
+                    *ngFor="let symbol of getAddedOrDeletedSymbols() ?? []"
+                >
+                    <tr>
+                        <th>{{ symbol.symbolNumber | translate }}</th>
+                        <td>{{ symbol.symbolName | translate }}</td>
+                        <td>
+                            {{ symbol?.symbolLengthInMeters | number: '1.0-0' }}
+                            <span *ngIf="symbol?.symbolLengthInMeters">{{
+                                '#_mAbbreviation' | translate
+                            }}</span>
+                        </td>
+                        <td>
+                            {{
+                                symbol?.symbolAreaInSquareMeters
+                                    | number: '1.0-0'
+                            }}<span *ngIf="symbol?.symbolAreaInSquareMeters">
+                                {{ '#_m2Abbreviation' | translate }}
+                            </span>
+                        </td>
+                        <td>{{ symbol?.createdAtUtc | date: 'medium' }}</td>
+                        <td>{{ symbol?.lastEditedAtUtc | date: 'medium' }}</td>
+                    </tr>
+                </ng-container>
+            </ng-container>
+            <ng-container *ngIf="tableView === OcadDiffTableView.Updated">
+                <ng-container *ngFor="let symbol of getUpdatedSymbols() ?? []">
+                    <tr>
+                        <th>{{ symbol.symbolNumber | translate }}</th>
+                        <td>{{ symbol.symbolName | translate }}</td>
+                        <td>
+                            {{ symbol?.pointSymbolDiff?.movementInMeters }}
+                        </td>
+                        <td>
+                            {{ symbol?.lineSymbolDiff?.lengthDiffInPercent }}
+                        </td>
+                        <td>
+                            {{ symbol?.areaSymbolDiff?.areaDiffInPercent }}
+                        </td>
+                        <td>{{ symbol?.createdAtUtc | date: 'medium' }}</td>
+                        <td>{{ symbol?.lastEditedAtUtc | date: 'medium' }}</td>
+                    </tr>
+                </ng-container>
+            </ng-container>
+        </tbody>
+    </table>
 </div>

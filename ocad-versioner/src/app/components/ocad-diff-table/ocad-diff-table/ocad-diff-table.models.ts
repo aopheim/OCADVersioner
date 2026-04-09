@@ -1,44 +1,44 @@
 export interface OcadDiffDto {
-  edited: EditedSymbolDto[];
-  added: AddedSymbolDto[];
-  deleted: DeletedSymbolDto[];
+    edited: EditedSymbolDto[]
+    added: AddedSymbolDto[]
+    deleted: DeletedSymbolDto[]
 }
 
 export interface EditedSymbolDto extends ISymbol, ISymbolMetadata {
-  pointSymbolDiff?: PointSymbolDiff | null;
-  lineSymbolDiff?: LineSymbolDiff | null;
-  areaSymbolDiff?: AreaSymbolDiff | null;
+    pointSymbolDiff?: PointSymbolDiff | null
+    lineSymbolDiff?: LineSymbolDiff | null
+    areaSymbolDiff?: AreaSymbolDiff | null
 }
 
 export interface AddedSymbolDto extends ISymbol, ISymbolMetadata {
-  symbolLengthInMeters?: number | null;
-  symbolAreaInSquareMeters?: number | null;
+    symbolLengthInMeters?: number | null
+    symbolAreaInSquareMeters?: number | null
 }
 
 export interface DeletedSymbolDto extends ISymbol, ISymbolMetadata {
-  symbolLengthInMeters?: number | null;
-  symbolAreaInSquareMeters?: number | null;
+    symbolLengthInMeters?: number | null
+    symbolAreaInSquareMeters?: number | null
 }
 
 export interface PointSymbolDiff {
-  movementInMeters: number;
+    movementInMeters: number
 }
 
 export interface LineSymbolDiff {
-  lengthDiffInPercent: number;
+    lengthDiffInPercent: number
 }
 
 export interface AreaSymbolDiff {
-  areaDiffInPercent: number;
+    areaDiffInPercent: number
 }
 
 export interface ISymbol {
-  symbolNumber: string;
-  symbolName: string;
+    symbolNumber: string
+    symbolName: string
 }
 
 export interface ISymbolMetadata {
-  // Nullable because some symbols have invalid dates from OCAD
-  createdAtUtc?: Date;
-  lastEditedAtUtc?: Date;
+    // Nullable because some symbols have invalid dates from OCAD
+    createdAtUtc?: Date
+    lastEditedAtUtc?: Date
 }

@@ -1,33 +1,39 @@
 <div class="list-group">
-  <a
-    *ngFor="let release of releases"
-    class="list-group-item list-group-item-action"
-    [ngClass]="{ active: release.versionNumber === getSelectedVersionNumber() }"
-    aria-current="release.versionNumber === getSelectedVersionNumber()"
-    (click)="setSelectedVersionNumber(release.versionNumber)"
-  >
-    <div class="d-flex w-100 justify-content-between">
-      <h6 class="mb-1 col-7">{{ release.title }}</h6>
-      <small class="col-5">{{
-        release.versionCreatedAt | date : "short"
-      }}</small>
-    </div>
-    <p class="mb-1">{{ release.description }}</p>
-    <div
-      style="display: flex; flex-direction: row; justify-content: space-around"
+    <a
+        *ngFor="let release of releases"
+        class="list-group-item list-group-item-action"
+        [ngClass]="{
+            active: release.versionNumber === getSelectedVersionNumber(),
+        }"
+        aria-current="release.versionNumber === getSelectedVersionNumber()"
+        (click)="setSelectedVersionNumber(release.versionNumber)"
     >
-      <div>
-        <i class="bi bi-plus-square mx-2"></i>
-        <small>{{ release.numberOfAddedSymbols }}</small>
-      </div>
-      <div>
-        <i class="bi bi-pencil mx-2"></i>
-        <small>{{ release.numberOfEditedSymbols }}</small>
-      </div>
-      <div>
-        <i class="bi bi-trash mx-2"></i>
-        <small>{{ release.numberOfDeletedSymbols }}</small>
-      </div>
-    </div>
-  </a>
+        <div class="d-flex w-100 justify-content-between">
+            <h6 class="mb-1 col-7">{{ release.title }}</h6>
+            <small class="col-5">{{
+                release.versionCreatedAt | date: 'short'
+            }}</small>
+        </div>
+        <p class="mb-1">{{ release.description }}</p>
+        <div
+            style="
+                display: flex;
+                flex-direction: row;
+                justify-content: space-around;
+            "
+        >
+            <div>
+                <i class="bi bi-plus-square mx-2"></i>
+                <small>{{ release.numberOfAddedSymbols }}</small>
+            </div>
+            <div>
+                <i class="bi bi-pencil mx-2"></i>
+                <small>{{ release.numberOfEditedSymbols }}</small>
+            </div>
+            <div>
+                <i class="bi bi-trash mx-2"></i>
+                <small>{{ release.numberOfDeletedSymbols }}</small>
+            </div>
+        </div>
+    </a>
 </div>

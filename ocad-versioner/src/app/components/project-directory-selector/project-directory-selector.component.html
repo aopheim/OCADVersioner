@@ -1,91 +1,98 @@
 <div
-  class="modal"
-  id="staticBackdrop"
-  data-bs-backdrop="static"
-  data-bs-keyboard="false"
-  tabindex="-1"
-  aria-labelledby="staticBackdropLabel"
-  aria-hidden="false"
+    class="modal"
+    id="staticBackdrop"
+    data-bs-backdrop="static"
+    data-bs-keyboard="false"
+    tabindex="-1"
+    aria-labelledby="staticBackdropLabel"
+    aria-hidden="false"
 >
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="staticBackdropLabel">
-          {{ "#_OCADVersioner" | translate }}
-        </h5>
-      </div>
-      <div class="modal-body">
-        <p>
-          {{ "#_projectDirectorySelectorText" | translate }}
-        </p>
-        <div class="d-flex justify-content-start">
-          <a href="./about" class="btn btn-outline d-flex align-items-end">
-            <i class="bi bi-book h2"></i>
-            <p class="m-3">
-              {{ "#_aboutPageLinkPt1" | translate }}<a href="./about"></a>
-            </p>
-          </a>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="staticBackdropLabel">
+                    {{ '#_OCADVersioner' | translate }}
+                </h5>
+            </div>
+            <div class="modal-body">
+                <p>
+                    {{ '#_projectDirectorySelectorText' | translate }}
+                </p>
+                <div class="d-flex justify-content-start">
+                    <a
+                        href="./about"
+                        class="btn btn-outline d-flex align-items-end"
+                    >
+                        <i class="bi bi-book h2"></i>
+                        <p class="m-3">
+                            {{ '#_aboutPageLinkPt1' | translate
+                            }}<a href="./about"></a>
+                        </p>
+                    </a>
+                </div>
+                <button
+                    type="button"
+                    data-bs-toggle="modal"
+                    data-bs-target="#staticBackdrop"
+                    id="triggerModalButton"
+                    #openModalButton
+                ></button>
+                <button
+                    type="button"
+                    data-bs-dismiss="modal"
+                    id="triggerModalButton"
+                    #closeModalButton
+                ></button>
+            </div>
+            <div class="modal-footer">
+                <div
+                    *ngIf="ocadFileNamesInProjectDirectory?.length === 0"
+                    class="w-100"
+                >
+                    <button
+                        type="button"
+                        class="btn btn-primary w-100"
+                        (click)="setProjectDirectory()"
+                    >
+                        {{ '#_chooseOcadDirectory' | translate }}
+                    </button>
+                </div>
+                <div
+                    *ngIf="(ocadFileNamesInProjectDirectory?.length ?? 0) > 1"
+                    class="dropdown w-100"
+                >
+                    <button
+                        id="selectCorrectOcadFileButton"
+                        class="btn btn-warning dropdown-toggle w-100 text-wrap"
+                        type="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false"
+                    >
+                        {{ '#_foundMultipleOcdFilesInDirectory' | translate }}
+                    </button>
+                    <ul class="dropdown-menu">
+                        <ng-container
+                            *ngFor="
+                                let ocdFileName of ocadFileNamesInProjectDirectory
+                            "
+                            ><li (click)="setCurrentOcdFile(ocdFileName)">
+                                <a class="dropdown-item">{{ ocdFileName }}</a>
+                            </li></ng-container
+                        >
+                    </ul>
+                </div>
+            </div>
+            <ng-container *ngFor="let errorMessage of errorMessages">
+                <p class="text-danger">{{ errorMessage[1] | translate }}</p>
+                <a
+                    *ngIf="
+                        errorMessage[0] ===
+                        DirectorySelectorErrorTypes.UnsupportedBrowser
+                    "
+                    href="./about#supportedBrowsers"
+                    >{{ '#_supportedBrowsers' | translate }}</a
+                >
+            </ng-container>
         </div>
-        <button
-          type="button"
-          data-bs-toggle="modal"
-          data-bs-target="#staticBackdrop"
-          id="triggerModalButton"
-          #openModalButton
-        ></button>
-        <button
-          type="button"
-          data-bs-dismiss="modal"
-          id="triggerModalButton"
-          #closeModalButton
-        ></button>
-      </div>
-      <div class="modal-footer">
-        <div
-          *ngIf="ocadFileNamesInProjectDirectory?.length === 0"
-          class="w-100"
-        >
-          <button
-            type="button"
-            class="btn btn-primary w-100"
-            (click)="setProjectDirectory()"
-          >
-            {{ "#_chooseOcadDirectory" | translate }}
-          </button>
-        </div>
-        <div
-          *ngIf="(ocadFileNamesInProjectDirectory?.length ?? 0) > 1"
-          class="dropdown w-100"
-        >
-          <button
-            id="selectCorrectOcadFileButton"
-            class="btn btn-warning dropdown-toggle w-100 text-wrap"
-            type="button"
-            data-bs-toggle="dropdown"
-            aria-expanded="false"
-          >
-            {{ "#_foundMultipleOcdFilesInDirectory" | translate }}
-          </button>
-          <ul class="dropdown-menu">
-            <ng-container
-              *ngFor="let ocdFileName of ocadFileNamesInProjectDirectory"
-              ><li (click)="setCurrentOcdFile(ocdFileName)">
-                <a class="dropdown-item">{{ ocdFileName }}</a>
-              </li></ng-container
-            >
-          </ul>
-        </div>
-      </div>
-      <ng-container *ngFor="let errorMessage of errorMessages">
-        <p class="text-danger">{{ errorMessage[1] | translate }}</p>
-        <a
-          *ngIf="
-            errorMessage[0] === DirectorySelectorErrorTypes.UnsupportedBrowser
-          "
-          href="./about#supportedBrowsers"
-          >{{ "#_supportedBrowsers" | translate }}</a
-        >
-      </ng-container>
     </div>
-  </div>
 </div>
