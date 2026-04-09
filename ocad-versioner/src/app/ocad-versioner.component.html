@@ -1,4 +1,4 @@
-<div class="container">
+<div class="container-fluid">
     <div *ngIf="appProgress$ | async as appProgress">
         <div class="progress" style="height: 2px" *ngIf="appProgress.isLoading">
             <div
@@ -31,16 +31,16 @@
     ></project-directory-selector>
     <app-settings-modal></app-settings-modal>
     <div class="row" *ngIf="diffTable$ | async as diffTable">
-        <div class="col-md-3">
+        <div class="col-md-2 d-flex flex-column">
             <ocad-version-list
                 [releases]="(provider.versionMetaDataList$ | async) ?? []"
                 (versionNumberSelected)="setSelectedVersion($event)"
-                class="mb-auto"
+                class="flex-grow-1"
             >
             </ocad-version-list>
             <create-version
                 *ngIf="(newestVersionMetaData$ | async)?.versionNumber === 0"
-                class="my-3"
+                class="mt-auto py-3"
                 [fileName]="provider.getCurrentFileName()"
                 [newVersionName]="provider.getNewVersionName()"
                 [versionDiffMetaData]="{
@@ -51,7 +51,7 @@
             ></create-version>
         </div>
         <div
-            class="col-md-9"
+            class="col-md-10"
             *ngIf="selectedTableView$ | async as selectedTableView"
         >
             <div class="d-flex justify-content-center">
