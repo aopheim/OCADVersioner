@@ -1,12 +1,12 @@
 <div *ngIf="newestVersionName && oldestVersionName">
-  <div class="flex-column">
-    <div class="d-flex justify-content-center">
-      <i *ngIf="isHistory" class="bi bi-book fs-4 text-primary"></i>
+    <div class="flex-column">
+        <div class="d-flex justify-content-center">
+            <i *ngIf="isHistory" class="bi bi-book fs-4 text-primary"></i>
+        </div>
+        <div class="d-flex">
+            <p class="fw-medium">{{ newestVersionName }}</p>
+            <i class="bi bi-arrows mx-3"></i>
+            <p class="fw-medium">{{ oldestVersionName | translate }}</p>
+        </div>
     </div>
-    <div class="d-flex">
-      <p class="fw-medium">{{ newestVersionName }}</p>
-      <i class="bi bi-arrows mx-3"></i>
-      <p class="fw-medium">{{ oldestVersionName | translate }}</p>
-    </div>
-  </div>
 </div>
