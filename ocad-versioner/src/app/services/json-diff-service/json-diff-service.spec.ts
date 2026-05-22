@@ -149,4 +149,51 @@ describe('JsonDiffService', () => {
         expect(contour).toBeTruthy()
         expect(depression).toBeTruthy()
     })
+
+    it('Should correctly handle duplicate features with the same id and creationDate', () => {
+        const oldFeatures = {
+            type: 'FeatureCollection',
+            features: [
+                {
+                    type: 'Feature',
+                    id: 10,
+                    properties: { sym: 109000, creationDate: 45000.1 },
+                    geometry: { type: 'Point', coordinates: [1, 2] }
+                },
+                {
+                    type: 'Feature',
+                    id: 10,
+                    properties: { sym: 109000, creationDate: 45000.1 },
+                    geometry: { type: 'Point', coordinates: [3, 4] }
+                }
+            ]
+        } as any
+
+        const newFeatures = {
+            type: 'FeatureCollection',
+            features: [
+                {
+                    type: 'Feature',
+                    id: 10,
+                    properties: { sym: 109000, creationDate: 45000.1 },
+                    geometry: { type: 'Point', coordinates: [1, 2] }
+                },
+                {
+                    type: 'Feature',
+                    id: 10,
+                    properties: { sym: 109000, creationDate: 45000.1 },
+                    geometry: { type: 'Point', coordinates: [5, 6] }
+                }
+            ]
+        } as any
+
+        const res = JsonDiffService.calculateJsonDiff(oldFeatures, newFeatures)
+
+        // One duplicate should match perfectly and be untouched (no added, deleted, edited)
+        // The other duplicate should match, but because coordinates changed, it's in edited!
+        expect(res.added.length).toBe(0)
+        expect(res.deleted.length).toBe(0)
+        expect(res.edited.length).toBe(1)
+        expect(res.edited[0].pointSymbolDiff?.movementInMeters).toBeGreaterThan(0)
+    })
 })

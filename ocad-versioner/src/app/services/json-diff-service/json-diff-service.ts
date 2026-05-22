@@ -6,7 +6,7 @@ import {
     OcadDiffDto,
     PointSymbolDiff,
 } from '../../components/ocad-diff-table/ocad-diff-table/ocad-diff-table.models'
-import { isNil, isEqual, cloneDeep } from 'lodash-es'
+import { isNil, isEqual } from 'lodash-es'
 import {
     Feature,
     FeatureCollection,
@@ -39,19 +39,50 @@ export class JsonDiffService {
         const added: AddedSymbolDto[] = []
         const edited: EditedSymbolDto[] = []
         const deleted: DeletedSymbolDto[] = []
-        let oldFeatures = cloneDeep(old.features)
-        const newFeatures = cloneDeep(newest.features)
+        
+        const oldFeatures = old.features
+        const newFeatures = newest.features
+
+        // Store old features in a Map for fast lookups by ID and creation date.
+        // Multiple features could theoretically share the same key, so we use an array as value.
+        const oldFeaturesMap = new Map<string, Feature<Geometry, GeoJsonProperties>[]>()
+        for (const feature of oldFeatures) {
+            const id = feature.id
+            const creationDate = feature.properties?.[OcadPropertyKeys.CreationDate]
+            const key = `${id}_${creationDate}`
+            let list = oldFeaturesMap.get(key)
+            if (!list) {
+                list = []
+                oldFeaturesMap.set(key, list)
+            }
+            list.push(feature)
+        }
+
+        const matchedOldFeatures = new Set<Feature<Geometry, GeoJsonProperties>>()
+
         const reportEveryN = this.getReportEveryNFeature(newFeatures.length)
         const numberOfNewFeatures: number = newFeatures.length
+        
         newFeatures.forEach((newFeature, i) => {
             if (i % reportEveryN === 0 && reportProgress)
                 reportProgress((i / numberOfNewFeatures) * 100 * 0.8)
             if (this.isChildFeature(newFeature)) return
-            const indexInOldFeatures = oldFeatures.findIndex((oldFeature) =>
-                isSameFeature(oldFeature, newFeature)
-            )
-            const matchInOldFeatures =
-                indexInOldFeatures > -1 ? oldFeatures[indexInOldFeatures] : null
+
+            const id = newFeature.id
+            const creationDate = newFeature.properties?.[OcadPropertyKeys.CreationDate]
+            const key = `${id}_${creationDate}`
+            const candidates = oldFeaturesMap.get(key)
+
+            let matchInOldFeatures: Feature<Geometry, GeoJsonProperties> | null = null
+            if (candidates && candidates.length > 0) {
+                // Find the first candidate that hasn't been matched yet
+                const matchIndex = candidates.findIndex((cand) => !matchedOldFeatures.has(cand))
+                if (matchIndex > -1) {
+                    matchInOldFeatures = candidates[matchIndex]
+                    matchedOldFeatures.add(matchInOldFeatures)
+                }
+            }
+
             if (isNil(matchInOldFeatures)) {
                 added.push(this.convertToAddedSymbol(newFeature, epsgCode))
             } else {
@@ -63,22 +94,21 @@ export class JsonDiffService {
                             epsgCode
                         )
                     )
-                // The feature is either edited or untouched. Gives fewer possible deleted elements to search for.
-                oldFeatures.splice(indexInOldFeatures, 1)
             }
         })
 
-        const numberOfOldFeatures = oldFeatures.length
-        oldFeatures.forEach((oldFeature, i) => {
+        // Unmatched old features are either deleted or are child features (which are skipped).
+        const unmatchedOldFeatures = oldFeatures.filter(
+            (oldFeature) => !matchedOldFeatures.has(oldFeature)
+        )
+        const numberOfOldFeatures = unmatchedOldFeatures.length
+        unmatchedOldFeatures.forEach((oldFeature, i) => {
             if (i % reportEveryN === 0 && reportProgress)
                 reportProgress(80 + (i / numberOfOldFeatures) * 100 * 0.2)
 
             if (this.isChildFeature(oldFeature)) return
-            const indexInNewFeatures = newFeatures.findIndex((newFeature) =>
-                isSameFeature(oldFeature, newFeature)
-            )
-            if (indexInNewFeatures === -1)
-                deleted.push(this.convertToDeletedSymbol(oldFeature, epsgCode))
+
+            deleted.push(this.convertToDeletedSymbol(oldFeature, epsgCode))
         })
         if (reportProgress) reportProgress(100)
 
@@ -87,21 +117,6 @@ export class JsonDiffService {
             deleted,
             edited,
         } as OcadDiffDto
-
-        function isSameFeature(
-            oldFeature: Feature<Geometry, GeoJsonProperties>,
-            newFeature: Feature<Geometry, GeoJsonProperties>
-        ): unknown {
-            return (
-                oldFeature.id === newFeature.id &&
-                (oldFeature.properties?.[
-                    OcadPropertyKeys.CreationDate
-                ] as number) ===
-                    (newFeature.properties?.[
-                        OcadPropertyKeys.CreationDate
-                    ] as number)
-            )
-        }
     }
     private static getReportEveryNFeature(totalFeatures: number): number {
         if (totalFeatures > 0 && totalFeatures < 100) return 10
