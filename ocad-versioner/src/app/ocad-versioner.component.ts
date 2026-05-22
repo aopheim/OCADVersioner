@@ -1,30 +1,21 @@
 import { Component, OnInit } from '@angular/core'
 import {
-    FeatureCollection,
-    GeoJsonProperties,
-    Geometry,
     Position,
 } from 'geojson'
 import {
     BehaviorSubject,
     Observable,
     distinctUntilChanged,
-    filter,
-    map,
     of,
     withLatestFrom,
 } from 'rxjs'
 import { OcadDiffDto } from './components/ocad-diff-table/ocad-diff-table/ocad-diff-table.models'
 import { OcadDiffTableView } from './components/ocad-diff-table/ocad-diff-table/ocad-diff-table.component'
 import { OcadVersionerProvider } from './ocad-versioner.provider'
-import { OcadReaderService } from './services/ocad-reader-service/ocad-reader-service'
 import { OcadDirectoryHelper } from './components/project-directory-selector/project-directory-selector.helper'
 import { isNil } from 'lodash-es'
-import bbox from '@turf/bbox'
-import { CoordinatesHelper } from './services/coordinates-helper/coordinates-helper.service'
 import { LoggingService } from './services/logging/logging.service'
 import { ProgressIndicatorService } from './services/progress-indicator-service/progress-indicator.service'
-import { JsonDiffServiceInput } from './services/json-diff-service/json-diff-service.models'
 import { AppProgress } from './services/progress-indicator-service/progress-indicator.service.models'
 import { SelectedVersionNumberDto } from './components/ocad-map-viewer/ocad-map-viewer.component'
 import { FileWatcherService } from './services/file-watcher/file-watcher.service'
@@ -39,14 +30,8 @@ import { AppSettings } from './services/app-settings-service/app-settings.models
 export class OcadVersionerComponent implements OnInit {
     private _jsonDiffWorker: Worker | null
     private _currentAppSettings: AppSettings = {}
-    private triggerJsonDiff$: BehaviorSubject<boolean> =
-        new BehaviorSubject<boolean>(false)
-    public newestVersion$: BehaviorSubject<FeatureCollection | null> =
-        new BehaviorSubject<FeatureCollection | null>(null)
     public newestVersionMetaData$: BehaviorSubject<VersionMetaData | null> =
         new BehaviorSubject<VersionMetaData | null>(null)
-    public oldestVersion$: BehaviorSubject<FeatureCollection | null> =
-        new BehaviorSubject<FeatureCollection | null>(null)
     public oldestVersionMetaData$: BehaviorSubject<VersionMetaData | null> =
         new BehaviorSubject<VersionMetaData | null>(null)
     public diffTable$: Observable<OcadDiffDto> = new Observable()
@@ -63,7 +48,6 @@ export class OcadVersionerComponent implements OnInit {
 
     constructor(
         public provider: OcadVersionerProvider,
-        private ocadReader: OcadReaderService,
         private logger: LoggingService,
         private progressService: ProgressIndicatorService,
         private fileWatcherService: FileWatcherService,
@@ -96,30 +80,6 @@ export class OcadVersionerComponent implements OnInit {
 
     public OcadDiffTableView = OcadDiffTableView
     ngOnInit(): void {
-        this.triggerJsonDiff$
-            .pipe(
-                withLatestFrom(this.newestVersion$, this.oldestVersion$),
-                filter(
-                    ([trigger, current, versioned]) =>
-                        trigger && current !== null && versioned !== null
-                ),
-                map(([_, current, versioned]) => {
-                    // Posting to service worker for it to be processed in a separate thread, allowing rendering of html
-                    this.progressService.setFileLoadingProgress({
-                        currentProgress: 80,
-                        isLoading: true,
-                    })
-                    this._jsonDiffWorker?.postMessage({
-                        newVersion: current,
-                        oldVersion: versioned,
-                        epsgcode:
-                            this._currentAppSettings?.georeferencing
-                                ?.epsgNumber,
-                    } as JsonDiffServiceInput)
-                })
-            )
-            .subscribe()
-
         if (this._jsonDiffWorker)
             this._jsonDiffWorker.onmessage = ({ data }) => {
                 this.handleMessageFromWebWorker(data)
@@ -134,18 +94,32 @@ export class OcadVersionerComponent implements OnInit {
         )
     }
     private handleMessageFromWebWorker(data: any): void {
-        const currentProgress: number = data as number
-        const diffTable = data as OcadDiffDto
-        if (!isNil(currentProgress) && currentProgress >= 0) {
-            const isLoading = data < 100 && data > 0
+        if (isNil(data)) return
+
+        if (!isNil(data.progress)) {
+            const progress = data.progress
+            const isLoading = progress < 100 && progress > 0
             this.progressService.setJsonDiffProgress({
                 isLoading,
-                currentProgress: isLoading ? data : 0,
+                currentProgress: isLoading ? progress : 0,
             })
             return
         }
-        if (!isNil(diffTable)) {
-            this.diffTable$ = of(data as OcadDiffDto)
+
+        if (data.error) {
+            console.error('Error from web worker:', data.error)
+            this.progressService.setFileLoadingProgress({
+                currentProgress: 0,
+                isLoading: false,
+            })
+            return
+        }
+
+        if (!isNil(data.diff)) {
+            this.diffTable$ = of(data.diff)
+            if (data.bbox) {
+                this.bboxOfNewestVersion$.next(data.bbox)
+            }
             this.progressService.setFileLoadingProgress({
                 currentProgress: 0,
                 isLoading: false,
@@ -180,16 +154,14 @@ export class OcadVersionerComponent implements OnInit {
             this.logger.logInformation(
                 `Loaded map named ${selectedOcdFile.name}`
             )
-        const newestFeatureCollection =
-            await this.ocadReader.getGeoJsonFromOcdFile(selectedOcdFile)
+
+        // Read newest version file as ArrayBuffer
+        const newestBuffer = await selectedOcdFile.arrayBuffer()
         this.progressService.setFileLoadingProgress({
-            currentProgress: 10,
+            currentProgress: 30,
             isLoading: true,
         })
-        const bboxOfNewest = this.getBoundingBoxOfFeatureCollection(
-            newestFeatureCollection
-        )
-        if (!isNil(bboxOfNewest)) this.bboxOfNewestVersion$.next(bboxOfNewest)
+
         const newestVersionMetaData: VersionMetaData = {
             versionName:
                 selectedVersionNumber === 0
@@ -217,51 +189,32 @@ export class OcadVersionerComponent implements OnInit {
         }
         this.oldestVersionMetaData$.next(oldestVersionMetaData)
         this.progressService.setFileLoadingProgress({
-            currentProgress: 20,
+            currentProgress: 50,
             isLoading: true,
         })
 
-        if (!ocdFileToCompare) {
-            this.oldestVersion$.next({
-                features: [],
-                type: 'FeatureCollection',
-            })
-            this.newestVersion$.next(newestFeatureCollection)
-            this.triggerJsonDiff$.next(true)
-            return
+        let oldestBuffer: ArrayBuffer | null = null
+        if (ocdFileToCompare) {
+            const oldestFile = await ocdFileToCompare.getFile()
+            oldestBuffer = await oldestFile.arrayBuffer()
         }
-        const oldestFeatureCollection =
-            await this.ocadReader.getGeoJsonFromOcdFile(
-                await ocdFileToCompare.getFile()
-            )
 
-        this.newestVersion$.next(newestFeatureCollection)
-        this.oldestVersion$.next(oldestFeatureCollection)
-        this.triggerJsonDiff$.next(true)
-    }
+        this.progressService.setFileLoadingProgress({
+            currentProgress: 80,
+            isLoading: true,
+        })
 
-    private getBoundingBoxOfFeatureCollection(
-        featureCollection: FeatureCollection<Geometry, GeoJsonProperties>
-    ): Position[] | null {
-        const bboxOfMap = bbox(featureCollection)
+        // Transfer ArrayBuffers to web worker using zero-copy Transferable list
+        const transferables: Transferable[] = [newestBuffer]
+        if (oldestBuffer) {
+            transferables.push(oldestBuffer)
+        }
 
-        const currentEpsg =
-            this._currentAppSettings.georeferencing?.epsgNumber ?? null
-        const minLatLon = CoordinatesHelper.getLatLongCoordinatesFromEpsgCode(
-            bboxOfMap[0],
-            bboxOfMap[1],
-            currentEpsg
-        )
-        const maxLatLon = CoordinatesHelper.getLatLongCoordinatesFromEpsgCode(
-            bboxOfMap[2],
-            bboxOfMap[3],
-            currentEpsg
-        )
-        if (isNil(minLatLon) || isNil(maxLatLon)) return null
-        return [
-            [minLatLon.latitude, minLatLon.longitude],
-            [maxLatLon.latitude, maxLatLon.longitude],
-        ]
+        this._jsonDiffWorker?.postMessage({
+            newVersionBuffer: newestBuffer,
+            oldVersionBuffer: oldestBuffer,
+            epsgcode: this._currentAppSettings?.georeferencing?.epsgNumber,
+        }, transferables)
     }
 
     private getVersionNumberToCompare(

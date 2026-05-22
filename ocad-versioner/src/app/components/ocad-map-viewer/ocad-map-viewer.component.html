@@ -1,22 +1,8 @@
 <div class="row g-1">
     <div class="col-sm-6">
-        <div
-            [id]="newestMapId"
-            class="mapDiv"
-            [class.dragOver]="isFileDropEnabled && draggedTarget === 'newest'"
-            (dragover)="onDragOver($event, 'newest')"
-            (dragleave)="onDragLeave('newest')"
-            (drop)="onDrop($event, 'newest')"
-        ></div>
+        <div id="newestMap" class="mapDiv"></div>
     </div>
     <div class="col-sm-6">
-        <div
-            [id]="oldestMapId"
-            class="mapDiv"
-            [class.dragOver]="isFileDropEnabled && draggedTarget === 'oldest'"
-            (dragover)="onDragOver($event, 'oldest')"
-            (dragleave)="onDragLeave('oldest')"
-            (drop)="onDrop($event, 'oldest')"
-        ></div>
+        <div id="oldestMap" class="mapDiv"></div>
     </div>
 </div>
