@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Our glue over the vendored Purple Pen stack: load a map, register fonts,
+    render to a bitmap. Deliberately free of any UI or hosting dependency so the
+    same code serves the Stage-1 console harness and the Blazor WebAssembly app.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Map_SkiaStd\Map_SkiaStd.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Fonts travel with the library: the browser supplies none. -->
+    <Content Include="$(VendorDir)fonts\*.ttf"
+             Link="fonts\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

@@ -45,3 +45,11 @@ Thumbs.db
 # environment.prod.ts
 # environment.ts
 .env
+# .NET (map-viewer)
+[Bb]in/
+[Oo]bj/
+*.user
+.vs/
+
+# Local render output from OcadViewer.RenderCli
+artifacts/

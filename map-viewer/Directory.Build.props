@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <!-- Vendored PurplePen sources. Compiled in place; never edited.
+         See vendor/UPSTREAM.md and tools/sync-purplepen.ps1. -->
+    <VendorDir>$(MSBuildThisFileDirectory)vendor\PurplePen\</VendorDir>
+
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+    <!-- The vendored code predates most current analyzer conventions and is not
+         ours to clean up. Keep its warnings visible but never fatal. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>
