@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Threading.Tasks;
 
 using PurplePen.Graphics2D;
 using PurplePen.MapModel;
@@ -97,5 +100,107 @@ namespace OcadViewer.Core
             SkiaFontManager.SetDefaultFontFamilyName(FallbackFamily);
             return count;
         }
+
+        /// <summary>
+        /// Downloads the bundled faces over <paramref name="http"/> and registers
+        /// them. For WebAssembly, where there is no real filesystem to read from.
+        /// </summary>
+        /// <param name="http">Client whose base address is the app root.</param>
+        /// <param name="requestPath">Path the fonts are served from.</param>
+        /// <param name="localDirectory">
+        /// Directory in the runtime's in-memory filesystem to stage the files in.
+        /// Skia is linked into the same Emscripten module as the .NET runtime, so
+        /// it can open paths written here.
+        /// </param>
+        /// <returns>The number of faces registered.</returns>
+        public static async Task<int> InstallFromHttpAsync(
+            HttpClient http,
+            string requestPath = "fonts",
+            string localDirectory = "/fonts")
+        {
+            ArgumentNullException.ThrowIfNull(http);
+
+            Directory.CreateDirectory(localDirectory);
+
+            // Each face is fetched once even though several families share a file.
+            var staged = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            foreach ((_, _, string fileName) in Faces) {
+                if (staged.ContainsKey(fileName))
+                    continue;
+
+                byte[] bytes = await http.GetByteArrayAsync($"{requestPath}/{fileName}")
+                                         .ConfigureAwait(false);
+
+                string localPath = $"{localDirectory}/{fileName}";
+                File.WriteAllBytes(localPath, bytes);
+                staged[fileName] = localPath;
+            }
+
+            return InstallFromStagedFiles(staged);
+        }
+
+        /// <summary>
+        /// Registers faces that have already been written to <paramref name="stagedFiles"/>,
+        /// keyed by file name.
+        /// </summary>
+        private static int InstallFromStagedFiles(IReadOnlyDictionary<string, string> stagedFiles)
+        {
+            int count = 0;
+
+            foreach ((string family, TextEffects effects, string fileName) in Faces) {
+                string path = stagedFiles[fileName];
+
+                SkiaFontLoader.Instance.AddFontFile(family, effects, path);
+                count++;
+
+                if (family == "Roboto") {
+                    foreach (string alias in AliasFamilies) {
+                        SkiaFontLoader.Instance.AddFontFile(alias, effects, path);
+                        count++;
+                    }
+                }
+            }
+
+            SkiaFontManager.SetDefaultFontFamilyName(FallbackFamily);
+            return count;
+        }
+
+        /// <summary>
+        /// Reports whether font registration actually took effect, which is the
+        /// thing most likely to behave differently in the browser than on the
+        /// desktop. Call it after installing and surface the result.
+        /// </summary>
+        public static FontPackDiagnostics Diagnose()
+        {
+            string[] families;
+            string error = null;
+            try {
+                families = SkiaFontManager.GetFontFamilies();
+            }
+            catch (Exception ex) {
+                families = [];
+                error = $"{ex.GetType().Name}: {ex.Message}";
+            }
+
+            return new FontPackDiagnostics(
+                FallbackInstalled: SkiaFontManager.FontFamilyIsInstalled(FallbackFamily),
+                AliasesInstalled: AliasFamilies.All(SkiaFontManager.FontFamilyIsInstalled),
+                FamilyCount: families.Length,
+                Error: error);
+        }
+    }
+
+    /// <param name="FallbackInstalled">The fallback family resolved.</param>
+    /// <param name="AliasesInstalled">Every alias family resolved.</param>
+    /// <param name="FamilyCount">Families Skia can see, private plus system.</param>
+    /// <param name="Error">Set if enumerating families threw.</param>
+    public sealed record FontPackDiagnostics(
+        bool FallbackInstalled,
+        bool AliasesInstalled,
+        int FamilyCount,
+        string Error)
+    {
+        public bool Ok => Error is null && FallbackInstalled && AliasesInstalled;
     }
 }

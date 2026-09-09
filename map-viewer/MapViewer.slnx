@@ -6,5 +6,6 @@
     <Project Path="src/Map_SkiaStd/Map_SkiaStd.csproj" />
     <Project Path="src/OcadViewer.Core/OcadViewer.Core.csproj" />
     <Project Path="src/OcadViewer.RenderCli/OcadViewer.RenderCli.csproj" />
+    <Project Path="src/OcadViewer.Wasm/OcadViewer.Wasm.csproj" />
   </Folder>
 </Solution>

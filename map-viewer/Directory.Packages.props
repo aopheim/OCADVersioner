@@ -11,6 +11,11 @@
     <PackageVersion Include="SkiaSharp" Version="3.119.4" />
     <PackageVersion Include="SkiaSharp.HarfBuzz" Version="3.119.4" />
     <PackageVersion Include="SkiaSharp.Views.Blazor" Version="3.119.4" />
+    <!-- HarfBuzz shaping needs its native library linked into the WebAssembly
+         module; that does not arrive transitively for the browser target. -->
+    <PackageVersion Include="HarfBuzzSharp.NativeAssets.WebAssembly" Version="8.3.1.5" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.2" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.2" />
     <PackageVersion Include="System.Text.Encoding.CodePages" Version="10.0.8" />
 
     <!--

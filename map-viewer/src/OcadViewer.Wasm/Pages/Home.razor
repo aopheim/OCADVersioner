@@ -1,0 +1,232 @@
+@page "/"
+@using System.Diagnostics
+@using OcadViewer.Core
+@using PurplePen.Graphics2D
+@using PurplePen.MapModel
+@using Map_SkiaStd
+@using SkiaSharp
+@using SkiaSharp.Views.Blazor
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<PageTitle>Skia smoke test</PageTitle>
+
+<h1>Skia in WebAssembly &mdash; smoke test</h1>
+
+<p class="text-muted">
+    Everything below is drawn through the <em>vendored</em> Purple Pen
+    <code>Skia_GraphicsTarget</code>, not raw SkiaSharp, so a pass here means the
+    real rendering path works in the browser.
+</p>
+
+<section>
+    <h2>Checks</h2>
+    <table class="table table-sm">
+        <tbody>
+            @foreach (var check in checks) {
+                <tr>
+                    <td style="width:2rem">@(check.Passed ? "PASS" : "FAIL")</td>
+                    <td style="width:22rem">@check.Name</td>
+                    <td class="text-muted">@check.Detail</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</section>
+
+<section>
+    <h2>Drawing</h2>
+    <p class="text-muted">
+        Circle and filled ellipse, text in Roboto and in an unregistered family,
+        a dashed path, and two overprinted rectangles blended with Darken &mdash;
+        their overlap must be darker than either.
+    </p>
+    <SKCanvasView @ref="canvasView" OnPaintSurface="OnPaint" IgnorePixelScaling="false"
+                  style="width:100%; max-width:640px; height:360px; border:1px solid #ccc" />
+</section>
+
+@code {
+    private SKCanvasView canvasView;
+    private readonly List<Check> checks = [];
+    private bool fontsReady;
+    private bool repainted;
+
+    private sealed record Check(string Name, bool Passed, string Detail);
+
+    /// Bisect helper: ?steps=N runs only the first N probes, so a native crash
+    /// (which kills the runtime and cannot be caught) can be attributed to a step.
+    private int MaxSteps =>
+        int.TryParse(System.Web.HttpUtility.ParseQueryString(
+            new Uri(Nav.Uri).Query)["steps"], out int n) ? n : int.MaxValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Skia's font manager builds its default typeface in a static initialiser.
+        // On a platform with no system fonts that is a plausible place to fail
+        // hard, so probe it before anything depends on it.
+        if (MaxSteps < 1) return;
+        Run("SkiaFontManager type initialises", () => {
+            string[] families = SkiaFontManager.GetFontFamilies();
+            return $"{families.Length} families visible before registration";
+        });
+
+        // The load-bearing hypothesis: the runtime's in-memory filesystem is
+        // visible to Skia, so a font written there can be opened by path.
+        if (MaxSteps < 2) return;
+        Run("In-memory filesystem is writable", () => {
+            Directory.CreateDirectory("/smoketest");
+            File.WriteAllBytes("/smoketest/probe.bin", [1, 2, 3, 4]);
+            long length = new FileInfo("/smoketest/probe.bin").Length;
+            return $"wrote and read back {length} bytes at /smoketest/probe.bin";
+        });
+
+        if (MaxSteps < 3) return;
+        await RunAsync("Fonts download and register", async () => {
+            var stopwatch = Stopwatch.StartNew();
+            int faces = await FontPack.InstallFromHttpAsync(Http);
+            stopwatch.Stop();
+            fontsReady = true;
+            return $"{faces} faces in {stopwatch.ElapsedMilliseconds} ms";
+        });
+
+        if (MaxSteps < 4) return;
+        Run("Registered families resolve", () => {
+            FontPackDiagnostics diagnostics = FontPack.Diagnose();
+            if (!diagnostics.Ok) {
+                throw new InvalidOperationException(
+                    $"fallback={diagnostics.FallbackInstalled} aliases={diagnostics.AliasesInstalled} "
+                    + $"error={diagnostics.Error ?? "none"}");
+            }
+            return $"{diagnostics.FamilyCount} families, fallback and aliases present";
+        });
+
+        // Text metrics are what OcadImport asks for during parsing, so a plausible
+        // looking width here is a precondition for loading any map with text.
+        if (MaxSteps < 5) return;
+        Run("Text measures through ITextMetrics", () => {
+            using var metrics = new Skia_TextMetrics();
+            using ITextFaceMetrics face = metrics.GetTextFaceMetrics("Roboto", 20f, TextEffects.Regular);
+            float width = face.GetTextWidth("Bymarkabasen");
+            if (width <= 0)
+                throw new InvalidOperationException("zero width");
+            return $"\"Bymarkabasen\" is {width:F1} units wide, ascent {face.Ascent:F1}";
+        });
+
+        if (MaxSteps < 6) return;
+        Run("SKTypeface from raw bytes", () => {
+            byte[] bytes = File.ReadAllBytes("/fonts/Roboto-Regular.ttf");
+            SKTypeface fromData = SKTypeface.FromData(SKData.CreateCopy(bytes));
+            SKTypeface fromStream = SKTypeface.FromStream(new SKMemoryStream(bytes));
+            return $"{bytes.Length} bytes; FromData -> {fromData?.FamilyName ?? "NULL"}; "
+                 + $"FromStream -> {fromStream?.FamilyName ?? "NULL"}";
+        });
+
+        Run("Requested family actually resolves", () => {
+            using SKTypeface roboto = SkiaFontManager.CreateTypeface(
+                "Roboto", SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+            using SKTypeface arial = SkiaFontManager.CreateTypeface(
+                "Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+            using SKTypeface missing = SkiaFontManager.CreateTypeface(
+                "No Such Family", SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+            if (!roboto.FamilyName.Contains("Roboto", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"Roboto resolved to \"{roboto.FamilyName}\"");
+            return $"Roboto -> {roboto.FamilyName}; Arial(bold) -> {arial.FamilyName} "
+                 + $"(bold={arial.IsBold}); unknown -> {missing.FamilyName}";
+        });
+
+        Run("Renders to an offscreen bitmap", () => {
+            using var target = new Skia_BitmapGraphicsTarget(
+                64, 64, false, CmykColor.FromCmyk(0, 0, 0, 0),
+                new System.Drawing.RectangleF(0, 0, 64, 64), inverted: true);
+
+            object brush = new object();
+            target.CreateSolidBrush(brush, CmykColor.FromCmyk(1, 0, 0, 0));
+            target.FillEllipse(brush, new System.Drawing.PointF(32, 32), 20, 20);
+
+            using var bitmap = ((Skia_Bitmap)target.FinishBitmap()).Bitmap;
+            SKColor centre = bitmap.GetPixel(32, 32);
+            if (centre.Alpha == 0)
+                throw new InvalidOperationException("centre pixel is transparent");
+            return $"centre pixel #{centre.Red:X2}{centre.Green:X2}{centre.Blue:X2}";
+        });
+    }
+
+    /// The canvas paints once before the async setup finishes, so ask for a
+    /// repaint as soon as the fonts are actually usable.
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (fontsReady && !repainted) {
+            repainted = true;
+            canvasView?.Invalidate();
+        }
+    }
+
+    private void Run(string name, Func<string> probe)
+    {
+        try {
+            checks.Add(new Check(name, true, probe()));
+        }
+        catch (Exception ex) {
+            checks.Add(new Check(name, false, $"{ex.GetType().Name}: {ex.Message}"));
+        }
+    }
+
+    private async Task RunAsync(string name, Func<Task<string>> probe)
+    {
+        try {
+            checks.Add(new Check(name, true, await probe()));
+        }
+        catch (Exception ex) {
+            checks.Add(new Check(name, false, $"{ex.GetType().Name}: {ex.Message}"));
+        }
+    }
+
+    private void OnPaint(SKPaintSurfaceEventArgs e)
+    {
+        SKCanvas canvas = e.Surface.Canvas;
+        canvas.Clear(SKColors.White);
+
+        if (!fontsReady)
+            return;
+
+        using var target = new Skia_GraphicsTarget(canvas);
+
+        object black = new(), red = new(), cyan = new(), yellow = new();
+        target.CreateSolidBrush(black, CmykColor.FromCmyk(0, 0, 0, 1));
+        target.CreateSolidBrush(red, CmykColor.FromCmyk(0, 1, 1, 0));
+        target.CreateSolidBrush(cyan, CmykColor.FromCmyk(1, 0, 0, 0));
+        target.CreateSolidBrush(yellow, CmykColor.FromCmyk(0, 0, 1, 0));
+
+        object thinPen = new();
+        target.CreatePen(thinPen, CmykColor.FromCmyk(0, 0, 0, 1), 2f,
+                         LineCapMode.Round, LineJoinMode.Round, 5f);
+
+        target.DrawEllipse(thinPen, new System.Drawing.PointF(60, 60), 40, 40);
+        target.FillEllipse(red, new System.Drawing.PointF(160, 60), 40, 25);
+
+        object roboto = new(), missing = new();
+        target.CreateFont(roboto, "Roboto", 22f, TextEffects.Regular);
+        target.CreateFont(missing, "No Such Family", 22f, TextEffects.Bold);
+        target.DrawText("Roboto — æøå Klokktjønna",
+                        roboto, black, new System.Drawing.PointF(20, 120));
+        target.DrawText("Unregistered family falls back",
+                        missing, black, new System.Drawing.PointF(20, 152));
+
+        // Purple Pen splits dashes geometrically rather than asking the backend
+        // for a dash pattern, so this is drawn as separate sub-paths.
+        for (float x = 20; x < 380; x += 24)
+            target.DrawLine(thinPen, new System.Drawing.PointF(x, 190),
+                                     new System.Drawing.PointF(x + 12, 190));
+
+        // Overprint blending. The overlap must be visibly darker than either
+        // rectangle, which is the behaviour real maps depend on.
+        if (target.PushBlending(BlendMode.Darken)) {
+            target.FillRectangle(cyan, new System.Drawing.RectangleF(20, 210, 120, 90));
+            target.FillRectangle(yellow, new System.Drawing.RectangleF(90, 240, 120, 90));
+            target.PopBlending();
+        }
+        else {
+            target.FillRectangle(cyan, new System.Drawing.RectangleF(20, 210, 120, 90));
+        }
+    }
+}
