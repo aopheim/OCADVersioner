@@ -4,6 +4,7 @@
 @using PurplePen.Graphics2D
 @using PurplePen.MapModel
 @using Map_SkiaStd
+@using OcadViewer.Wasm.Services
 @using SkiaSharp
 @using SkiaSharp.Views.Blazor
 @inject HttpClient Http
@@ -132,6 +133,48 @@
                 throw new InvalidOperationException($"Roboto resolved to \"{roboto.FamilyName}\"");
             return $"Roboto -> {roboto.FamilyName}; Arial(bold) -> {arial.FamilyName} "
                  + $"(bold={arial.IsBold}); unknown -> {missing.FamilyName}";
+        });
+
+        // Both apps read and write Releases/V<n>/V<n>.json while the migration is
+        // under way, so the shapes have to match exactly. This is a real sample
+        // written by the Angular app.
+        Run("Version metadata round-trips with the Angular format", () => {
+            const string angularJson =
+                """
+                {"numberOfAddedSymbols":12,"numberOfDeletedSymbols":3,"numberOfEditedSymbols":7,
+                 "versionCreatedAt":"2026-09-01T09:15:00.000Z","versionNumber":1,
+                 "description":"First survey pass","title":"Spring survey"}
+                """;
+
+            var options = new System.Text.Json.JsonSerializerOptions {
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+            };
+
+            var read = System.Text.Json.JsonSerializer.Deserialize<VersionMetadata>(angularJson, options);
+            if (read.VersionNumber != 1 || read.Title != "Spring survey"
+                || read.NumberOfAddedSymbols != 12 || read.NumberOfDeletedSymbols != 3
+                || read.NumberOfEditedSymbols != 7
+                || read.VersionCreatedAt.UtcDateTime != new DateTime(2026, 9, 1, 9, 15, 0, DateTimeKind.Utc)) {
+                throw new InvalidOperationException($"read back wrong: {System.Text.Json.JsonSerializer.Serialize(read, options)}");
+            }
+
+            string written = System.Text.Json.JsonSerializer.Serialize(read, options);
+            foreach (string required in new[] {
+                "\"numberOfAddedSymbols\":12", "\"numberOfEditedSymbols\":7",
+                "\"numberOfDeletedSymbols\":3", "\"versionNumber\":1",
+                "\"title\":\"Spring survey\"", "\"description\":\"First survey pass\"" }) {
+                if (!written.Contains(required))
+                    throw new InvalidOperationException($"missing {required} in {written}");
+            }
+
+            // Nulls must be omitted, not written, or Angular shows "null" as a title.
+            var minimal = System.Text.Json.JsonSerializer.Serialize(
+                new VersionMetadata { VersionNumber = 9, VersionCreatedAt = DateTimeOffset.UtcNow }, options);
+            if (minimal.Contains("null"))
+                throw new InvalidOperationException($"nulls were written: {minimal}");
+
+            return "reads Angular's JSON and writes the same shape; nulls omitted";
         });
 
         Run("Renders to an offscreen bitmap", () => {

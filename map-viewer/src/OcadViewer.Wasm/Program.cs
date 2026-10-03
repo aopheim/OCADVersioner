@@ -10,6 +10,10 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 
+// Scoped, not transient: the directory handle behind it lives as long as the page,
+// and a component being disposed must not take the user's folder permission with it.
+builder.Services.AddScoped<OcadViewer.Wasm.Services.ProjectService>();
+
 var host = builder.Build();
 
 // Fonts have to be registered before the first map is parsed, not merely before

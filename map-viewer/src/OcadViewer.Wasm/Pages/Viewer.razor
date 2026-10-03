@@ -1,116 +1,226 @@
 @page "/"
-@using System.Diagnostics
 @using OcadViewer.Wasm.Components
+@using OcadViewer.Wasm.Services
+@inject ProjectService Project
 
 <PageTitle>OCAD map viewer</PageTitle>
 
 <h1>OCAD map viewer</h1>
 
-<p class="text-muted">
-    Two synced maps, drawn by PurplePen's renderer running in WebAssembly and
-    delivered as Leaflet tiles. Pan or zoom either side &mdash; the other follows.
-</p>
+@if (!supported) {
+    <div class="alert alert-warning">
+        This browser cannot open folders. The File System Access API is only in
+        Chromium-based browsers &mdash; the same limitation the current app has.
+    </div>
+}
 
-<div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
-    <label class="mb-0">
-        <span class="text-muted small d-block">Left map</span>
-        <InputFile OnChange="@(e => Load(0, e))" accept=".ocd,.ocad" class="form-control form-control-sm" />
-    </label>
-    <label class="mb-0">
-        <span class="text-muted small d-block">Right map</span>
-        <InputFile OnChange="@(e => Load(1, e))" accept=".ocd,.ocad" class="form-control form-control-sm" />
-    </label>
-    <button class="btn btn-outline-secondary btn-sm align-self-end" @onclick="RefreshStats">
-        Refresh stats
+<div class="d-flex align-items-end gap-3 mb-3 flex-wrap">
+    <button class="btn btn-primary" @onclick="OpenProject" disabled="@(!supported || busy)">
+        @(Project.IsOpen ? "Open another folder" : "Open project folder")
     </button>
+
+    @if (Project.IsOpen) {
+        <button class="btn btn-outline-secondary" @onclick="Refresh" disabled="@busy">Refresh</button>
+
+        <label class="mb-0">
+            <span class="text-muted small d-block">Left (newer)</span>
+            <select class="form-select form-select-sm" style="width:12rem"
+                    value="@leftVersion" @onchange="e => ShowVersion(0, e)" disabled="@busy">
+                @foreach (var option in VersionOptions()) {
+                    <option value="@option.Name">@option.Label</option>
+                }
+            </select>
+        </label>
+
+        <label class="mb-0">
+            <span class="text-muted small d-block">Right (older)</span>
+            <select class="form-select form-select-sm" style="width:12rem"
+                    value="@rightVersion" @onchange="e => ShowVersion(1, e)" disabled="@busy">
+                @foreach (var option in VersionOptions()) {
+                    <option value="@option.Name">@option.Label</option>
+                }
+            </select>
+        </label>
+    }
 </div>
+
+@if (Project.IsOpen && Project.Project.OcdCandidates.Count > 1) {
+    <div class="alert alert-info py-2">
+        This folder has several <code>.ocd</code> files. Which one is the working file?
+        @foreach (string candidate in Project.Project.OcdCandidates) {
+            <button class="btn btn-sm @(candidate == Project.Project.CurrentFileName ? "btn-secondary" : "btn-outline-secondary") ms-2"
+                    @onclick="() => SelectCurrent(candidate)" disabled="@busy">@candidate</button>
+        }
+    </div>
+}
 
 @if (status is not null) {
     <p class="@(failed ? "text-danger" : "text-muted")">@status</p>
 }
 
-<OcadMapPair @ref="mapPair" LeftCaption="left" RightCaption="right (synced)" />
+@if (Project.IsOpen) {
+    <div class="row g-3 mb-3">
+        <div class="col-md-5">
+            <h2 class="h6">@Project.Project.ProjectName</h2>
+            <table class="table table-sm">
+                <thead>
+                    <tr><th>Version</th><th>Created</th><th>Title</th></tr>
+                </thead>
+                <tbody>
+                    <tr class="@(leftVersion == ProjectService.CurrentVersionName || rightVersion == ProjectService.CurrentVersionName ? "table-active" : "")">
+                        <td><strong>current</strong></td>
+                        <td class="text-muted">working file</td>
+                        <td>@(Project.Project.CurrentFileName ?? "none selected")</td>
+                    </tr>
+                    @foreach (var version in Project.Project.Versions.OrderByDescending(v => v.Number)) {
+                        <tr class="@(leftVersion == version.Name || rightVersion == version.Name ? "table-active" : "")">
+                            <td><strong>@version.Name</strong></td>
+                            <td class="text-muted">@version.Metadata.VersionCreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@version.Metadata.Title</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
 
-@if (loads.Count > 0 || stats is not null) {
-    <pre class="ocad-stats">@StatsText()</pre>
+        <div class="col-md-5">
+            <h2 class="h6">Create @Project.NextVersionName()</h2>
+            <input class="form-control form-control-sm mb-2" placeholder="Title" @bind="newTitle" disabled="@busy" />
+            <textarea class="form-control form-control-sm mb-2" rows="2" placeholder="Description"
+                      @bind="newDescription" disabled="@busy"></textarea>
+            <button class="btn btn-outline-primary btn-sm" @onclick="CreateVersion"
+                    disabled="@(busy || string.IsNullOrEmpty(Project.Project.CurrentFileName))">
+                Create version
+            </button>
+            <p class="text-muted small mt-2 mb-0">
+                Copies the working file into <code>Releases/@Project.NextVersionName()/</code>.
+                Symbol counts are written as zero until the diff is ported.
+            </p>
+        </div>
+    </div>
 }
+
+<OcadMapPair @ref="mapPair" LeftCaption="@leftVersion" RightCaption="@(rightVersion + " (synced)")" />
 
 @code {
     private OcadMapPair mapPair;
-    private readonly Dictionary<int, LoadRecord> loads = [];
-    private OcadMapPair.TileStats stats;
+    private bool supported = true;
+    private bool busy;
     private string status;
     private bool failed;
 
-    private sealed record LoadRecord(string Name, long Bytes, OcadMapPair.MapLoadInfo Info, long WallMs);
+    private string leftVersion = ProjectService.CurrentVersionName;
+    private string rightVersion = ProjectService.CurrentVersionName;
 
-    private async Task Load(int slot, InputFileChangeEventArgs e)
+    private string newTitle;
+    private string newDescription;
+
+    private sealed record VersionOption(string Name, string Label);
+
+    private IEnumerable<VersionOption> VersionOptions()
     {
-        IBrowserFile file = e.File;
-        if (file is null || mapPair is null)
-            return;
+        yield return new VersionOption(ProjectService.CurrentVersionName, "current");
+        foreach (var version in Project.Project.Versions.OrderByDescending(v => v.Number))
+            yield return new VersionOption(version.Name, version.Metadata.Title is { Length: > 0 } title
+                ? $"{version.Name} — {title}"
+                : version.Name);
+    }
 
+    protected override async Task OnInitializedAsync()
+    {
+        try {
+            supported = await Project.IsSupportedAsync();
+        }
+        catch {
+            supported = false;
+        }
+    }
+
+    private async Task OpenProject()
+    {
+        await Run("Opening folder…", async () => {
+            await Project.OpenAsync();
+            ChooseInitialVersions();
+            await ShowBoth();
+        },
+        // The picker throws when the user cancels, which is not an error.
+        ignore: ex => ex.Message.Contains("abort", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task Refresh()
+        => await Run("Re-reading folder…", async () => await Project.RefreshAsync());
+
+    private async Task SelectCurrent(string fileName)
+        => await Run($"Selecting {fileName}…", async () => {
+            await Project.SelectCurrentFileAsync(fileName);
+            await ShowBoth();
+        });
+
+    private async Task CreateVersion()
+        => await Run("Creating version…", async () => {
+            await Project.CreateVersionAsync(newTitle, newDescription);
+            newTitle = newDescription = null;
+            ChooseInitialVersions();
+            await ShowBoth();
+        });
+
+    /// <summary>
+    /// Defaults to the newest release on the right and the working file on the left,
+    /// which is the comparison the Angular app opens with.
+    /// </summary>
+    private void ChooseInitialVersions()
+    {
+        leftVersion = ProjectService.CurrentVersionName;
+        var newest = Project.Project.Versions.OrderByDescending(v => v.Number).FirstOrDefault();
+        rightVersion = newest?.Name ?? ProjectService.CurrentVersionName;
+    }
+
+    private async Task ShowVersion(int slot, ChangeEventArgs e)
+    {
+        string name = e.Value?.ToString();
+        if (string.IsNullOrEmpty(name)) return;
+
+        if (slot == 0) leftVersion = name; else rightVersion = name;
+        await Run($"Loading {name}…", async () => await Load(slot, name));
+    }
+
+    private async Task ShowBoth()
+    {
+        await Load(0, leftVersion);
+        await Load(1, rightVersion);
+    }
+
+    private async Task Load(int slot, string versionName)
+    {
+        if (mapPair is null) return;
+
+        byte[] bytes = await Project.ReadMapAsync(versionName);
+        await mapPair.LoadAsync(slot, $"{versionName}.ocd", bytes);
+    }
+
+    /// <summary>Runs an action with a status message, busy flag and error reporting.</summary>
+    private async Task Run(string message, Func<Task> action, Func<Exception, bool> ignore = null)
+    {
+        busy = true;
         failed = false;
-        status = $"Reading {file.Name}…";
+        status = message;
         StateHasChanged();
         await Task.Yield();
 
         try {
-            // 256 MB ceiling: real survey maps run to tens of megabytes, and the
-            // default 512 KB limit would reject almost all of them.
-            byte[] bytes;
-            await using (Stream stream = file.OpenReadStream(maxAllowedSize: 256L * 1024 * 1024)) {
-                using var buffer = new MemoryStream();
-                await stream.CopyToAsync(buffer);
-                bytes = buffer.ToArray();
-            }
-
-            status = $"Parsing and rendering {file.Name}…";
-            StateHasChanged();
-            await Task.Yield();
-
-            var stopwatch = Stopwatch.StartNew();
-            OcadMapPair.MapLoadInfo info = await mapPair.LoadAsync(slot, file.Name, bytes);
-            stopwatch.Stop();
-
-            loads[slot] = new LoadRecord(file.Name, bytes.LongLength, info, stopwatch.ElapsedMilliseconds);
+            await action();
+            status = null;
+        }
+        catch (Exception ex) when (ignore?.Invoke(ex) == true) {
             status = null;
         }
         catch (Exception ex) {
             failed = true;
-            status = $"{ex.GetType().Name}: {ex.Message}";
+            status = ex.Message;
         }
-
-        await RefreshStats();
-    }
-
-    private async Task RefreshStats()
-    {
-        if (mapPair is not null)
-            stats = await mapPair.GetStatsAsync();
-        StateHasChanged();
-    }
-
-    private string StatsText()
-    {
-        var lines = new List<string>();
-
-        foreach ((int slot, LoadRecord load) in loads.OrderBy(kv => kv.Key)) {
-            lines.Add($"slot {slot}        {load.Name} ({load.Bytes / 1048576.0:F1} MB), OCAD {load.Info.Version}");
-            lines.Add($"  bounds      {load.Info.MaxX - load.Info.MinX:F1} x {load.Info.MaxY - load.Info.MinY:F1} mm");
-            lines.Add($"  parse       {load.Info.ParseMs} ms");
-            lines.Add($"  load+fit    {load.WallMs} ms");
-            lines.Add($"  georef      {load.Info.Georeference}");
+        finally {
+            busy = false;
+            StateHasChanged();
         }
-
-        if (stats is not null) {
-            lines.Add("");
-            lines.Add($"tiles drawn   {stats.Drawn}  (stale {stats.Stale}, outside {stats.Outside}, "
-                    + $"cancelled {stats.Cancelled}, queued {stats.Queued})");
-            lines.Add($"tile render   avg {stats.AvgMs:F1} ms, slowest {stats.MaxMs:F1} ms");
-            lines.Add($"sum of tiles  {stats.TotalMs:F0} ms");
-        }
-
-        return string.Join('\n', lines);
     }
 }
