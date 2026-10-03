@@ -1,16 +1,19 @@
-# Replace ocad2geojson with PurplePen's C# OCAD parser and renderer, behind a Leaflet tile layer
+# Replace the Angular app with a Blazor app that renders OCAD maps with PurplePen's renderer
 
-> **Status: Stages 0–3 complete and the architecture is settled. Stage 4 is next.**
-> The extracted parser and renderer run in WebAssembly and draw real maps correctly.
-> The viewer will be a **Leaflet tile layer inside the existing Angular app**, fed by
-> a plain .NET WebAssembly module — not a Blazor app. See *Architecture* below.
+> **Status: Stages 0–3 complete. Stage 4 is next.**
+> **End goal: a Blazor WebAssembly app that replaces the Angular app entirely.**
+> It is built side by side with Angular, which keeps serving users until Blazor
+> reaches parity, and is then retired. The map viewer inside it is a **Leaflet tile
+> layer** driven through JS interop, so `leaflet.sync` gives the synced side-by-side
+> views unchanged. See *Architecture*.
 >
 > **To resume:**
 > ```bash
 > dotnet build map-viewer/MapViewer.slnx -c Release                 # everything
 > dotnet run --project map-viewer/src/OcadViewer.RenderCli -c Release -- <map.ocd> -o out.png
-> dotnet publish map-viewer/src/OcadViewer.TileSpike -c Release -o <dir>   # the tile module
-> node map-viewer/tools/serve.mjs <dir>/wwwroot 5002                # serve it
+> dotnet run --project map-viewer/src/OcadViewer.Wasm -c Release    # the Blazor app
+> dotnet publish map-viewer/src/OcadViewer.TileSpike -c Release -o <dir>   # tile spike
+> node map-viewer/tools/serve.mjs <dir>/wwwroot 5002                # serve the spike
 > pwsh map-viewer/tools/sync-purplepen.ps1 -PurplePenPath <path> -Check    # vendor drift
 > ```
 > Requires the .NET 10 SDK and the `wasm-tools` workload. A benchmark map is at
@@ -26,7 +29,7 @@ Rendering today goes through the npm package `ocad2geojson-test`: `ocadToSvg()` 
 
 The fix is to stop treating the map as DOM. PurplePen (`C:\repos\PurplePen`) is a mature desktop orienteering application that already has a complete, high-fidelity OCAD parser and renderer in C#, and — critically — it is already factored behind a platform-neutral drawing abstraction. The exploration below found the extraction is far cheaper than expected.
 
-**Outcome intended:** the Angular app keeps its viewport, its synced side-by-side maps and its whole diff workflow, but stops building a giant SVG per map. Instead a Leaflet tile layer draws the map through PurplePen's renderer running in WebAssembly, at full symbol fidelity and with the work split into tiles that arrive progressively. Nothing else about the app changes.
+**Outcome intended:** a Blazor WebAssembly app that replaces the Angular one entirely — same workflow, same `Releases/V<n>/` folders, but the map drawn by PurplePen's renderer into Leaflet tiles instead of one giant SVG per map. It is built alongside the Angular app, which keeps serving users until the Blazor app reaches parity and is then deleted.
 
 ## Key findings that shape the plan
 
@@ -46,34 +49,38 @@ Rough sizes: `Graphics2D` ~2.4k lines, `MapModel` ~27.7k lines (of which ~18.6k 
 
 | Decision | Choice |
 |---|---|
-| Runtime | **Plain .NET WebAssembly module** exporting `[JSExport]` methods — no Blazor |
-| Viewer | **Leaflet tile layer** inside the existing Angular app |
+| End state | **Blazor WebAssembly app. The Angular app is retired.** |
+| Migration | **Side by side.** Angular keeps serving users until Blazor reaches parity |
+| Map viewport | **Leaflet**, hosted in Blazor through JS interop |
 | Synced side-by-side views | **Hard requirement.** `leaflet.sync`, unchanged |
+| Rendering | PurplePen's renderer in WebAssembly, drawn into Leaflet tiles |
 | Fidelity | **Full** — all symbol types, patterns, hatching, glyphs, text |
-| Scope | **Rendering only.** The version list, diff table and folder picker stay as they are |
 | Hosting | Must remain a static site |
 
-### Why Leaflet rather than our own viewport
+### Why Leaflet, and why that does not mean keeping Angular
 
-The original plan had us build a `ViewportController` and, later, a hand-rolled tile
-cache. That is now dropped. Three things decided it:
+Two separate questions got conflated once already, so to be explicit:
+
+**Leaflet owns the viewport** because it is a better viewport than one we would
+write. The original plan had us build a `ViewportController` and later a hand-rolled
+tile cache; both are dropped.
 
 1. **Leaflet was never the bottleneck.** The problem was `ocadToSvg` building one
    giant DOM tree per map — tens of thousands of live SVG nodes, two on screen at
    once. Swapping the *layer* for rendered tiles fixes that without removing Leaflet.
 2. **`leaflet.sync` is layer-agnostic.** It only calls `setView`, `getCenter` and
-   `getZoom`; it has no idea what is underneath. The spike confirmed it works with a
-   custom canvas `GridLayer` with no changes at all.
-3. **`L.GridLayer` is the tile pyramid** that Stage 5 was going to hand-build —
-   lifecycle, pruning, zoom transitions, keeping coarser tiles on screen while finer
-   ones load. All free, and all battle-tested.
+   `getZoom`. The spike confirmed it works with a custom canvas `GridLayer` with no
+   changes at all, which satisfies the synced-view requirement for free.
+3. **`L.GridLayer` is the tile pyramid** that would otherwise be hand-built —
+   lifecycle, pruning, zoom transitions, keeping coarser tiles while finer ones load.
 
-Keeping Leaflet also preserves the Angular app's version list, diff table and folder
-picker untouched, and leaves the door open to an OSM or aerial underlay now that
-georeferencing resolves.
+**Blazor owns the application.** Leaflet is a JavaScript library, and Blazor hosts
+JavaScript libraries perfectly well; the viewport choice says nothing about which
+framework wraps it. Everything the Angular app does — version list, diff table,
+folder picker, settings, translations — moves to Blazor.
 
-The cost is that we do not control the frame loop, which matters because WebAssembly
-is single-threaded — see *Architecture*.
+The one genuine cost of Leaflet is that we do not own the frame loop, which matters
+because WebAssembly is single-threaded. See *The hard part: one thread*.
 
 ## The exact call pattern to reuse
 
@@ -181,7 +188,7 @@ Cost is ~600 KB Brotli. Vendor it. Its coupling is narrow — only `internal cla
 
 ```
 C:\repos\OCADVersioner\
-  ocad-versioner\                       # Angular app — gains a tile layer, loses ocadToSvg
+  ocad-versioner\                       # Angular app — frozen, then deleted at Stage 9
   THIRD-PARTY-NOTICES.md                # served by the app, not just committed
   map-viewer\                           # .NET root
     MapViewer.slnx
@@ -190,7 +197,7 @@ C:\repos\OCADVersioner\
     PLAN.md
     tools\
       sync-purplepen.ps1                # vendor sync + drift check
-      serve.mjs                         # static server for the published module
+      serve.mjs                         # static server for a published module
     vendor\
       UPSTREAM.md                       # commit SHA, SHA256 manifest, patch log
       LICENSE-*.txt
@@ -198,21 +205,23 @@ C:\repos\OCADVersioner\
     src\
       Graphics2D\  MapModel\  DotSpatial.Projections\  Map_SkiaStd\   # thin csprojs
       OcadViewer.Core\        # loader, renderer, font pack — no UI, no hosting
+      OcadViewer.Diff\        # map comparison in C# (Stage 7)
       OcadViewer.RenderCli\   # desktop .ocd -> PNG, for baselines
-      OcadViewer.TileSpike\   # THE DELIVERABLE: [JSExport] tile module + demo page
-      OcadViewer.Wasm\        # Blazor harness — see below
+      OcadViewer.TileSpike\   # the JS/Leaflet spike — reference, retired after Stage 4
+      OcadViewer.Wasm\        # THE DELIVERABLE: the Blazor app
     test\
       Test_MapModel\          # name is load-bearing (InternalsVisibleTo)
+      OcadViewer.Diff.Tests\  # ported from json-diff-service.spec.ts
 ```
 
-**`OcadViewer.TileSpike` is the thing that ships.** It started as a spike and proved
-the architecture; rename it (`OcadViewer.TileRenderer`) when Stage 4 begins. Its demo
-page stays useful as a harness that runs the renderer without Angular in the way.
+**`OcadViewer.Wasm` is the product.** It already exists and already proves the hard
+parts: Skia, fonts, text metrics and overprint blending all work in it, and its
+`/smoke` page stays as a permanent diagnostic. From Stage 4 it gains the Leaflet
+viewer, and from Stage 5 onward it gains the rest of the Angular app's features.
 
-**`OcadViewer.Wasm` (Blazor) is no longer the product direction**, but keep it: its
-`/smoke` page is the fastest way to tell whether Skia, fonts, text metrics and
-blending work in a browser at all, and that diagnostic has already earned its keep
-twice. Its viewer page can be deleted once Stage 5 lands.
+**`OcadViewer.TileSpike` is reference material.** Its `app.js` tile layer, scheduler
+and coordinate maths port directly into the Blazor app; its standalone page and
+`[JSExport]` plumbing exist to prove the boundary. Delete it once Stage 4 lands.
 
 **Skip `PurplePenCore` entirely.** Its `MapDisplay` adds course objects and print
 areas we don't need, and drags in 22 embedded PNGs, `symbols.xml`, six `.resx`
@@ -222,28 +231,38 @@ via `RenderOptions.renderTemplates`.
 ## Architecture
 
 ```
-Angular (unchanged)          JavaScript glue              .NET WebAssembly
-──────────────────────       ───────────────────────      ────────────────────
-version list, diff table     L.GridLayer.createTile       LoadMap(name, bytes)
-folder picker, settings  ──► tile queue + scheduler   ──► RenderTile(x,y,w,h,px)
-two L.Map + leaflet.sync     putImageData into canvas     Georeference()
+Blazor WebAssembly (the app)      JavaScript interop            .NET (same runtime)
+────────────────────────────      ──────────────────────        ───────────────────
+version list, diff table          L.GridLayer.createTile        LoadMap(name, bytes)
+folder picker, settings       ──► tile queue + scheduler    ──► RenderTile(x,y,w,h,px)
+MapViewer.razor hosts two divs    two L.Map + leaflet.sync      Georeference()
 ```
 
-The module exports `[JSExport]` methods and is loaded by `import('./main.js')`, which
-boots the runtime and hands back the exports. Nothing about it is Blazor-specific, and
-Angular needs no .NET knowledge beyond those few calls.
+Blazor owns the page and the application state. A small JS module creates the two
+Leaflet maps, joins them with `leaflet.sync`, and installs a `GridLayer` whose
+`createTile` calls back into .NET for pixels. Leaflet never knows it is inside a
+Blazor app, and Blazor never has to reimplement a viewport.
+
+**Getting pixels across the boundary.** The spike used `[JSExport]`, which marshals
+`byte[]` as a real typed array and measured ~0.7 ms for a 262 KB tile. Blazor
+WebAssembly supports the same attribute with `<WasmEnableJSExports>true</...>`, so
+the fast path carries over. **Verify this early in Stage 4** — it is the one piece
+of the spike that does not transfer unchanged.
+
+Avoid the obvious alternative, `DotNetObjectReference` plus `invokeMethodAsync`: it
+serialises `byte[]` as base64 inside JSON, which would add roughly 350 KB of string
+and a JSON parse per tile. If `[JSExport]` turns out not to work inside Blazor, use
+`IJSUnmarshalledRuntime`-style shared memory or fall back to PNG, and measure the
+cost rather than assuming it.
 
 **Coordinates.** Maps are drawn in OCAD paper millimetres, so Leaflet uses
 `L.CRS.Simple` and paper coordinates *are* Leaflet coordinates: `lng = paper X`,
 `lat = paper Y`. Tile world rects come from `map.unproject`, which keeps the maths to
-four lines and makes `leaflet.sync` work untouched. Georeferencing is available
-(`Georeference()` returns the proj4 string) if a real CRS and an OSM underlay are
-wanted later.
+four lines. Georeferencing is available (`Georeference()` returns the proj4 string)
+if a real CRS and an OSM underlay are wanted later.
 
 **Pixels, not PNG.** `RenderTile` returns raw RGBA straight into `ImageData` and
-`putImageData`. No PNG encode, no async decode, and the boundary cost is negligible:
-a 256×256 tile is 262 KB and the measured round trip was 204.8 ms against 204.1 ms
-of actual rendering — roughly **0.7 ms of marshalling**.
+`putImageData`. No PNG encode, no async decode.
 
 ### The hard part: one thread
 
@@ -446,52 +465,54 @@ cp ocad-versioner/src/assets/tests/large_map.ocd map-viewer/src/OcadViewer.Wasm/
 
 Delete the folder when finished.
 
-### Stage 4 — Harden the tile layer (2–3 days) — **NEXT**
+### Stage 4 — Leaflet tile viewer inside Blazor (3–4 days) — **NEXT**
 
-Promote the spike to a real component, standalone, before Angular is involved.
+Bring the spike's tile layer into `OcadViewer.Wasm` and make it robust.
 
-- Rename `OcadViewer.TileSpike` → `OcadViewer.TileRenderer`.
-- Fix the three single-thread traps above: `fadeAnimation: false`, staleness check,
-  and a pump with a `setTimeout` fallback plus a watchdog that clears the latch.
+- **First, verify `[JSExport]` works inside a Blazor WebAssembly project** with
+  `<WasmEnableJSExports>true</WasmEnableJSExports>`, and that a `byte[]` still
+  crosses as a typed array rather than base64. Everything else depends on it, and
+  it is an hour's work to find out.
+- Port `OcadViewer.TileSpike/wwwroot/app.js` into a proper ES module under the
+  Blazor app, with a real API (`createOcadMaps(leftEl, rightEl, opts)`), invoked
+  from a `MapViewer.razor` component.
+- Fix the three single-thread traps from *The hard part: one thread*:
+  `fadeAnimation: false`, the staleness check, and a pump with a `setTimeout`
+  fallback plus a watchdog that clears the latch.
 - Give `RenderTile` a cancellation path. `Map.Draw` takes a `throwOnCancel` callback
-  invoked after every colour layer (`Map.cs:2184`); wire it to a flag JS can set, so
-  a tile abandoned mid-render stops instead of finishing.
-- Error handling across the boundary: a parse failure must surface as a message, not
-  a dead runtime.
-- Package the JS as a small ES module with a real API (`createOcadLayer(map, opts)`),
-  not globals, so Angular can import it.
+  invoked after every colour layer (`Map.cs:2184`); wire it to a flag JS can set so
+  an abandoned tile stops instead of finishing.
+- Vendor Leaflet and `leaflet.sync` into the Blazor app's `wwwroot/lib` as a build
+  step, rather than depending on the Angular app's `node_modules`.
+- Replace the Blazor viewer page's current single-render canvas with the two synced
+  maps.
 
-**Measure first, and this is the gating number:** drive a *zoomed-in* viewport end to
-end through Leaflet — not `RenderTile` called directly — and record time-to-first-tile
-and time-to-complete. The spike measured the renderer; this measures the system.
+**Measure, and this is the gating number:** drive a *zoomed-in* viewport end to end
+through Leaflet and record time-to-first-tile and time-to-complete. The spike
+measured the renderer; this measures the system.
 
-**Done when:** pan and zoom on `large_map.ocd` feel usable, tiles arrive
-progressively, and nothing deadlocks when the tab is hidden and restored.
+**Done when:** two synced maps in the Blazor app pan and zoom usably on
+`large_map.ocd`, tiles arrive progressively, and nothing deadlocks when the tab is
+hidden and restored.
 
-### Stage 5 — Replace `ocadToSvg` in the Angular app (3–4 days)
+### Stage 5 — File access and version management (3–4 days)
 
-The point of the whole exercise. The version list, diff table, folder picker and
-settings are untouched.
+The first slice of Angular functionality to move.
 
-- Publish the .NET module into the Angular build. Its output is static files; copy
-  the bundle into `ocad-versioner/src/assets/ocad-renderer/` as a build step, and add
-  the folder to `angular.json` assets.
-- Replace the body of
-  [ocad-map-viewer.component.ts](ocad-versioner/src/app/components/ocad-map-viewer/ocad-map-viewer.component.ts):
-  drop `svgOverlay` and `OcadReaderService.getSvgFromOcadObject`, add the tile layer.
-  `leaflet.sync` and the two-map structure stay exactly as they are.
-- Load the module once and share it across both maps; parse each version once.
-- `staticwebapp.config.json` in the Angular app needs the WebAssembly MIME types and
-  a `navigationFallback.exclude` for the renderer folder — see *Deployment*.
+- File System Access API through JS interop: `showDirectoryPicker`, enumerate
+  `Releases/V<n>/`, read `V<n>.ocd` and `V<n>.json`. Mirrors
+  `project-directory-selector.component.ts` and `ocad-file-system-service.ts`.
+- The `fileHandleTree` and release-list logic from `ocad-versioner.provider.ts`.
+- Version list and "create version" (copy the `.ocd`, write the metadata JSON).
+- Keep the `Releases/V<n>/` convention byte-identical so the two apps can be used
+  against the same folder during the migration.
 
-**Done when:** the existing app, with its real diff workflow, renders both versions
-through the tile layer, and is measurably better than the SVG overlay on
-`large_map.ocd`. Measure time-to-first-paint and interaction smoothness against the
-current build on the same file.
+**Done when:** the Blazor app can open a real project folder, list versions, show
+any version in the viewer, and create a new one that the Angular app also reads.
 
-### Stage 6 — Tune (2–4 days)
+### Stage 6 — Tune the renderer (2–3 days)
 
-Measure, in this order:
+Interleaved here because by now there is a real workload to measure.
 
 - **AOT compilation.** Stage 3 showed cost is dominated by managed work in
   `SymDef`/`SymPath`, which is exactly what AOT targets. The original plan ranked
@@ -499,25 +520,59 @@ Measure, in this order:
   doubles download and adds 10–30 min to publish, so it is a real trade.
 - **Cold-start parse.** Successive parses of the same file measured 2496 → 2163 →
   1637 ms, against 6220 ms for the first parse in the Blazor app. Most of that gap
-  looks like JIT warm-up. Confirm it, because it changes what "parse is slow" means
-  and whether AOT or a warm-up parse is the better fix.
+  looks like JIT warm-up. Confirm it, because it decides whether AOT or a warm-up
+  parse is the right fix.
 - Tile size (256 vs 512), `usePatternBitmaps` on/off, whether DotSpatial earns its
-  ~600 KB, whether the trimmer roots can come off.
+  ~600 KB, whether the trimmer roots can come off, TTF→WOFF2 for the fonts.
 
-### Stage 7 — Deploy (1 day)
+### Stage 7 — The diff, in C# (5–8 days)
 
-Fold the module build into the existing Angular workflow — see *Deployment*.
+The largest single piece of the migration, and the one that finally removes
+`ocad2geojson`.
 
-### Later, once the viewer has proven itself
+Today `ocad2geojson` parses each `.ocd` to GeoJSON and `json-diff-service.ts` matches
+features on `id` + `creationDate`, comparing `sym` and raw coordinates. The C# side
+already has a richer object model, so the diff can work directly on `Symbol` objects
+and the second parse disappears along with the last AGPL-3.0 dependency.
 
-**Move the diff to C#.** Today `ocad2geojson` parses each `.ocd` to GeoJSON for
-`json-diff-service`, and the C# module parses the same file again for rendering —
-two parsers, two parses, two memory footprints. Since the C# side already has a full
-object model, it could produce the diff directly and `ocad2geojson` could be dropped
-entirely. That also removes the last AGPL-3.0 dependency. Out of scope until the
-renderer is in production, but it is where this naturally goes.
+- `OcadViewer.Diff`: match symbols across two `Map` instances, classify
+  added/edited/deleted, compute length, area and point movement.
+- Port the test fixtures. `json-diff-service.spec.ts`, `.distance.spec.ts` and
+  `.polygons.spec.ts` carry roughly 2000 lines of real GeoJSON cases — that is the
+  specification, and porting it is what makes this safe.
+- Symbol naming via ISOM2017 codes, from `iof-symbol-service.ts`.
+- The diff table, tabs and counts.
+- Highlight changed symbols in the viewer. The renderer already supports per-colour
+  draw ranges, and `Map` has `HighlightOptions` — worth looking at before inventing
+  an overlay.
 
-**File System Access API.** Unchanged by any of this; the Angular app already has it.
+**Done when:** the Blazor diff produces the same results as the Angular one on the
+same pair of versions, verified against the ported fixtures.
+
+### Stage 8 — Remaining parity (3–5 days)
+
+- Settings: EPSG picker and language, persisted. Note the Angular app bundles the
+  whole `epsg-index` twice; do not repeat that.
+- Localisation, en and no, from `src/assets/i18n/*.json` — including the ISOM2017
+  symbol names. Blazor's own localisation or a straight port of the JSON.
+- Application Insights telemetry and the global error handler.
+- About page and the third-party notices link.
+
+### Stage 9 — Deploy side by side, then retire Angular (2–3 days)
+
+Both apps live at once; Angular stays the default until Blazor is trusted. See
+*Deployment*.
+
+Retirement is a deliberate, reversible sequence:
+
+1. Deploy Blazor to its own Static Web App and use it alongside Angular.
+2. Run both against the same project folders for a period — the `Releases/V<n>/`
+   format is shared, so this is low-risk.
+3. Switch the production domain to the Blazor app, keeping Angular reachable.
+4. Delete `ocad-versioner/` and its workflows, drop `ocad2geojson-test`, and fold
+   the third-party notices into the Blazor app.
+
+**Done when:** `ocad-versioner/` is gone and nothing references it.
 
 ## WASM specifics
 
@@ -529,76 +584,86 @@ renderer is in production, but it is where this naturally goes.
 
 ## Deployment
 
-The renderer ships **inside the existing Angular app**, so there is no second Static
-Web App and no second domain. What changes is that the Angular workflow has to build
-a .NET project first.
+The two apps are deployed independently and run side by side until Angular is
+retired. That keeps the migration reversible at every step and means a Blazor
+problem never takes the live app down.
+
+**A third Static Web App for Blazor.** The existing two SWAs (`icy-pond` for `main`,
+`thankful-coast` for `develop`) keep building Angular with Oryx exactly as they do
+now, untouched. Blazor gets its own, built in GitHub Actions and deployed prebuilt,
+because **Oryx cannot build .NET 10 Blazor WebAssembly** and has no `wasm-tools`.
 
 ```yaml
-# added to the existing azure-static-web-apps-*.yml, before the SWA deploy step
-- uses: actions/setup-dotnet@v4
-  with: { dotnet-version: '10.0.x' }
-- uses: actions/cache@v4            # wasm-tools is ~1.5 GB
-  with:
-    path: |
-      ~/.dotnet
-      ~/.nuget/packages
-    key: wasm-${{ hashFiles('map-viewer/Directory.Packages.props') }}
-- run: dotnet workload install wasm-tools
-- run: >
-    dotnet publish map-viewer/src/OcadViewer.TileRenderer -c Release
-    -o ocad-versioner/src/assets/ocad-renderer
+# .github/workflows/azure-static-web-apps-mapviewer.yml
+on:
+  push:
+    branches: [main, develop]
+    paths: ['map-viewer/**', '.github/workflows/azure-static-web-apps-mapviewer.yml']
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '10.0.x' }
+      - uses: actions/cache@v4          # wasm-tools is ~1.5 GB
+        with:
+          path: |
+            ~/.dotnet
+            ~/.nuget/packages
+          key: wasm-${{ hashFiles('map-viewer/Directory.Packages.props') }}
+      - run: dotnet workload install wasm-tools
+      - run: dotnet publish map-viewer/src/OcadViewer.Wasm -c Release -o publish
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MAPVIEWER }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: 'publish/wwwroot'
+          api_location: ''
+          output_location: ''
+          skip_app_build: true          # load-bearing: keep Oryx away
 ```
 
-Oryx still builds the Angular app as it does today; it never sees the .NET project,
-only the static files it produced. Expect the native link to add 3–10 minutes to a
-cold build, so cache aggressively.
+`skip_app_build: true` with `app_location` pointing at an already-published
+`wwwroot` is the load-bearing part. The `paths:` filter keeps Angular-only commits
+from paying for a 3–10 minute native link.
 
-`ocad-versioner/src/staticwebapp.config.json` currently rewrites **everything** to
-`/index.html` with no exclusions. That must change, or a missing runtime asset
-returns HTML with a 200 and the module fails with a confusing error:
+The app's own `wwwroot/staticwebapp.config.json` already carries what is needed:
 
-```json
-{
-  "navigationFallback": {
-    "rewrite": "/index.html",
-    "exclude": ["/assets/ocad-renderer/*", "/assets/*", "/img/*.{png,jpg,gif}", "/css/*"]
-  },
-  "mimeTypes": {
-    ".wasm": "application/wasm",
-    ".dat": "application/octet-stream",
-    ".blat": "application/octet-stream",
-    ".pdb": "application/octet-stream",
-    ".ttf": "font/ttf"
-  }
-}
-```
-
-**`.wasm` → `application/wasm` matters twice.** Since .NET 8, `WasmEnableWebcil` means
-managed assemblies also ship as `.wasm`, not just the runtime.
+- **`navigationFallback.exclude` containing `/_framework/*`** — without it a missing
+  framework asset returns `index.html` with a 200, and Blazor fails with a cryptic
+  integrity error instead of a clean 404.
+- `mimeTypes` for `.wasm` → `application/wasm` (since .NET 8, `WasmEnableWebcil`
+  means managed assemblies also ship as `.wasm`), plus `.dat`, `.blat`, `.pdb`.
+- `index.html` `no-cache`; `/_framework/*` immutable long-cache.
 
 **Verify compression empirically.** Azure Static Web Apps does its own dynamic
 compression and does *not* do `.br`-companion negotiation. Check the
 `Content-Encoding` header on `dotnet.native.wasm` in DevTools once deployed. If it is
-absent, the native module ships uncompressed; mitigate with a boot-resource hook that
-fetches the `.br` companion and decodes it client-side.
+absent, the native module ships uncompressed; mitigate with a `loadBootResource` hook
+that fetches the `.br` companion and decodes it client-side.
 
-**Watch the bundle.** `src/assets` ships wholesale to production. The renderer belongs
-there; 9.8 MB test maps do not.
+At Stage 9 step 3, the production domain moves to the Blazor SWA. The Angular
+workflows and SWAs are deleted last, once nothing points at them.
 
 ## Risks, ranked
 
 | # | Risk | Status | Next check |
 |---|---|---|---|
 | 1 | **Interactive performance through Leaflet.** Per-tile cost is known and culling works, but the system has not been driven end to end while panning and zooming. | Open — the gating unknown. | Stage 4: time-to-first-tile and time-to-complete on a zoomed-in viewport. |
-| 2 | **Single-thread stalls.** Leaflet's animations, the tile pump and the renderer all contend for one thread; a bare rAF pump already deadlocked once. | Known and understood; three specific mitigations are in *Architecture*. | Stage 4: hide and restore the tab, pan hard, confirm no stall. |
-| 3 | **Worst case is still the whole map.** Fully zoomed out, every object is drawn however it is tiled — ~3.2 s of work for `large_map.ocd`. | Inherent. Tiles make it progressive, not cheaper. | Stage 5: is progressive fill acceptable to look at, or is a placeholder needed? |
-| 4 | **Payload** ~5 MB brotli, 1.4 MB of it fonts. Now added to the Angular bundle rather than a separate app. | Measured. | Stage 6: TTF→WOFF2 would recover ~700 KB; check SWA actually compresses. |
-| 5 | **Trimming breaks MapModel/DotSpatial** — neither was ever trim-annotated. | Rooted via `TrimmerRootAssembly`, so it cannot bite yet. Georeferencing resolving in the browser is evidence the embedded EPSG table survives. | Stage 6: remove roots, re-run the map corpus. |
-| 6 | **Text fidelity vs. OCAD.** Maps name Arial and Times; we substitute Roboto, so glyph advances differ. | Open. | Stage 5 visual diff. Fix is metric-compatible faces (Liberation Sans / Arimo), ~700 KB. |
-| 7 | **No automated fidelity test.** Renders have only ever been checked by eye. | Open, and now blocked: the desktop CLI fails under a Windows application control policy (`0x800711C7`), so baselines cannot be regenerated on this machine. | Needs the policy relaxed, or baselines generated elsewhere. |
-| 8 | **CI cost** — 1.5 GB workload plus a native link now in the Angular pipeline. | Open. | Stage 7: cache `~/.dotnet` and `~/.nuget/packages`; measure a cold and warm build. |
-| 9 | **Two parsers in the bundle** — `ocad2geojson` for diffing, C# for rendering. Each map is parsed twice. | Accepted for now. | Revisit once the renderer ships; see *Later*. |
-| 10 | **LGPL-2.1 obligation** from shipping DotSpatial IL. | A decision, not a bug. | Record in `THIRD-PARTY-NOTICES.md`. |
+| 2 | **`[JSExport]` inside Blazor.** The 0.7 ms boundary was measured in a bare WebAssembly module. If Blazor forces `invokeMethodAsync`, every tile pays base64 plus a JSON parse. | Open, and everything leans on it. | Stage 4, first task. Fallbacks: unmarshalled interop, or PNG with measured cost. |
+| 3 | **Single-thread stalls.** Leaflet's animations, the tile pump and the renderer contend for one thread; a bare rAF pump already deadlocked once. | Understood; three mitigations are in *The hard part*. | Stage 4: hide and restore the tab, pan hard, confirm no stall. |
+| 4 | **Porting the diff is the biggest unknown piece of work.** `json-diff-service` plus its fixtures is the real specification of what this app does. | Open. | Stage 7: port the fixtures first, then make them pass. |
+| 5 | **Worst case is still the whole map.** Fully zoomed out, every object is drawn however it is tiled — ~3.2 s for `large_map.ocd`. | Inherent. Tiles make it progressive, not cheaper. | Stage 4: is progressive fill acceptable to look at? |
+| 6 | **Payload** ~5 MB brotli, 1.4 MB of it fonts, and it grows as the app gains features. | Measured. | Stage 6: TTF→WOFF2 recovers ~700 KB; confirm SWA compresses. |
+| 7 | **Trimming breaks MapModel/DotSpatial** — neither was ever trim-annotated. | Rooted via `TrimmerRootAssembly`. Georeferencing resolving in the browser is evidence the embedded EPSG table survives. | Stage 6: remove roots, re-run the corpus. |
+| 8 | **Text fidelity vs. OCAD.** Maps name Arial and Times; we substitute Roboto, so glyph advances differ. | Open. | Stage 4 visual diff. Fix is metric-compatible faces (Liberation Sans / Arimo), ~700 KB. |
+| 9 | **No automated fidelity test.** Renders have only ever been checked by eye. | Open and **blocked**: the desktop CLI fails under a Windows application control policy (`0x800711C7`), so baselines cannot be regenerated on this machine. | Needs the policy relaxed, or baselines generated elsewhere. |
+| 10 | **Two apps to keep working during the migration.** Both read the same `Releases/V<n>/` folders. | Accepted, and deliberate. | Keep the on-disk format byte-identical; that is what makes it safe. |
+| 11 | **CI cost** — 1.5 GB workload plus a native link. | Open. | Stage 9: cache `~/.dotnet` and `~/.nuget/packages`; measure cold and warm. |
+| 12 | **LGPL-2.1 obligation** from shipping DotSpatial IL. | A decision, not a bug. | Record in `THIRD-PARTY-NOTICES.md`. |
 
 ### Resolved
 
@@ -608,36 +673,43 @@ there; 9.8 MB test maps do not.
   what SkiaSharp 3.119.4 wants.
 - `System.Drawing.Drawing2D` for `browser-wasm` — compiles and publishes untouched.
 - `Assembly.GetCallingAssembly` for the embedded EPSG table — resolves under trimming.
-- JS↔WASM marshalling cost — ~0.7 ms for a 262 KB tile.
+- JS↔WASM marshalling cost in a bare module — ~0.7 ms for a 262 KB tile.
 - Whether `leaflet.sync` works with a custom layer — yes, with no changes.
+- Whether Skia, fonts, text metrics and overprint blending work in Blazor — yes,
+  all eight smoke checks pass.
 
 ## Verification
 
 - **Parser:** ported `OcadImportTests` against `TestFiles/ocadimport/` confirms OCAD
-  6–12 and 2018 parse. Still outstanding — see Risk 7.
+  6–12 and 2018 parse. Still outstanding — see Risk 9.
 - **Fidelity:** Stage 1 golden PNGs against the same maps rendered in the browser.
   This is what catches WebAssembly-specific font and rasterisation drift, and it is
   currently blocked by the application control policy on the desktop CLI.
 - **Tile seams:** adjacent tiles must line up exactly. A half-pixel error in the
   world rect shows as hairlines along every tile edge, and is easiest to spot on
   large area fills and long contours.
-- **Against the current app:** the same `.ocd` open in the current build and the new
-  one. Symbol shapes, colours and layering must match, and the synced views must
-  still track each other exactly.
+- **Against the Angular app:** the same `.ocd` open in both apps side by side. This
+  is what the side-by-side migration is for. Symbol shapes, colours and layering
+  must match, the diff results must agree, and the synced views must still track.
 - **Performance, the actual goal:** on `large_map.ocd`, measure time-to-first-tile,
   time-to-complete and interaction smoothness, zoomed out *and* zoomed in, against
   the current SVG overlay. These numbers decide whether the migration continues.
 
 ## Out of scope
 
-The Angular app keeps its version list, diff table, folder picker, settings and
-`Releases/V<n>/` convention. The GeoJSON diff pipeline and `json-diff-service` are
-untouched and `ocad2geojson-test` stays a dependency for now — moving the diff to C#
-is sketched under *Later*, not scheduled.
+Not changed by this work, and not planned:
 
-No Blazor app ships. `OcadViewer.Wasm` stays in the solution as a diagnostic harness
-only.
+- The `Releases/V<n>/` on-disk format. It is deliberately kept byte-identical so
+  both apps can run against the same folders during the migration.
+- Any server component. The app stays a static site with no backend.
+- PurplePen's course-setting features. Only the parser and renderer are vendored;
+  `PurplePenCore` is skipped entirely.
+- Editing maps. This is a viewer and a differ.
+
+The Angular app is **frozen, not forked**: no new features there from Stage 5 on,
+because every one of them would have to be built twice. Bug fixes only, until
+Stage 9 deletes it.
 
 ## Attribution (required)
 
-PurplePen has no root LICENSE file — the BSD-3 text lives in every source header. Serving a WebAssembly module to a browser **is** a binary redistribution, so clause 2 applies. Create `vendor/LICENSE-PurplePen.txt` (verbatim from `InputOutput.cs:1-33`, © 2006–2008 Peter Golde), a root `THIRD-PARTY-NOTICES.md` covering PurplePen (BSD-3), DotSpatial.Projections (LGPL-2.1), SkiaSharp/HarfBuzzSharp (MIT), native Skia (BSD-3) and HarfBuzz, ImageSharp 2.1.3 (Apache-2.0) and Roboto (Apache-2.0) — and **serve it** from the app footer, not just commit it. Note clause 3: do not name the viewer anything using "Purple Pen" or "Peter Golde". The notice is served from the Angular app, which is where the module now ships.
+PurplePen has no root LICENSE file — the BSD-3 text lives in every source header. Serving a WebAssembly module to a browser **is** a binary redistribution, so clause 2 applies. Create `vendor/LICENSE-PurplePen.txt` (verbatim from `InputOutput.cs:1-33`, © 2006–2008 Peter Golde), a root `THIRD-PARTY-NOTICES.md` covering PurplePen (BSD-3), DotSpatial.Projections (LGPL-2.1), SkiaSharp/HarfBuzzSharp (MIT), native Skia (BSD-3) and HarfBuzz, ImageSharp 2.1.3 (Apache-2.0) and Roboto (Apache-2.0) — and **serve it** from the app footer, not just commit it. Note clause 3: do not name the viewer anything using "Purple Pen" or "Peter Golde". The notice is served from the Blazor app; while both apps are live, both serve it.
