@@ -1,0 +1,321 @@
+@page "/"
+@using OcadViewer.Core
+@using PurplePen.MapModel
+@using SkiaSharp
+@using SkiaSharp.Views.Blazor
+@implements IDisposable
+@inject IJSRuntime JS
+
+<PageTitle>OCAD map viewer</PageTitle>
+
+<h1>OCAD map viewer</h1>
+
+<p class="text-muted">
+    Parsed and drawn entirely by the extracted Purple Pen stack running in
+    WebAssembly. No JavaScript map library, no server.
+</p>
+
+<div class="mb-3">
+    <InputFile OnChange="OnFileChosen" accept=".ocd,.ocad" class="form-control" style="max-width:32rem" />
+</div>
+
+@if (status is not null) {
+    <p class="@(failed ? "text-danger" : "text-muted")">@status</p>
+}
+
+@if (report is not null) {
+    <table class="table table-sm" style="max-width:46rem">
+        <tbody>
+            <tr><td style="width:10rem">File</td><td>@loaded.FileName (@Mb(loaded.FileBytes))</td></tr>
+            <tr><td>Format</td><td>OCAD @loaded.Version</td></tr>
+            <tr><td>Bounds</td><td>@loaded.Bounds.Width.ToString("F1") &times; @loaded.Bounds.Height.ToString("F1") mm</td></tr>
+            <tr><td>Image</td><td>@report.PixelWidth &times; @report.PixelHeight px (@report.MinResolution.ToString("F4") mm/px)</td></tr>
+            <tr><td>Georeferencing</td><td>@loaded.Georeference</td></tr>
+            <tr><td><strong>Parse</strong></td><td><strong>@loaded.ParseMs ms</strong></td></tr>
+            <tr><td><strong>Render</strong></td><td><strong>@report.RenderMs ms</strong></td></tr>
+        </tbody>
+    </table>
+
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <button class="btn btn-outline-secondary btn-sm" @onclick="DownloadPng" disabled="@busy">
+            Download PNG
+        </button>
+
+        <label class="ms-3 text-muted small">Render width</label>
+        <select class="form-select form-select-sm" style="width:10rem"
+                value="@renderWidth" @onchange="OnRenderWidthChanged" disabled="@busy">
+            <option value="0">Fit to canvas</option>
+            <option value="1000">1000 px</option>
+            <option value="2000">2000 px</option>
+            <option value="4000">4000 px</option>
+        </select>
+    </div>
+}
+
+<SKCanvasView @ref="canvasView" OnPaintSurface="OnPaint" IgnorePixelScaling="true"
+              style="width:100%; height:70vh; border:1px solid #ccc; background:#fff" />
+
+@code {
+    private SKCanvasView canvasView;
+    private SKBitmap rendered;
+    private LoadedMap loaded;
+    private RenderReport report;
+
+    private string status;
+    private bool failed;
+    private bool busy;
+
+    /// Render at this width instead of fitting the canvas. Zero means fit.
+    /// Useful for comparing like for like against a desktop render.
+    private int renderWidth;
+
+    /// Pixel size of the canvas, learned from the first paint.
+    private SKSizeI canvasSize;
+    private bool renderPending;
+
+    private sealed record LoadedMap(
+        Map Map, string FileName, long FileBytes, int Version,
+        System.Drawing.RectangleF Bounds, long ParseMs, string Georeference) : IDisposable
+    {
+        public void Dispose() => Map?.Dispose();
+    }
+
+    private sealed record RenderReport(
+        int PixelWidth, int PixelHeight, float MinResolution, long RenderMs);
+
+    private static string Mb(long bytes) => $"{bytes / 1024.0 / 1024.0:F1} MB";
+
+    /// Summarises what the parser worked out about real-world coordinates.
+    /// This is the visible evidence that the projection path survives WebAssembly
+    /// and IL trimming: the proj4 string comes either from DotSpatial or from the
+    /// EPSG lookup table embedded in MapModel and resolved by hardcoded name.
+    private static string DescribeGeoreference(Map map)
+    {
+        try {
+            using (map.Read()) {
+                RealWorldCoords coords = map.RealWorldCoords;
+                if (!coords.RealWorldOn)
+                    return "none (map is not georeferenced)";
+
+                var parts = new List<string>();
+                if (coords.Epsg != 0)
+                    parts.Add($"EPSG {coords.Epsg}");
+                if (coords.RealWorldGridAndZone != 0)
+                    parts.Add($"OCAD grid {coords.RealWorldGridAndZone}");
+                if (coords.GridScaleFactor != 1.0)
+                    parts.Add($"grid scale {coords.GridScaleFactor:F6}");
+
+                string proj4 = coords.Proj4String;
+                parts.Add(string.IsNullOrWhiteSpace(proj4) ? "no proj4 string" : proj4);
+
+                return string.Join(" · ", parts);
+            }
+        }
+        catch (Exception ex) {
+            return $"could not be read: {ex.GetType().Name}";
+        }
+    }
+
+    private async Task OnFileChosen(InputFileChangeEventArgs e)
+    {
+        IBrowserFile file = e.File;
+        if (file is null)
+            return;
+
+        Reset();
+        failed = false;
+        busy = true;
+        status = $"Reading {file.Name}…";
+        StateHasChanged();
+        await Task.Yield();
+
+        try {
+            // 256 MB ceiling: real survey maps run to tens of megabytes, and the
+            // default 512 KB limit would reject almost all of them.
+            byte[] bytes;
+            await using (Stream stream = file.OpenReadStream(maxAllowedSize: 256L * 1024 * 1024)) {
+                using var buffer = new MemoryStream();
+                await stream.CopyToAsync(buffer);
+                bytes = buffer.ToArray();
+            }
+
+            // Stage the file where the vendored Skia_FileLoader can find it, so any
+            // templates the map references resolve the way they do on the desktop.
+            Directory.CreateDirectory("/maps");
+            string mapPath = $"/maps/{file.Name}";
+            File.WriteAllBytes(mapPath, bytes);
+
+            status = $"Parsing {file.Name}…";
+            StateHasChanged();
+            await Task.Yield();
+
+            OcadMapLoadResult result = OcadMapLoader.Load(bytes, mapPath, "/maps");
+
+            if (result.Bounds.Width <= 0 || result.Bounds.Height <= 0) {
+                result.Map.Dispose();
+                failed = true;
+                status = "The map parsed, but its bounds are empty, so there is nothing to draw.";
+                return;
+            }
+
+            loaded = new LoadedMap(
+                result.Map, file.Name, bytes.LongLength, result.Format.version,
+                result.Bounds, (long)result.ParseTime.TotalMilliseconds,
+                DescribeGeoreference(result.Map));
+
+            renderPending = true;
+            status = "Rendering…";
+            StateHasChanged();
+            await Task.Yield();
+
+            RenderIfPossible();
+        }
+        catch (OcadFileFormatException ex) {
+            failed = true;
+            status = $"Not a map this parser understands: {ex.Message}";
+        }
+        catch (Exception ex) {
+            failed = true;
+            status = $"{ex.GetType().Name}: {ex.Message}";
+        }
+        finally {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnRenderWidthChanged(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out int width))
+            return;
+
+        renderWidth = width;
+        if (loaded is null)
+            return;
+
+        busy = true;
+        status = "Rendering…";
+        StateHasChanged();
+        await Task.Yield();
+
+        try {
+            renderPending = true;
+            RenderIfPossible();
+        }
+        finally {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+
+    /// Renders once the canvas has reported its pixel size. On the first file the
+    /// paint may not have happened yet, so this is driven from both sides.
+    private void RenderIfPossible()
+    {
+        if (!renderPending || loaded is null)
+            return;
+        if (renderWidth <= 0 && canvasSize.Width <= 0)
+            return;
+
+        renderPending = false;
+
+        System.Drawing.RectangleF bounds = loaded.Bounds;
+
+        int pixelWidth, pixelHeight;
+        if (renderWidth > 0) {
+            pixelWidth = renderWidth;
+            pixelHeight = MapRenderer.HeightForWidth(bounds, renderWidth);
+        }
+        else {
+            // Fit the whole map into the canvas, preserving aspect ratio.
+            float scale = Math.Min(canvasSize.Width / bounds.Width, canvasSize.Height / bounds.Height);
+            pixelWidth = Math.Max(1, (int)Math.Round(bounds.Width * scale));
+            pixelHeight = Math.Max(1, (int)Math.Round(bounds.Height * scale));
+        }
+
+        MapRenderResult result = MapRenderer.Render(loaded.Map, bounds, pixelWidth, pixelHeight);
+
+        rendered?.Dispose();
+        rendered = result.Bitmap;
+
+        report = new RenderReport(
+            pixelWidth, pixelHeight,
+            MapRenderer.MinResolutionFor(bounds, pixelWidth, pixelHeight),
+            (long)result.RenderTime.TotalMilliseconds);
+
+        status = null;
+
+        StateHasChanged();
+        canvasView?.Invalidate();
+    }
+
+    private void OnPaint(SKPaintSurfaceEventArgs e)
+    {
+        SKCanvas canvas = e.Surface.Canvas;
+        canvas.Clear(SKColors.White);
+
+        if (canvasSize != e.Info.Size) {
+            canvasSize = e.Info.Size;
+            if (renderPending) {
+                // Learned the size on this frame; render on the next tick rather
+                // than inside the paint callback.
+                _ = InvokeAsync(RenderIfPossible);
+            }
+        }
+
+        if (rendered is null)
+            return;
+
+        // Scale down to fit when the render is larger than the canvas, so a
+        // 2000 px benchmark render is still viewable.
+        float scale = Math.Min(1f, Math.Min(
+            e.Info.Width / (float)rendered.Width,
+            e.Info.Height / (float)rendered.Height));
+
+        float drawWidth = rendered.Width * scale;
+        float drawHeight = rendered.Height * scale;
+        var destination = SKRect.Create(
+            (e.Info.Width - drawWidth) / 2f,
+            (e.Info.Height - drawHeight) / 2f,
+            drawWidth, drawHeight);
+
+        canvas.DrawBitmap(rendered, destination);
+    }
+
+    private async Task DownloadPng()
+    {
+        if (rendered is null)
+            return;
+
+        busy = true;
+        try {
+            using SKData data = rendered.Encode(SKEncodedImageFormat.Png, 100);
+            using var stream = new MemoryStream(data.ToArray());
+            using var reference = new DotNetStreamReference(stream, leaveOpen: true);
+
+            await using IJSObjectReference module =
+                await JS.InvokeAsync<IJSObjectReference>("import", "./js/download.js");
+            string name = Path.GetFileNameWithoutExtension(loaded?.FileName ?? "map") + "-wasm.png";
+            await module.InvokeVoidAsync("downloadStream", name, "image/png", reference);
+        }
+        catch (Exception ex) {
+            failed = true;
+            status = $"Could not save the image: {ex.Message}";
+        }
+        finally {
+            busy = false;
+        }
+    }
+
+    private void Reset()
+    {
+        rendered?.Dispose();
+        rendered = null;
+        loaded?.Dispose();
+        loaded = null;
+        report = null;
+        renderPending = false;
+    }
+
+    public void Dispose() => Reset();
+}

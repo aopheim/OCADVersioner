@@ -1,8 +1,9 @@
 # Replace ocad2geojson with PurplePen's C# OCAD parser + renderer, in a Blazor WASM viewer
 
-> **Status: Stages 0–2 complete. Stage 3 is next.**
-> The extracted parser and renderer run in Blazor WebAssembly. What remains unproven
-> is whether they are *fast enough* — see Stage 3 and Risk 2.
+> **Status: Stages 0–3 complete. Stage 4 (interactive viewport) is next.**
+> The extracted parser and renderer run in Blazor WebAssembly and render real maps
+> correctly. Parse is 2.4x and render 1.8x slower than desktop; render cost is
+> per-object, not per-pixel, so bbox culling - not lower resolution - is the lever.
 >
 > **To resume:**
 > ```bash
@@ -268,26 +269,123 @@ Build times: first native link ~1m35s, a relink when native inputs change ~2m25s
 
 `?steps=N` on the smoke page runs only the first N probes. Keep it: a native abort kills the runtime before Blazor renders anything, so bisecting by step is the only way to attribute one.
 
-### Stage 3 — Parse and render a real map in the browser — **NEXT**
+### Stage 3 — Parse and render a real map in the browser — **DONE**
 
-Wire `OcadMapLoader` + `MapRenderer` into the Blazor app behind an `<input type="file">`. Write the picked file into the in-memory filesystem under `/maps/` and use the vendored `Skia_FileLoader("/maps")` unchanged. Render fit-to-bounds, plus a "download PNG" button.
+`Pages/Viewer.razor` takes a file, writes it into the in-memory filesystem under
+`/maps/` so the vendored `Skia_FileLoader` resolves templates the same way it does
+on the desktop, parses it, renders fit-to-canvas, and reports timings. A render-width
+selector (1000/2000/4000 px) exists so browser and desktop can be compared at
+identical settings, and "Download PNG" exports the render for pixel diffing.
 
-Verify specifically:
-- **Time parse and render for `large_map.ocd` and compare against the desktop numbers above.** This is the number the whole project turns on.
-- Pixel-diff the downloaded PNG against the Stage-1 desktop render — this is what catches WASM-specific font and rasterisation drift.
-- Text placement, area patterns, hatching, dashes.
-- Overprint blending on a real map.
-- A pseudo-Mercator (`RealWorldGridAndZone` 64000/65000) map, proving DotSpatial survives trimming.
-- An EPSG-coded map, proving the embedded `AuthorityCodeToProj4.ds` resolves.
-- An OCAD 6/8 map with non-ASCII text, proving `CodePagesEncodingProvider` works under `InvariantGlobalization`.
+Verified in the browser: `large_map.ocd` (9.3 MB, OCAD 2018), `marymoor.ocd`
+(OCAD 8, text-heavy with an embedded bitmap logo and inset map) and
+`point_line_area.ocd` all parse and render correctly, matching the desktop output
+by eye.
 
-### Stage 4 — Interactive viewport, design B (3–4 days)
+**Georeferencing works under WebAssembly and IL trimming.** `large_map.ocd` reports
+`OCAD grid 63005 · +proj=utm +zone=32 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs`,
+which proves `AuthorityCodeHandler` resolves its embedded resource by hardcoded name
+through `Assembly.GetCallingAssembly` — the thing Risk 6 worried about — and that
+DotSpatial survives trimming with its root in place.
 
-`ViewportController`, rAF-batched JS pointer input, render-once-then-transform, cancellation, colour-layer slicing. **Done when:** pan/zoom is smooth on a real map, measured head to head against the current Angular/Leaflet viewer on the same file. If it is not visibly better, that is important information; surface it before investing further.
+#### Timings — `large_map.ocd`, the number the project turns on
+
+| | Desktop | Browser | Ratio |
+|---|---|---|---|
+| Parse | 2575 ms | ~6220 ms | **2.4×** |
+| Render @ 2000 px | 4285 ms | 7856 ms | **1.8×** |
+
+Slower than desktop, but by a constant factor, not a catastrophic one.
+
+#### Render cost is per-object, not per-pixel
+
+Same map, same browser, only the output resolution changed:
+
+| Render width | Megapixels | Render |
+|---|---|---|
+| 1000 px | 0.75 | 7553 ms |
+| 2000 px | 3.0 | 7856 ms |
+| 4000 px | 12.0 | 9082 ms |
+
+**16× the pixels costs 1.2× the time.** Nearly all the cost is managed-side work in
+`SymDef`/`SymPath` — bezier flattening, dash splitting, hatch and pattern generation
+— not Skia rasterisation. Three consequences, and they revise the plan:
+
+1. **A low-resolution backdrop tile is not meaningfully cheaper.** The two-class
+   render in `CachedDrawing.cs` (fast low-res under sharp high-res) assumes
+   resolution drives cost. Here it does not. Do not port that design on faith.
+2. **Bounding-box culling is the lever that matters.** Full extent is the worst
+   case because every object is visible; zooming in should drop the cost roughly
+   in proportion to how many objects fall outside the view. Stage 4 must measure
+   render time *zoomed in*, not just at full extent.
+3. **AOT compilation now looks far more promising than the plan assumed.** It
+   targets exactly the managed-side cost that dominates here. Worth measuring
+   early in Stage 5 rather than last.
+
+#### Not yet done
+
+- **Pixel diffing against the desktop baseline.** Comparison was by eye. The
+  desktop CLI is currently blocked on this machine (see below), so generating a
+  fresh baseline is not possible right now.
+- **Pseudo-Mercator.** `ProjectionUtil.CalcGridScaleFactor` only runs for
+  `RealWorldGridAndZone` 64000/65000. `large_map.ocd` is grid 63005, so that
+  specific branch is still unproven; it needs a map in EPSG 3857.
+- **An OCAD 6/8 map with non-ASCII text.** Norwegian characters render correctly
+  in `large_map.ocd`, but that is OCAD 2018, which uses Unicode strings. The
+  legacy `CodePagesEncodingProvider` path for OCAD 6–8 Delphi strings is still
+  only exercised on the desktop.
+
+#### Blocker: Windows Application Control
+
+`dotnet run --project src/OcadViewer.RenderCli` now fails with
+`0x800711C7 — an application control policy has blocked this file` when loading
+the freshly built `Graphics2D.dll`. This is a machine policy (Smart App Control or
+WDAC), not a code problem: the same assemblies build fine and run fine inside
+WebAssembly. Until it is resolved, the desktop CLI and therefore golden-image
+baselines are unavailable. Options are to allow the `map-viewer` output directory
+in the policy, or to turn Smart App Control off.
+
+#### Re-creating the local test maps
+
+The viewer takes files through a file input, so driving it from a test needs the
+maps served over HTTP. They are deliberately **not** committed — `wwwroot/testmaps/`
+is git-ignored, and anything left there would be included in `dotnet publish`:
+
+```bash
+mkdir -p map-viewer/src/OcadViewer.Wasm/wwwroot/testmaps
+cp ocad-versioner/src/assets/tests/large_map.ocd map-viewer/src/OcadViewer.Wasm/wwwroot/testmaps/
+# rebuild, then in the page console:
+#   fetch('/testmaps/large_map.ocd') -> File -> DataTransfer -> input.files -> dispatch 'change'
+```
+
+Delete the folder when finished.
+### Stage 4 — Interactive viewport, design B (3–4 days) — **NEXT**
+
+`ViewportController`, rAF-batched JS pointer input, render-once-then-transform on a
+settle delay, cancellation through `Map.Draw`'s `throwOnCancel`, and colour-layer
+slicing with `await Task.Yield()` so a multi-second render does not freeze the tab.
+
+**First measurement, before building any of it:** render a *zoomed-in* rectangle of
+`large_map.ocd` and compare against the 7.9 s full-extent figure. Stage 3 showed
+cost is per-object, so this is what tells you whether bounding-box culling pays —
+and the whole interactive design rests on it. If a 10% viewport is not roughly 10×
+cheaper, rethink before writing the viewport code.
+
+**Done when:** pan/zoom is smooth on a real map, measured head to head against the
+current Angular/Leaflet viewer on the same file. If it is not visibly better, that
+is important information; surface it before investing further.
 
 ### Stage 5 — Tile cache and tuning (3–5 days)
 
-Design C, then measure and decide in order: `usePatternBitmaps` on/off; AOT on/off; whether DotSpatial earns its payload; whether the trimmer roots can be removed.
+Revised by Stage 3's finding that render cost barely tracks resolution:
+
+- **Measure AOT first, not last.** It targets the managed-side work that dominates
+  here, so it is the most promising single lever. The plan originally deprioritised
+  it on the assumption that rasterisation dominated; that assumption was wrong.
+- **Do not port `CachedDrawing.cs`'s low-res backdrop on faith.** It assumes a
+  coarse render is cheap. Measure a backdrop render before building around one.
+- Then: `usePatternBitmaps` on/off; whether DotSpatial earns its ~600 KB; whether
+  the trimmer roots can come off.
 
 ### Stage 6 — Deploy (1 day) · Stage 7 — File System Access API (2–3 days)
 
@@ -335,11 +433,11 @@ Add `paths: ['map-viewer/**']` so Angular-only commits do not trigger a 3–10 m
 | # | Risk | Status | Cheap experiment |
 |---|---|---|---|
 | 1 | **Fonts do not resolve in the browser** | **Resolved in Stage 2.** File-backed typefaces work on WebAssembly; no upstream patch needed. The real trap was fonts being served as empty 200s — see the fonts section. | done |
-| 2 | **Render perf in single-threaded WASM** — the entire point of the project | **Open, and now the main risk.** Desktop baseline for `large_map.ocd` is parse 2.6 s, render 4.3 s at full extent. | Stage 3: time parse + draw in the browser and compare. >5× → escalate to AOT and colour-layer slicing immediately. |
+| 2 | **Render perf in single-threaded WASM** — the entire point of the project | **Measured, still the main risk.** Browser is 2.4× desktop on parse, 1.8× on render: 6.2 s and 7.9 s for `large_map.ocd` at full extent. Usable only if culling and slicing bring the interactive case down. | Stage 4: measure a zoomed-in viewport. Cost is per-object, so culling is the lever. |
 | 3 | **Payload** | **Resolved in Stage 2.** 15 MB raw, ~5 MB brotli, under the 6–9 MB estimate. Fonts are 1.4 MB of it; converting TTF→WOFF2 would recover roughly half. | done |
 | 4 | **Trimming breaks MapModel/DotSpatial** (never annotated; hardcoded manifest-resource name) | Open. Both are rooted via `TrimmerRootAssembly`, so it cannot bite yet. | Stage 3+: remove the roots, run the Stage-1 corpus through the browser. |
 | 5 | `System.Drawing.Drawing2D` may not resolve for browser-wasm | **Resolved.** It compiles and publishes for `browser-wasm` untouched. | done |
-| 6 | `Assembly.GetCallingAssembly()` under AOT (`AuthorityCodeHandler.cs:75`) — inlining silently breaks EPSG lookup | Open, but only bites if AOT is enabled (it is off). | Stage 5, gated on AOT. Assert `Proj4String != null` for an EPSG map. |
+| 6 | `Assembly.GetCallingAssembly()` (`AuthorityCodeHandler.cs:75`) — inlining could silently break the EPSG lookup | **Resolved without AOT.** `large_map.ocd` resolves a full proj4 string in the browser under trimming. Re-check if AOT is turned on. | done for now |
 | 7 | **Overprint blending** differs between desktop and WASM Skia | **Partly resolved.** `PushBlending(Darken)` produces a correctly darkened overlap in the browser. Not yet compared pixel-for-pixel on a real map. | Stage 3 golden-image diff on an overprinted map. |
 | 8 | **CI cost** — 1.5 GB workload + native link per build | Open. Measured locally: first native link ~1m35s, incremental C# builds ~11 s, a relink when native inputs change ~2m25s. | Stage 6: cache `~/.dotnet` + `~/.nuget/packages`, and filter on `paths:`. |
 | 9 | **LGPL-2.1 obligation** from shipping DotSpatial IL | Open — a decision, not a bug. | Short decision, recorded in `THIRD-PARTY-NOTICES.md`. |
