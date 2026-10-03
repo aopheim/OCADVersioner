@@ -69,3 +69,19 @@ rendering engine.
 
 Used by the existing Angular application. Copyright © Per Liedman. Licensed under
 the **GNU Affero General Public License v3.0**.
+
+## Leaflet
+
+Copyright © 2010–2023 Volodymyr Agafonkin. Licensed under **BSD 2-Clause**
+(`map-viewer/src/OcadViewer.Wasm/wwwroot/lib/leaflet/LICENSE-leaflet.txt`).
+
+Provides the map viewport: pan, zoom, and the tile grid that the renderer draws
+into.
+
+## Leaflet.Sync
+
+Copyright © 2013–2017 Bjørn Sandvik / Jan Pieter Waagmeester. Licensed under
+**BSD 3-Clause**
+(`map-viewer/src/OcadViewer.Wasm/wwwroot/lib/leaflet/LICENSE-leaflet.sync.txt`).
+
+Keeps the two side-by-side maps in step.

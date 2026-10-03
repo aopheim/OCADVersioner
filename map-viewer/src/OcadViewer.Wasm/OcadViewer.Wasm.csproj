@@ -20,6 +20,12 @@
     <RunAOTCompilation>false</RunAOTCompilation>
 
     <BlazorEnableCompression>true</BlazorEnableCompression>
+
+    <!-- The tile layer needs JS to call .NET for pixels. [JSExport] marshals byte[]
+         as a real typed array; the DotNetObjectReference route would serialise it
+         as base64 inside JSON, which at 256 KB a tile is not viable. -->
+    <WasmEnableJSExports>true</WasmEnableJSExports>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

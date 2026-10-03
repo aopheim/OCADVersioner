@@ -113,3 +113,36 @@ code {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+/* Map viewer ------------------------------------------------------------- */
+
+.ocad-map-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.ocad-map-caption {
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 0.25rem;
+}
+
+.ocad-map {
+    height: 65vh;
+    min-height: 20rem;
+    border: 1px solid #ccc;
+    background: #fff;
+}
+
+.ocad-stats {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: #f6f6f6;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+}
+
+@media (max-width: 900px) {
+    .ocad-map-pair { grid-template-columns: 1fr; }
+}
