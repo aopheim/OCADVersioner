@@ -15,9 +15,14 @@
          its own tables and does not depend on ICU. -->
     <InvariantGlobalization>true</InvariantGlobalization>
 
-    <!-- AOT roughly doubles the download and adds 10-30 minutes to publish.
-         Decide it with a measurement once the viewer works, not before. -->
-    <RunAOTCompilation>false</RunAOTCompilation>
+    <!-- Measured, not assumed. AOT makes parsing large_map.ocd 16x faster
+         (6200 ms -> 381 ms) and tiles 3.3-4.4x faster, because the cost is
+         managed work in SymDef/SymPath rather than Skia rasterisation. It costs
+         about 3 MB brotli and roughly an hour of publish time. Worth it.
+
+         This only applies to publish, so dev builds stay fast. -->
+    <RunAOTCompilation>true</RunAOTCompilation>
+    <WasmStripILAfterAOT>true</WasmStripILAfterAOT>
 
     <BlazorEnableCompression>true</BlazorEnableCompression>
 

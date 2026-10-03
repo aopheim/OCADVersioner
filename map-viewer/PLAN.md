@@ -1,6 +1,6 @@
 # Replace the Angular app with a Blazor app that renders OCAD maps with PurplePen's renderer
 
-> **Status: Stages 0–3 complete. Stage 4 is next.**
+> **Status: Stages 0–4 complete, Stage 6 pulled forward and its main question answered.**
 > **End goal: a Blazor WebAssembly app that replaces the Angular app entirely.**
 > It is built side by side with Angular, which keeps serving users until Blazor
 > reaches parity, and is then retired. The map viewer inside it is a **Leaflet tile
@@ -310,6 +310,32 @@ Fully zoomed out is the worst case and always will be: every object is visible, 
 work is the whole map however it is sliced. Tiles make it *progressive and
 interruptible*, not cheaper.
 
+### But cost also tracks map density, which is why averages mislead
+
+The table above was measured on slices centred on the map, and it flattered the
+result. The same 128 mm tile, rendered at five different places on `large_map.ocd`:
+
+| Where | Render |
+|---|---|
+| centre | 870 ms |
+| north-west | 511 ms |
+| south-west | 397 ms |
+| south-east | 214 ms |
+| north-east | 122 ms |
+
+A **7× spread** at identical tile size and resolution. Cost is driven by how many
+objects fall inside the tile, so a viewport over dense terrain — a settlement, a
+contour-heavy hillside — costs several times one over open forest or water.
+
+Two consequences. Any single "ms per tile" figure is meaningless without saying where
+it was measured; quote a range and the location. And the tile queue should expect wide
+variance, so a fixed per-frame budget will not hold — one tile can take 4 seconds.
+
+This also resolves what Stage 4 first recorded as an unexplained gap: zooming in
+through Leaflet appeared to buy only 2.2× where direct calls suggested ~8×. It was not
+a bug. The direct samples happened to sit on sparse ground and the Leaflet viewport sat
+on dense ground.
+
 ### Settings
 
 Start with `usePatternBitmaps = false` (glyph stamping — avoids `CreatePatternBrush`
@@ -465,7 +491,7 @@ cp ocad-versioner/src/assets/tests/large_map.ocd map-viewer/src/OcadViewer.Wasm/
 
 Delete the folder when finished.
 
-### Stage 4 — Leaflet tile viewer inside Blazor (3–4 days) — **NEXT**
+### Stage 4 — Leaflet tile viewer inside Blazor — **DONE**
 
 Bring the spike's tile layer into `OcadViewer.Wasm` and make it robust.
 
@@ -495,7 +521,7 @@ measured the renderer; this measures the system.
 `large_map.ocd`, tiles arrive progressively, and nothing deadlocks when the tab is
 hidden and restored.
 
-### Stage 5 — File access and version management (3–4 days)
+### Stage 5 — File access and version management (3–4 days) — **NEXT**
 
 The first slice of Angular functionality to move.
 
@@ -510,20 +536,61 @@ The first slice of Angular functionality to move.
 **Done when:** the Blazor app can open a real project folder, list versions, show
 any version in the viewer, and create a new one that the Angular app also reads.
 
-### Stage 6 — Tune the renderer (2–3 days)
+### Stage 6 — Tune the renderer — **AOT DONE, rest outstanding**
 
-Interleaved here because by now there is a real workload to measure.
+Pulled forward from its original position because Stage 4 measured the viewer as too
+slow to be usable, and that question had to be settled before building more on top.
 
-- **AOT compilation.** Stage 3 showed cost is dominated by managed work in
-  `SymDef`/`SymPath`, which is exactly what AOT targets. The original plan ranked
-  this last on the assumption rasterisation dominated; that was wrong. It roughly
-  doubles download and adds 10–30 min to publish, so it is a real trade.
-- **Cold-start parse.** Successive parses of the same file measured 2496 → 2163 →
-  1637 ms, against 6220 ms for the first parse in the Blazor app. Most of that gap
-  looks like JIT warm-up. Confirm it, because it decides whether AOT or a warm-up
-  parse is the right fix.
-- Tile size (256 vs 512), `usePatternBitmaps` on/off, whether DotSpatial earns its
-  ~600 KB, whether the trimmer roots can come off, TTF→WOFF2 for the fonts.
+#### AOT compilation: enabled, and it is the whole story
+
+`RunAOTCompilation` is on for publish (dev builds are unaffected). Measured on
+`large_map.ocd`, 9.3 MB, OCAD 2018:
+
+| | Without AOT | With AOT | |
+|---|---|---|---|
+| Parse | ~6200 ms cold | **381 ms** | 16× |
+| Tile, 128 mm, dense centre | 870 ms | **235 ms** | 3.7× |
+| Tile, 128 mm, sparse north-east | 122 ms | **28 ms** | 4.4× |
+| Tile, whole map at 629 mm | 3166 ms | **958 ms** | 3.3× |
+| Viewport through Leaflet, fitted, both panes | 2569 ms/tile, 20.5 s | **407 ms/tile, 3.3 s** | 6.3× |
+| Viewport through Leaflet, zoomed in 2 | 1166 ms/tile, 14.0 s | **228 ms/tile, 2.7 s** | 5.1× |
+
+This is what Stage 3 predicted: cost is dominated by managed work in `SymDef` and
+`SymPath` — bezier flattening, dash splitting, hatch generation — and AOT removes the
+JIT from exactly that. The original plan ranked AOT last on the assumption that Skia
+rasterisation dominated. That assumption was wrong, and the measurement is worth more
+than the reasoning was.
+
+It also settles the cold-start question Stage 3 left open. The desktop CLI's 2575 ms
+parse was itself a cold, JIT-compiled figure; AOT's 381 ms is what the parser actually
+costs. "Parse is 2.4× slower in the browser than on the desktop" was never a browser
+problem — it was JIT warm-up on both sides.
+
+**What it costs.** Payload goes from 5 MB to **8 MB brotli** (the native module alone
+goes 1.93 → 6.88 MB), and a publish takes roughly an hour — 81 assemblies through
+clang, then wasm-opt. `MapModel` alone is several minutes. Dev builds are unaffected,
+but CI needs the cache and the `paths:` filter, and a cold CI publish is now an hour,
+not ten minutes.
+
+#### Where this leaves interactivity
+
+A zoomed-in viewport across both panes now fills in about 2.7 seconds, tiles arriving
+progressively at four or five a second, with the slowest single tile under a second.
+That is usable. It is not yet *smooth*, and the worst case — fitted to extent over
+dense terrain — still has individual tiles near 900 ms.
+
+#### Still to measure
+
+- **Tile size.** 128 px instead of 256 would quarter the work per tile, giving faster
+  first paint and finer-grained cancellation, at the cost of four times as many calls.
+  The boundary is ~0.7 ms a call, so that trade should be strongly favourable.
+- **`usePatternBitmaps`.** Untested in either direction. `SetRenderOptions` is
+  exported so it can be A/B'd in a running app.
+- **Trimmer roots.** Can `MapModel` and `DotSpatial.Projections` come off the root
+  list now, and what does that recover?
+- **Fonts.** TTF→WOFF2 would recover roughly 700 KB of the payload, which matters
+  more now that AOT has added 3 MB.
+- **DotSpatial.** Whether it still earns its ~600 KB.
 
 ### Stage 7 — The diff, in C# (5–8 days)
 

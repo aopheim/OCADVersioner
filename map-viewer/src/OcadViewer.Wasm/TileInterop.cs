@@ -126,7 +126,7 @@ public static partial class TileInterop
         MapRenderResult result;
         try {
             result = MapRenderer.Render(
-                loaded.Map, rect, pixels, pixels, settings: null,
+                loaded.Map, rect, pixels, pixels, settings: Settings,
                 throwOnCancel: () => {
                     if (loaded.CancelRequested)
                         throw new OperationCanceledException();
@@ -160,6 +160,22 @@ public static partial class TileInterop
         if (slot is >= 0 and < SlotCount && Slots[slot] is { } loaded)
             loaded.CancelRequested = true;
     }
+
+    /// <summary>
+    /// Swaps the render settings used for subsequent tiles, so the expensive
+    /// choices can be A/B measured in a running app rather than guessed at.
+    /// </summary>
+    [JSExport]
+    internal static void SetRenderOptions(bool usePatternBitmaps, bool blendOverprintedColors, bool antiAlias)
+    {
+        Settings = new MapRenderSettings {
+            UsePatternBitmaps = usePatternBitmaps,
+            BlendOverprintedColors = blendOverprintedColors,
+            AntiAlias = antiAlias
+        };
+    }
+
+    private static MapRenderSettings Settings = new();
 
     /// <summary>Milliseconds the last <see cref="RenderTile"/> call spent drawing.</summary>
     [JSExport]
