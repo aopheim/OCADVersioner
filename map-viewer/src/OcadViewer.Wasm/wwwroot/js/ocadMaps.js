@@ -10,6 +10,10 @@ import { getTileInterop } from './ocadRuntime.js';
 
 const TILE_SIZE = 256;
 
+// Shared by the maps and the tile layers - see the note where the layer is built.
+const MIN_ZOOM = -6;
+const MAX_ZOOM = 4;
+
 function freshStats() {
     return { drawn: 0, stale: 0, outside: 0, cancelled: 0, detached: 0, totalMs: 0, maxMs: 0 };
 }
@@ -180,8 +184,8 @@ export async function createOcadMaps(leftEl, rightEl) {
 
     const makeMap = el => L.map(el, {
         crs: L.CRS.Simple,
-        minZoom: -6,
-        maxZoom: 4,
+        minZoom: MIN_ZOOM,
+        maxZoom: MAX_ZOOM,
         zoomSnap: 0,
         attributionControl: false,
 
@@ -202,14 +206,34 @@ export async function createOcadMaps(leftEl, rightEl) {
      * element is often still 0x0 at that point, and a map that believes it is zero
      * pixels wide decides no tiles are in view and silently draws nothing. Watch for
      * the real size and tell Leaflet when it changes. */
-    const resizeObserver = new ResizeObserver(() => {
-        for (const m of maps)
-            if (m.getContainer().clientWidth > 0) m.invalidateSize({ animate: false });
+    /* Only react to an actual size change. Calling invalidateSize unconditionally
+     * re-enters the observer - invalidateSize touches layout, which fires the
+     * observer, which calls it again - and the resulting loop pins the view so the
+     * map silently refuses to zoom. */
+    const lastSize = new WeakMap();
+    const resizeObserver = new ResizeObserver(entries => {
+        for (const entry of entries) {
+            const el = entry.target;
+            const w = el.clientWidth, h = el.clientHeight;
+            if (w === 0 || h === 0) continue;
+
+            const previous = lastSize.get(el);
+            if (previous && previous.w === w && previous.h === h) continue;
+            lastSize.set(el, { w, h });
+
+            const map = maps.find(m => m.getContainer() === el);
+            map?.invalidateSize({ animate: false, pan: false });
+        }
     });
     maps.forEach(m => resizeObserver.observe(m.getContainer()));
 
     const layers = [null, null];
     let fitted = false;
+
+    // Debugging handle. The maps are otherwise unreachable from the console, and
+    // "no tiles appeared" is almost always a view or sizing question.
+    const handle = { maps, layers, queue, stats };
+    globalThis.__ocad = handle;
 
     return {
         /** Parses a file into a slot and shows it on that side. */
@@ -235,15 +259,31 @@ export async function createOcadMaps(leftEl, rightEl) {
              * and fitting both maps makes sync bounce the view back and forth, which
              * prunes tiles mid-flight. The spike saw 113 stale against 1 drawn before
              * the view was allowed to settle. */
+            /* Always re-measure before adding a layer. The ResizeObserver catches
+             * later changes, but the first load often happens before the browser has
+             * laid the component out, and a map that still believes it is 0x0 decides
+             * no tiles are in view and draws nothing at all - silently, with no error
+             * and a perfectly healthy-looking layer. */
+            maps.forEach(m => m.invalidateSize({ animate: false, pan: false }));
+
             if (!fitted) {
-                // Make sure Leaflet has the real container size before fitting.
-                maps.forEach(m => m.invalidateSize({ animate: false }));
                 maps[slot].fitBounds(bounds, { animate: false });
                 fitted = true;
                 await new Promise(r => setTimeout(r, 50));
             }
 
-            const layer = new OcadTileLayer(slot, interop, { tileSize: TILE_SIZE, noWrap: true });
+            /* minZoom/maxZoom must be repeated here. GridLayer keeps its *own* zoom
+             * limits, defaulting to minZoom 0, and when the map's zoom rounds below
+             * them Leaflet sets _tileZoom to undefined and creates no tiles at all -
+             * no error, no warning, an attached layer and an empty map. A large map
+             * fits at a negative zoom, so this bites exactly on the files that matter
+             * most: 628 mm fitted into a 314 px pane is zoom -1. */
+            const layer = new OcadTileLayer(slot, interop, {
+                tileSize: TILE_SIZE,
+                noWrap: true,
+                minZoom: MIN_ZOOM,
+                maxZoom: MAX_ZOOM
+            });
             layer._ocadBounds = { minX: info.minX, minY: info.minY, maxX: info.maxX, maxY: info.maxY };
             layer.addTo(maps[slot]);
             layers[slot] = layer;
