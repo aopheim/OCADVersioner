@@ -1,0 +1,64 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <!--
+    Spike: can the extracted renderer be driven from plain JavaScript, so the
+    existing Angular + Leaflet + leaflet.sync app keeps its viewport and only its
+    *layer* changes?
+
+    This is NOT a Blazor app. It is a bare .NET WebAssembly module that exports a
+    few methods to JS via [JSExport]. If it works, the Angular app can keep its
+    version list, diff table and synced maps untouched, and swap ocadToSvg for a
+    Leaflet GridLayer whose tiles come from this renderer.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifier>browser-wasm</RuntimeIdentifier>
+    <OutputType>Exe</OutputType>
+    <WasmMainJSPath>wwwroot/main.js</WasmMainJSPath>
+    <WasmEnableJSExports>true</WasmEnableJSExports>
+
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp.NativeAssets.WebAssembly" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.WebAssembly" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OcadViewer.Core\OcadViewer.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <TrimmerRootAssembly Include="MapModel" />
+    <TrimmerRootAssembly Include="DotSpatial.Projections" />
+  </ItemGroup>
+
+  <!-- Leaflet is taken from the Angular app's node_modules rather than committed
+       here, so no third-party JS enters the repo for a throwaway spike. -->
+  <Target Name="StageLeaflet" BeforeTargets="BeforeBuild">
+    <ItemGroup>
+      <LeafletFile Include="$(MSBuildThisFileDirectory)..\..\..\ocad-versioner\node_modules\leaflet\dist\leaflet.js" />
+      <LeafletFile Include="$(MSBuildThisFileDirectory)..\..\..\ocad-versioner\node_modules\leaflet\dist\leaflet.css" />
+      <LeafletFile Include="$(MSBuildThisFileDirectory)..\..\..\ocad-versioner\node_modules\leaflet.sync\L.Map.Sync.js" />
+    </ItemGroup>
+    <Copy SourceFiles="@(LeafletFile)"
+          DestinationFolder="$(MSBuildProjectDirectory)\wwwroot\lib"
+          SkipUnchangedFiles="true"
+          ContinueOnError="true" />
+  </Target>
+
+  <Target Name="StageVendorFonts" BeforeTargets="BeforeBuild">
+    <ItemGroup>
+      <VendorFont Include="$(VendorDir)fonts\*.ttf" />
+    </ItemGroup>
+    <Copy SourceFiles="@(VendorFont)"
+          DestinationFolder="$(MSBuildProjectDirectory)\wwwroot\fonts"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

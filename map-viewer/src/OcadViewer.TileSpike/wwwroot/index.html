@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Leaflet tile spike</title>
+    <link rel="stylesheet" href="lib/leaflet.css" />
+    <style>
+        body { font: 14px system-ui, sans-serif; margin: 0; padding: 1rem; }
+        h1 { font-size: 1.2rem; margin: 0 0 .25rem; }
+        p.note { color: #555; margin: 0 0 1rem; max-width: 60rem; }
+        #maps { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+        .map { height: 60vh; border: 1px solid #ccc; background: #fff; }
+        .caption { font-size: .8rem; color: #666; margin-bottom: .25rem; }
+        #stats { margin-top: 1rem; font-family: ui-monospace, monospace; white-space: pre-wrap;
+                 background: #f6f6f6; padding: .75rem; border-radius: 4px; max-width: 60rem; }
+        button { font: inherit; padding: .3rem .7rem; }
+    </style>
+</head>
+<body>
+    <h1>Leaflet tile spike</h1>
+    <p class="note">
+        Two Leaflet maps joined by <code>leaflet.sync</code>, exactly as the Angular app
+        does today. The difference is the layer: instead of one giant inline SVG, tiles
+        are rendered by the extracted Purple Pen renderer running in WebAssembly and
+        pushed into a canvas. Pan or zoom either map &mdash; the other follows.
+    </p>
+
+    <p>
+        <input type="file" id="file" accept=".ocd,.ocad" disabled />
+        <button id="bench" disabled>Benchmark 16 tiles</button>
+        <span id="state">booting .NET&hellip;</span>
+    </p>
+
+    <div id="maps">
+        <div>
+            <div class="caption">left</div>
+            <div id="mapLeft" class="map"></div>
+        </div>
+        <div>
+            <div class="caption">right (synced)</div>
+            <div id="mapRight" class="map"></div>
+        </div>
+    </div>
+
+    <div id="stats">no map loaded</div>
+
+    <script src="lib/leaflet.js"></script>
+    <script src="lib/L.Map.Sync.js"></script>
+    <script src="app.js"></script>
+    <script type="module" src="main.js"></script>
+</body>
+</html>

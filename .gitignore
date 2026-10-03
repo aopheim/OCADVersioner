@@ -59,3 +59,7 @@ map-viewer/src/OcadViewer.Wasm/wwwroot/fonts/
 
 # Local-only test maps for the Blazor viewer; never publish these
 map-viewer/src/OcadViewer.Wasm/wwwroot/testmaps/
+
+# Staged into the tile spike by MSBuild from vendor/ and node_modules
+map-viewer/src/OcadViewer.TileSpike/wwwroot/fonts/
+map-viewer/src/OcadViewer.TileSpike/wwwroot/lib/
