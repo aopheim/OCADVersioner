@@ -1,6 +1,6 @@
 # Replace the Angular app with a Blazor app that renders OCAD maps with PurplePen's renderer
 
-> **Status: Stages 0–4 complete, Stage 6 pulled forward and its main question answered.**
+> **Status: Stages 0–5 complete. Stage 6 part-done (AOT). Stage 7, the diff, is next.**
 > **End goal: a Blazor WebAssembly app that replaces the Angular app entirely.**
 > It is built side by side with Angular, which keeps serving users until Blazor
 > reaches parity, and is then retired. The map viewer inside it is a **Leaflet tile
@@ -521,7 +521,7 @@ measured the renderer; this measures the system.
 `large_map.ocd`, tiles arrive progressively, and nothing deadlocks when the tab is
 hidden and restored.
 
-### Stage 5 — File access and version management (3–4 days) — **NEXT**
+### Stage 5 — File access and version management — **DONE, pending a manual pass**
 
 The first slice of Angular functionality to move.
 
@@ -592,7 +592,7 @@ dense terrain — still has individual tiles near 900 ms.
   more now that AOT has added 3 MB.
 - **DotSpatial.** Whether it still earns its ~600 KB.
 
-### Stage 7 — The diff, in C# (5–8 days)
+### Stage 7 — The diff, in C# (5–8 days) — **NEXT**
 
 The largest single piece of the migration, and the one that finally removes
 `ocad2geojson`.
