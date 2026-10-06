@@ -1,25 +1,68 @@
 # Replace the Angular app with a Blazor app that renders OCAD maps with PurplePen's renderer
 
-> **Status: Stages 0–5 complete. Stage 6 part-done (AOT). Stage 7 is now UI parity;
-> the C# diff is deferred.**
+> **Status: Stages 0–5 and 7 complete. Stage 6 part-done (AOT). Stage 8 is next.**
 > **End goal: a Blazor WebAssembly app that replaces the Angular app entirely.**
 > It is built side by side with Angular, which keeps serving users until Blazor
 > reaches parity, and is then retired. The map viewer inside it is a **Leaflet tile
 > layer** driven through JS interop, so `leaflet.sync` gives the synced side-by-side
 > views unchanged. See *Architecture*.
 >
-> **To resume:**
-> ```bash
-> dotnet build map-viewer/MapViewer.slnx -c Release                 # everything
-> dotnet run --project map-viewer/src/OcadViewer.RenderCli -c Release -- <map.ocd> -o out.png
-> dotnet run --project map-viewer/src/OcadViewer.Wasm -c Release    # the Blazor app
-> dotnet publish map-viewer/src/OcadViewer.TileSpike -c Release -o <dir>   # tile spike
-> node map-viewer/tools/serve.mjs <dir>/wwwroot 5002                # serve the spike
-> pwsh map-viewer/tools/sync-purplepen.ps1 -PurplePenPath <path> -Check    # vendor drift
-> ```
-> Requires the .NET 10 SDK and the `wasm-tools` workload. A benchmark map is at
-> `ocad-versioner/src/assets/tests/large_map.ocd` (untracked — 9.8 MB, and
-> `angular.json` ships all of `src/assets` to production, so do not commit it there).
+> The C# diff is **deferred, not scheduled** — see *The diff — deferred*.
+
+## Resuming in a new session
+
+Requires the .NET 10 SDK and the `wasm-tools` workload (`dotnet workload install wasm-tools`).
+
+```bash
+dotnet build map-viewer/MapViewer.slnx -c Release                       # everything
+dotnet run --project map-viewer/src/OcadViewer.Wasm -c Release          # the app, :5001
+pwsh map-viewer/tools/sync-purplepen.ps1 -PurplePenPath <path> -Check   # vendor drift
+```
+
+`/` is the workspace, `/smoke` is the permanent diagnostic page — nine checks
+covering Skia, fonts, text metrics, blending and the version-metadata format.
+Run it first when something looks wrong; it localises most failures in seconds.
+
+### Things that will cost you an hour if you do not know them
+
+**Never rebuild while a dev server is running.** Blazor fingerprints its assets,
+so a rebuild leaves the running server's `index.html` pointing at files that no
+longer exist. The page goes blank with a 404 on `dotnet.*.js`, which looks like a
+code fault and is not. Stop the server, build, start it again. The same applies to
+`dotnet publish`, which shares `obj/` with the build.
+
+**To check UI changes quickly**, do not publish normally — AOT is on and a publish
+takes about an hour:
+
+```bash
+dotnet publish map-viewer/src/OcadViewer.Wasm -c Release -p:RunAOTCompilation=false -o <dir>
+node map-viewer/tools/serve.mjs <dir>/wwwroot 5004
+```
+
+A plain `dotnet build` does **not** copy static files into `bin`, so only a publish
+gives a servable bundle.
+
+**The folder picker cannot be automated.** `showDirectoryPicker` opens a native
+dialog, so anything behind "Open project folder" — the version list, comparison
+header, diff tabs — needs a human to verify. There is a test project with two
+releases and realistic metadata at
+`C:\Users\adria\AppData\Local\Temp\ocad-testproject`; recreate it from the recipe
+in *Test assets* if the temp directory has been cleared.
+
+**`OcadViewer.RenderCli` does not run on this machine.** A Windows application
+control policy blocks the freshly built assemblies (`0x800711C7`). It builds fine
+and the same code runs fine inside WebAssembly. This is why golden-image baselines
+cannot be regenerated here — see Risk 9.
+
+**Chromium only.** The File System Access API does not exist in Firefox or Safari.
+The Angular app has the same limitation, so it is not a regression.
+
+### Benchmark map
+
+`ocad-versioner/src/assets/tests/large_map.ocd` — 9.8 MB, OCAD 2018, deliberately
+**untracked**: `angular.json` ships all of `src/assets` to production, so committing
+it there would add 9.8 MB to every user's download. Every timing in this document
+was measured on it.
 
 
 ## Context
@@ -136,7 +179,33 @@ Real OCAD maps name Arial and Times New Roman. Roboto's glyph advances differ, s
 
 - PurplePen: [TestFiles/marymoor.ocd](C:/repos/PurplePen/src/MapModel/TestFiles/marymoor.ocd) (599 KB) and `Lake Sammamish.ocd` (391 KB) are the largest real maps available; `TestFiles/ocadimport/` has version-specific files (`nonrenderable6/9/12.ocd`, `missingfont6/9.ocd`) for parser coverage across OCAD 6–12.
 - OCADVersioner: `ocad-versioner/src/assets/tests/*.ocd` are small synthetic fixtures (1 knoll, point/line/area) — fine for correctness, useless for performance.
-- **You will need to supply a real, large `.ocd`** (a full forest map, ideally the one that is slow today) to benchmark against. This is the single most important input for judging whether the rewrite achieved its goal.
+- `ocad-versioner/src/assets/tests/large_map.ocd` (9.8 MB, OCAD 2018) is the
+  benchmark. Untracked on purpose — see *Resuming in a new session*.
+
+### Recreating the test project folder
+
+The app opens a folder, not a file, so manual testing needs a project laid out the
+way the Angular app expects. This builds one with two releases and realistic
+metadata:
+
+```bash
+P="$TEMP/ocad-testproject"
+mkdir -p "$P/Releases/V1" "$P/Releases/V2"
+cp ocad-versioner/src/assets/tests/large_map.ocd "$P/mymap.ocd"
+# any two .ocd files will do for the releases:
+cp ocad-versioner/src/assets/tests/point_line_area.ocd "$P/Releases/V1/V1.ocd"
+cp ocad-versioner/src/assets/tests/1knoll.ocd          "$P/Releases/V2/V2.ocd"
+
+cat > "$P/Releases/V1/V1.json" <<'JSON'
+{"numberOfAddedSymbols":12,"numberOfDeletedSymbols":3,"numberOfEditedSymbols":7,"versionCreatedAt":"2026-09-01T09:15:00.000Z","versionNumber":1,"description":"First survey pass","title":"Spring survey"}
+JSON
+cat > "$P/Releases/V2/V2.json" <<'JSON'
+{"numberOfAddedSymbols":5,"numberOfDeletedSymbols":0,"numberOfEditedSymbols":2,"versionCreatedAt":"2026-09-20T14:40:00.000Z","versionNumber":2,"description":"After clearing","title":"Autumn update"}
+JSON
+```
+
+That JSON is exactly the shape the Angular app writes, which is what makes it a
+useful test rather than a convenient one.
 
 ---
 
@@ -522,7 +591,7 @@ measured the renderer; this measures the system.
 `large_map.ocd`, tiles arrive progressively, and nothing deadlocks when the tab is
 hidden and restored.
 
-### Stage 5 — File access and version management — **DONE, pending a manual pass**
+### Stage 5 — File access and version management — **DONE**
 
 The first slice of Angular functionality to move.
 
@@ -593,7 +662,7 @@ dense terrain — still has individual tiles near 900 ms.
   more now that AOT has added 3 MB.
 - **DotSpatial.** Whether it still earns its ~600 KB.
 
-### Stage 7 — Reproduce the Angular workspace UI (3–5 days) — **NEXT**
+### Stage 7 — Reproduce the Angular workspace UI — **DONE**
 
 The diff in C# is **deferred indefinitely** — see *The diff* below. This stage
 instead brings the Blazor app up to the Angular app's shape, so it is a stable
@@ -667,7 +736,7 @@ port at all. The costs are keeping the AGPL-3.0 `ocad2geojson` dependency and
 parsing every file twice, once in JS and once in C#. That is the option to weigh
 first if a working diff is wanted before the expansion is designed.
 
-### Stage 8 — Remaining parity (3–5 days)
+### Stage 8 — Remaining parity (3–5 days) — **NEXT**
 
 - Settings: EPSG picker and language, persisted. Note the Angular app bundles the
   whole `epsg-index` twice; do not repeat that.
