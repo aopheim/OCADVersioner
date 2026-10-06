@@ -14,6 +14,12 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 // and a component being disposed must not take the user's folder permission with it.
 builder.Services.AddScoped<OcadViewer.Wasm.Services.ProjectService>();
 
+// Comparing versions is deferred work. The table is built against this interface
+// so it renders an honest empty state now and needs no reshaping when a real
+// comparison arrives.
+builder.Services.AddScoped<OcadViewer.Wasm.Services.IDiffSource,
+                           OcadViewer.Wasm.Services.NoDiffSource>();
+
 var host = builder.Build();
 
 // Fonts have to be registered before the first map is parsed, not merely before

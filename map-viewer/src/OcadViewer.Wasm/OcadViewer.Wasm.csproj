@@ -60,6 +60,14 @@
        lands in the output directory but is never registered as a static web
        asset, so requests for it return an empty 200 and the app silently ends
        up with zero-byte fonts. wwwroot/fonts is generated and git-ignored. -->
+  <!-- The BSD-3 licence on the vendored renderer requires the notice to travel
+       with what is served to a browser, so the About page links to it. -->
+  <Target Name="StageNotices" BeforeTargets="ResolveStaticWebAssetsInputs">
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\..\THIRD-PARTY-NOTICES.md"
+          DestinationFiles="$(MSBuildProjectDirectory)\wwwroot\third-party-notices.txt"
+          SkipUnchangedFiles="true" />
+  </Target>
+
   <Target Name="StageVendorFonts" BeforeTargets="ResolveStaticWebAssetsInputs">
     <ItemGroup>
       <VendorFont Include="$(VendorDir)fonts\*.ttf" />

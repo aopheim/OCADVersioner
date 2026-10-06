@@ -63,3 +63,6 @@ map-viewer/src/OcadViewer.Wasm/wwwroot/testmaps/
 # Staged into the tile spike by MSBuild from vendor/ and node_modules
 map-viewer/src/OcadViewer.TileSpike/wwwroot/fonts/
 map-viewer/src/OcadViewer.TileSpike/wwwroot/lib/
+
+# Generated into the Blazor app by MSBuild from the repo root
+map-viewer/src/OcadViewer.Wasm/wwwroot/third-party-notices.txt

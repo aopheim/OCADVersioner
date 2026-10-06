@@ -1,0 +1,53 @@
+@using OcadViewer.Wasm.Services
+
+@*
+    The list of versions down the left side. Mirrors Angular's ocad-version-list:
+    title, short date, description, and the three symbol counts.
+*@
+
+<div class="list-group">
+    @foreach (var item in Items) {
+        <button type="button"
+                class="list-group-item list-group-item-action @(item.Number == SelectedNumber ? "active" : "")"
+                @onclick="() => OnSelected.InvokeAsync(item.Number)">
+            <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1 text-truncate">@DisplayTitle(item)</h6>
+                <small class="ms-2 flex-shrink-0">@DisplayDate(item)</small>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(item.Description)) {
+                <p class="mb-1 small">@item.Description</p>
+            }
+
+            <div class="d-flex justify-content-around small">
+                <span title="Added symbols">
+                    <i class="bi bi-plus-square mx-1"></i>@item.Added
+                </span>
+                <span title="Edited symbols">
+                    <i class="bi bi-pencil mx-1"></i>@item.Edited
+                </span>
+                <span title="Deleted symbols">
+                    <i class="bi bi-trash mx-1"></i>@item.Deleted
+                </span>
+            </div>
+        </button>
+    }
+</div>
+
+@code {
+    /// <param name="Number">0 is the working file, matching the Angular convention.</param>
+    public sealed record Item(
+        int Number, string Name, string Title, string Description,
+        DateTimeOffset? CreatedAt, int Added, int Edited, int Deleted);
+
+    [Parameter, EditorRequired] public IReadOnlyList<Item> Items { get; set; } = [];
+    [Parameter] public int SelectedNumber { get; set; }
+    [Parameter] public EventCallback<int> OnSelected { get; set; }
+
+    private static string DisplayTitle(Item item)
+        => string.IsNullOrWhiteSpace(item.Title) ? item.Name : item.Title;
+
+    /// <summary>The working file has no creation date of its own, so it says so.</summary>
+    private static string DisplayDate(Item item)
+        => item.CreatedAt is { } date ? date.ToLocalTime().ToString("g") : "working file";
+}

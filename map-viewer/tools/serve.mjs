@@ -41,17 +41,31 @@ createServer(async (req, res) => {
     const path = join(root, relative);
 
     try {
-        const info = await stat(path);
+        await send(path);
+    } catch {
+        // Client-side routes like /about have no file behind them. Fall back to
+        // index.html, as Azure Static Web Apps does via navigationFallback - but
+        // never for /_framework, where a missing asset must stay a 404 or Blazor
+        // fails with a confusing integrity error instead of a clear one.
+        if (!relative.startsWith('_framework') && !extname(relative)) {
+            try {
+                await send(join(root, 'index.html'));
+                return;
+            } catch { /* fall through to 404 */ }
+        }
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('not found');
+    }
+
+    async function send(filePath) {
+        const info = await stat(filePath);
         if (!info.isFile()) throw new Error('not a file');
 
         res.writeHead(200, {
-            'Content-Type': TYPES[extname(path).toLowerCase()] ?? 'application/octet-stream',
+            'Content-Type': TYPES[extname(filePath).toLowerCase()] ?? 'application/octet-stream',
             'Content-Length': info.size,
             'Cache-Control': 'no-cache',
         });
-        createReadStream(path).pipe(res);
-    } catch {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('not found');
+        createReadStream(filePath).pipe(res);
     }
 }).listen(port, () => console.log(`serving ${root} on http://localhost:${port}`));

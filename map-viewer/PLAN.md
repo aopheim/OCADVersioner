@@ -1,6 +1,7 @@
 # Replace the Angular app with a Blazor app that renders OCAD maps with PurplePen's renderer
 
-> **Status: Stages 0–5 complete. Stage 6 part-done (AOT). Stage 7, the diff, is next.**
+> **Status: Stages 0–5 complete. Stage 6 part-done (AOT). Stage 7 is now UI parity;
+> the C# diff is deferred.**
 > **End goal: a Blazor WebAssembly app that replaces the Angular app entirely.**
 > It is built side by side with Angular, which keeps serving users until Blazor
 > reaches parity, and is then retired. The map viewer inside it is a **Leaflet tile
@@ -592,29 +593,79 @@ dense terrain — still has individual tiles near 900 ms.
   more now that AOT has added 3 MB.
 - **DotSpatial.** Whether it still earns its ~600 KB.
 
-### Stage 7 — The diff, in C# (5–8 days) — **NEXT**
+### Stage 7 — Reproduce the Angular workspace UI (3–5 days) — **NEXT**
 
-The largest single piece of the migration, and the one that finally removes
-`ocad2geojson`.
+The diff in C# is **deferred indefinitely** — see *The diff* below. This stage
+instead brings the Blazor app up to the Angular app's shape, so it is a stable
+thing to look at and extend rather than a bare viewer.
 
-Today `ocad2geojson` parses each `.ocd` to GeoJSON and `json-diff-service.ts` matches
-features on `id` + `creationDate`, comparing `sym` and raw coordinates. The C# side
-already has a richer object model, so the diff can work directly on `Symbol` objects
-and the second parse disappears along with the last AGPL-3.0 dependency.
+The layout to match, from `ocad-versioner.component.html`:
 
-- `OcadViewer.Diff`: match symbols across two `Map` instances, classify
-  added/edited/deleted, compute length, area and point movement.
-- Port the test fixtures. `json-diff-service.spec.ts`, `.distance.spec.ts` and
-  `.polygons.spec.ts` carry roughly 2000 lines of real GeoJSON cases — that is the
-  specification, and porting it is what makes this safe.
-- Symbol naming via ISOM2017 codes, from `iof-symbol-service.ts`.
-- The diff table, tabs and counts.
-- Highlight changed symbols in the viewer. The renderer already supports per-colour
-  draw ranges, and `Map` has `HighlightOptions` — worth looking at before inventing
-  an overlay.
+```
+ progress bar (2 px, only while loading)
+ OCADVersioner                                   [about] [settings]
+ project directory selector
+ ┌──────────────┬──────────────────────────────────────────────┐
+ │ version list │          V3  ↔  V2   (history icon)          │
+ │              │          two synced maps                     │
+ │              │  [ Added 12 | Updated 7 | Deleted 3 ]        │
+ │ create       │          diff table                          │
+ │ version      │                                              │
+ └──────────────┴──────────────────────────────────────────────┘
+```
 
-**Done when:** the Blazor diff produces the same results as the Angular one on the
-same pair of versions, verified against the ported fixtures.
+Components, all new except where noted:
+
+- **Layout shell** — two columns, `col-md-2` and `col-md-10`, and a 2 px progress
+  bar that only appears while something is loading.
+- **Version list** — a richer version of what Stage 5 built: title, short date,
+  description, and the three symbol counts with plus / pencil / trash icons.
+  Selecting a version drives the comparison.
+- **Create version** — exists; restyle to match, with the symbol counts coming
+  from the current diff rather than the zeros Stage 5 writes.
+- **Comparison header** — "V3 ↔ V2", with a book icon when looking at history
+  rather than the working file.
+- **Diff tabs** — Added / Updated / Deleted, each with a count badge that is
+  hidden when the count is zero.
+- **Diff table** — columns differ by tab. Added and Deleted show length in metres
+  and area in square metres; Updated shows movement in metres, length difference
+  and area difference as percentages. Both show created and last-edited dates.
+
+**The diff table is built but not fed.** All of it sits behind an `IDiffSource`
+that currently returns nothing and renders an explicit "diff not available yet"
+state. Nothing fakes data, because fake rows in a table like this are indis-
+tinguishable from real ones at a glance and tend to outlive their welcome.
+
+**Out of scope here**, and still in Stage 8: the settings modal, the About page
+and the en/no translations. Strings are hard-coded English for now, but kept in
+one place so swapping in a translation layer later is mechanical.
+
+**Done when:** the Blazor app presents the same workspace as the Angular app —
+open a folder, pick versions, see them side by side, switch diff tabs — with the
+table honestly empty.
+
+### The diff — deferred
+
+Originally planned as the next stage and a 5–8 day port of
+`json-diff-service.ts`. Dropped, because that logic is going to be expanded, and
+porting something before rewriting it means doing the work twice.
+
+Two things worth recording for whenever it is picked up again.
+
+**Object identity does not survive the parser.** The diff matches features on
+`id` + `creationDate`. OCAD stores both per object and MapModel reads them —
+`OcadFileFormat.cs:1717-1721` has `ServerObjectId`, `CreationDate` and
+`ModificationDate` — but `OcadImport` never puts them on the `Symbol` objects, so
+they are discarded. Purple Pen has no use for them when setting courses. Any
+C# diff needs roughly ten lines carrying those three fields through, recorded in
+`vendor/UPSTREAM.md`'s patch log and ideally pushed upstream.
+
+**There is a cheaper route than porting.** `json-diff-service.ts` is a static
+class with no real Angular dependency. It could be extracted to a plain JS module
+and called from Blazor alongside `ocad2geojson`, giving a working diff with no
+port at all. The costs are keeping the AGPL-3.0 `ocad2geojson` dependency and
+parsing every file twice, once in JS and once in C#. That is the option to weigh
+first if a working diff is wanted before the expansion is designed.
 
 ### Stage 8 — Remaining parity (3–5 days)
 

@@ -1,0 +1,115 @@
+@using OcadViewer.Wasm.Services
+
+@*
+    Tabs and table, mirroring Angular's diff-table-tabs and ocad-diff-table. The
+    columns differ by tab: added and deleted symbols report size, updated ones
+    report how much they changed.
+*@
+
+<ul class="nav nav-tabs nav-fill mt-3">
+    @foreach (var view in Views) {
+        <li class="nav-item">
+            <button type="button"
+                    class="nav-link @(view == Current ? "active" : "")"
+                    @onclick="() => SetView(view)">
+                @Label(view)
+                @if (Diff.Count(view) > 0) {
+                    <span class="mx-2 badge text-bg-secondary">@Diff.Count(view)</span>
+                }
+            </button>
+        </li>
+    }
+</ul>
+
+@if (!Available) {
+    <div class="alert alert-secondary mt-3 mb-0">@UnavailableReason</div>
+}
+
+<div class="table-responsive mt-3">
+    <table class="table table-sm table-striped table-hover">
+        <thead>
+            <tr>
+                <th scope="col">Symbol number</th>
+                <th scope="col">Symbol name</th>
+                @if (Current is DiffTableView.Added or DiffTableView.Deleted) {
+                    <th scope="col">Length</th>
+                    <th scope="col">Area</th>
+                }
+                else {
+                    <th scope="col">Moved</th>
+                    <th scope="col">Length change</th>
+                    <th scope="col">Area change</th>
+                }
+                <th scope="col">Created</th>
+                <th scope="col">Last edited</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Rows().Count == 0) {
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-3">
+                        @(Available ? "No symbols in this category." : "Nothing to show.")
+                    </td>
+                </tr>
+            }
+            @foreach (var symbol in Rows()) {
+                <tr>
+                    <th scope="row">@symbol.SymbolNumber</th>
+                    <td>@symbol.SymbolName</td>
+
+                    @if (symbol is AddedSymbol added) {
+                        <td>@Metres(added.LengthInMeters)</td>
+                        <td>@SquareMetres(added.AreaInSquareMeters)</td>
+                    }
+                    else if (symbol is DeletedSymbol deleted) {
+                        <td>@Metres(deleted.LengthInMeters)</td>
+                        <td>@SquareMetres(deleted.AreaInSquareMeters)</td>
+                    }
+                    else if (symbol is UpdatedSymbol updated) {
+                        <td>@Metres(updated.MovementInMeters)</td>
+                        <td>@Percent(updated.LengthDiffInPercent)</td>
+                        <td>@Percent(updated.AreaDiffInPercent)</td>
+                    }
+
+                    <td>@Date(symbol.CreatedAtUtc)</td>
+                    <td>@Date(symbol.LastEditedAtUtc)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private static readonly DiffTableView[] Views =
+        [DiffTableView.Added, DiffTableView.Updated, DiffTableView.Deleted];
+
+    [Parameter, EditorRequired] public MapDiff Diff { get; set; } = MapDiff.Empty;
+    [Parameter] public bool Available { get; set; }
+    [Parameter] public string UnavailableReason { get; set; }
+
+    private DiffTableView Current { get; set; } = DiffTableView.Added;
+
+    private void SetView(DiffTableView view) => Current = view;
+
+    private static string Label(DiffTableView view) => view switch {
+        DiffTableView.Added => "Added",
+        DiffTableView.Updated => "Updated",
+        DiffTableView.Deleted => "Deleted",
+        _ => view.ToString()
+    };
+
+    private IReadOnlyList<DiffSymbol> Rows() => Current switch {
+        DiffTableView.Added => Diff.Added,
+        DiffTableView.Updated => Diff.Updated,
+        DiffTableView.Deleted => Diff.Deleted,
+        _ => []
+    };
+
+    // Blank rather than "0" when a measure does not apply to this symbol kind -
+    // a zero length on a point symbol would read as a measurement, not an absence.
+    private static string Metres(double? value) => value is null ? "" : $"{value:N0} m";
+    private static string SquareMetres(double? value) => value is null ? "" : $"{value:N0} m²";
+    private static string Percent(double? value) => value is null ? "" : $"{value:N1} %";
+    private static string Date(DateTimeOffset? value)
+        => value is null ? "" : value.Value.ToLocalTime().ToString("g");
+}

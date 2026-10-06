@@ -2,10 +2,29 @@
 @using OcadViewer.Wasm.Components
 @using OcadViewer.Wasm.Services
 @inject ProjectService Project
+@inject IDiffSource DiffSource
 
-<PageTitle>OCAD map viewer</PageTitle>
+<PageTitle>OCAD Versioner</PageTitle>
 
-<h1>OCAD map viewer</h1>
+@* A 2 px bar, present only while something is happening, as in the Angular app. *@
+<div style="height:2px">
+    @if (busy) {
+        <div class="progress" style="height:2px">
+            <div class="progress-bar progress-bar-striped progress-bar-animated"
+                 style="width:100%"></div>
+        </div>
+    }
+</div>
+
+<div class="d-flex justify-content-between align-items-center">
+    <h3 class="my-2">OCAD Versioner</h3>
+    <div>
+        <a href="about" target="_blank" title="About" class="text-reset">
+            <i class="bi bi-book mx-3 h4"></i>
+        </a>
+        <i class="bi bi-sliders mx-3 h4 text-muted" title="Settings — not built yet"></i>
+    </div>
+</div>
 
 @if (!supported) {
     <div class="alert alert-warning">
@@ -14,33 +33,19 @@
     </div>
 }
 
-<div class="d-flex align-items-end gap-3 mb-3 flex-wrap">
-    <button class="btn btn-primary" @onclick="OpenProject" disabled="@(!supported || busy)">
+<div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+    <button class="btn btn-primary btn-sm" @onclick="OpenProject" disabled="@(!supported || busy)">
         @(Project.IsOpen ? "Open another folder" : "Open project folder")
     </button>
 
     @if (Project.IsOpen) {
-        <button class="btn btn-outline-secondary" @onclick="Refresh" disabled="@busy">Refresh</button>
-
-        <label class="mb-0">
-            <span class="text-muted small d-block">Left (newer)</span>
-            <select class="form-select form-select-sm" style="width:12rem"
-                    value="@leftVersion" @onchange="e => ShowVersion(0, e)" disabled="@busy">
-                @foreach (var option in VersionOptions()) {
-                    <option value="@option.Name">@option.Label</option>
-                }
-            </select>
-        </label>
-
-        <label class="mb-0">
-            <span class="text-muted small d-block">Right (older)</span>
-            <select class="form-select form-select-sm" style="width:12rem"
-                    value="@rightVersion" @onchange="e => ShowVersion(1, e)" disabled="@busy">
-                @foreach (var option in VersionOptions()) {
-                    <option value="@option.Name">@option.Label</option>
-                }
-            </select>
-        </label>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="Refresh" disabled="@busy">Refresh</button>
+        <span class="text-muted small ms-2">
+            @Project.Project.ProjectName
+            @if (!string.IsNullOrEmpty(Project.Project.CurrentFileName)) {
+                <text> / @Project.Project.CurrentFileName</text>
+            }
+        </span>
     }
 </div>
 
@@ -48,7 +53,7 @@
     <div class="alert alert-info py-2">
         This folder has several <code>.ocd</code> files. Which one is the working file?
         @foreach (string candidate in Project.Project.OcdCandidates) {
-            <button class="btn btn-sm @(candidate == Project.Project.CurrentFileName ? "btn-secondary" : "btn-outline-secondary") ms-2"
+            <button class="btn btn-sm ms-2 @(candidate == Project.Project.CurrentFileName ? "btn-secondary" : "btn-outline-secondary")"
                     @onclick="() => SelectCurrent(candidate)" disabled="@busy">@candidate</button>
         }
     </div>
@@ -59,48 +64,50 @@
 }
 
 @if (Project.IsOpen) {
-    <div class="row g-3 mb-3">
-        <div class="col-md-5">
-            <h2 class="h6">@Project.Project.ProjectName</h2>
-            <table class="table table-sm">
-                <thead>
-                    <tr><th>Version</th><th>Created</th><th>Title</th></tr>
-                </thead>
-                <tbody>
-                    <tr class="@(leftVersion == ProjectService.CurrentVersionName || rightVersion == ProjectService.CurrentVersionName ? "table-active" : "")">
-                        <td><strong>current</strong></td>
-                        <td class="text-muted">working file</td>
-                        <td>@(Project.Project.CurrentFileName ?? "none selected")</td>
-                    </tr>
-                    @foreach (var version in Project.Project.Versions.OrderByDescending(v => v.Number)) {
-                        <tr class="@(leftVersion == version.Name || rightVersion == version.Name ? "table-active" : "")">
-                            <td><strong>@version.Name</strong></td>
-                            <td class="text-muted">@version.Metadata.VersionCreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                            <td>@version.Metadata.Title</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+    <div class="row">
+        <div class="col-md-3 d-flex flex-column">
+            <VersionList Items="VersionItems()" SelectedNumber="selectedNumber" OnSelected="SelectVersion" />
+
+            <div class="mt-auto py-3">
+                <h5>Create @Project.NextVersionName()</h5>
+                <div class="mb-2">
+                    <label class="form-label small mb-1">Title</label>
+                    <input class="form-control form-control-sm" @bind="newTitle" disabled="@busy"
+                           placeholder="@($"{Project.NextVersionName()} of {Project.Project.CurrentFileName}")" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-1">Description</label>
+                    <textarea class="form-control form-control-sm" rows="3"
+                              @bind="newDescription" disabled="@busy"></textarea>
+                </div>
+                <button class="btn btn-primary btn-sm" @onclick="CreateVersion"
+                        disabled="@(busy || string.IsNullOrEmpty(Project.Project.CurrentFileName))">
+                    Create version
+                </button>
+                <p class="text-muted small mt-2 mb-0">
+                    Copies the working file into <code>Releases/@Project.NextVersionName()/</code>.
+                    Symbol counts are written as zero until comparison exists.
+                </p>
+            </div>
         </div>
 
-        <div class="col-md-5">
-            <h2 class="h6">Create @Project.NextVersionName()</h2>
-            <input class="form-control form-control-sm mb-2" placeholder="Title" @bind="newTitle" disabled="@busy" />
-            <textarea class="form-control form-control-sm mb-2" rows="2" placeholder="Description"
-                      @bind="newDescription" disabled="@busy"></textarea>
-            <button class="btn btn-outline-primary btn-sm" @onclick="CreateVersion"
-                    disabled="@(busy || string.IsNullOrEmpty(Project.Project.CurrentFileName))">
-                Create version
-            </button>
-            <p class="text-muted small mt-2 mb-0">
-                Copies the working file into <code>Releases/@Project.NextVersionName()/</code>.
-                Symbol counts are written as zero until the diff is ported.
-            </p>
+        <div class="col-md-9">
+            <div class="d-flex justify-content-center align-items-center gap-3 mb-1">
+                @if (IsHistory) {
+                    <i class="bi bi-book fs-4 text-primary" title="Comparing two past versions"></i>
+                }
+                <span class="fw-medium">@NewerLabel</span>
+                <i class="bi bi-arrows"></i>
+                <span class="fw-medium">@OlderLabel</span>
+            </div>
+
+            <OcadMapPair @ref="mapPair" LeftCaption="@NewerLabel" RightCaption="@($"{OlderLabel} (synced)")" />
+
+            <DiffTable Diff="diff" Available="DiffSource.IsAvailable"
+                       UnavailableReason="@DiffSource.UnavailableReason" />
         </div>
     </div>
 }
-
-<OcadMapPair @ref="mapPair" LeftCaption="@leftVersion" RightCaption="@(rightVersion + " (synced)")" />
 
 @code {
     private OcadMapPair mapPair;
@@ -109,22 +116,42 @@
     private string status;
     private bool failed;
 
-    private string leftVersion = ProjectService.CurrentVersionName;
-    private string rightVersion = ProjectService.CurrentVersionName;
+    private MapDiff diff = MapDiff.Empty;
+
+    /// <summary>Which version is being compared, 0 meaning the working file.</summary>
+    private int selectedNumber;
 
     private string newTitle;
     private string newDescription;
 
-    private sealed record VersionOption(string Name, string Label);
+    /// <summary>
+    /// The newer side of the comparison, which is the selected version.
+    /// </summary>
+    private string NewerName => selectedNumber == 0
+        ? ProjectService.CurrentVersionName
+        : $"V{selectedNumber}";
 
-    private IEnumerable<VersionOption> VersionOptions()
+    /// <summary>
+    /// The older side: the highest-numbered version below the selected one. The
+    /// working file compares against the newest release, which is the comparison
+    /// the Angular app opens with.
+    /// </summary>
+    private string OlderName
     {
-        yield return new VersionOption(ProjectService.CurrentVersionName, "current");
-        foreach (var version in Project.Project.Versions.OrderByDescending(v => v.Number))
-            yield return new VersionOption(version.Name, version.Metadata.Title is { Length: > 0 } title
-                ? $"{version.Name} — {title}"
-                : version.Name);
+        get {
+            var below = Project.Project?.Versions
+                .Where(v => selectedNumber == 0 || v.Number < selectedNumber)
+                .OrderByDescending(v => v.Number)
+                .FirstOrDefault();
+            return below?.Name ?? ProjectService.CurrentVersionName;
+        }
     }
+
+    private string NewerLabel => NewerName;
+    private string OlderLabel => OlderName;
+
+    /// <summary>True when looking at two past versions rather than the working file.</summary>
+    private bool IsHistory => selectedNumber != 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -136,69 +163,76 @@
         }
     }
 
-    private async Task OpenProject()
+    private IReadOnlyList<VersionList.Item> VersionItems()
     {
-        await Run("Opening folder…", async () => {
+        var items = new List<VersionList.Item> {
+            new(0, ProjectService.CurrentVersionName,
+                Project.Project.CurrentFileName ?? "no file selected",
+                "The working file as it is on disk right now.",
+                null, 0, 0, 0)
+        };
+
+        items.AddRange(Project.Project.Versions
+            .OrderByDescending(v => v.Number)
+            .Select(v => new VersionList.Item(
+                v.Number, v.Name, v.Metadata.Title, v.Metadata.Description,
+                v.Metadata.VersionCreatedAt,
+                v.Metadata.NumberOfAddedSymbols,
+                v.Metadata.NumberOfEditedSymbols,
+                v.Metadata.NumberOfDeletedSymbols)));
+
+        return items;
+    }
+
+    private async Task OpenProject()
+        => await Run("Opening folder…", async () => {
             await Project.OpenAsync();
-            ChooseInitialVersions();
-            await ShowBoth();
+            selectedNumber = 0;
+            await ShowComparison();
         },
         // The picker throws when the user cancels, which is not an error.
         ignore: ex => ex.Message.Contains("abort", StringComparison.OrdinalIgnoreCase));
-    }
 
     private async Task Refresh()
-        => await Run("Re-reading folder…", async () => await Project.RefreshAsync());
+        => await Run("Re-reading folder…", async () => {
+            await Project.RefreshAsync();
+            await ShowComparison();
+        });
 
     private async Task SelectCurrent(string fileName)
         => await Run($"Selecting {fileName}…", async () => {
             await Project.SelectCurrentFileAsync(fileName);
-            await ShowBoth();
+            await ShowComparison();
+        });
+
+    private async Task SelectVersion(int number)
+        => await Run("Loading…", async () => {
+            selectedNumber = number;
+            await ShowComparison();
         });
 
     private async Task CreateVersion()
         => await Run("Creating version…", async () => {
             await Project.CreateVersionAsync(newTitle, newDescription);
             newTitle = newDescription = null;
-            ChooseInitialVersions();
-            await ShowBoth();
+            selectedNumber = 0;
+            await ShowComparison();
         });
 
-    /// <summary>
-    /// Defaults to the newest release on the right and the working file on the left,
-    /// which is the comparison the Angular app opens with.
-    /// </summary>
-    private void ChooseInitialVersions()
-    {
-        leftVersion = ProjectService.CurrentVersionName;
-        var newest = Project.Project.Versions.OrderByDescending(v => v.Number).FirstOrDefault();
-        rightVersion = newest?.Name ?? ProjectService.CurrentVersionName;
-    }
-
-    private async Task ShowVersion(int slot, ChangeEventArgs e)
-    {
-        string name = e.Value?.ToString();
-        if (string.IsNullOrEmpty(name)) return;
-
-        if (slot == 0) leftVersion = name; else rightVersion = name;
-        await Run($"Loading {name}…", async () => await Load(slot, name));
-    }
-
-    private async Task ShowBoth()
-    {
-        await Load(0, leftVersion);
-        await Load(1, rightVersion);
-    }
-
-    private async Task Load(int slot, string versionName)
+    /// <summary>Loads both sides and asks for the comparison between them.</summary>
+    private async Task ShowComparison()
     {
         if (mapPair is null) return;
 
-        byte[] bytes = await Project.ReadMapAsync(versionName);
-        await mapPair.LoadAsync(slot, $"{versionName}.ocd", bytes);
+        string newer = NewerName, older = OlderName;
+
+        await mapPair.LoadAsync(0, $"{newer}.ocd", await Project.ReadMapAsync(newer));
+        await mapPair.LoadAsync(1, $"{older}.ocd", await Project.ReadMapAsync(older));
+
+        diff = await DiffSource.CompareAsync(older, newer);
     }
 
-    /// <summary>Runs an action with a status message, busy flag and error reporting.</summary>
+    /// <summary>Runs an action with the progress bar, busy flag and error reporting.</summary>
     private async Task Run(string message, Func<Task> action, Func<Exception, bool> ignore = null)
     {
         busy = true;
