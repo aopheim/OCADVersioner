@@ -1,0 +1,95 @@
+using System.Text.Json;
+
+using Microsoft.JSInterop;
+
+namespace OcadViewer.Wasm.Services;
+
+/// <summary>
+/// User settings, stored in the browser exactly as the Angular app stores them.
+/// </summary>
+/// <remarks>
+/// Same <c>localStorage</c> key and same JSON shape, so the two apps agree on a
+/// user's language while both are installed. The <c>georeferencing</c> member is
+/// read and written back untouched rather than dropped — see
+/// <see cref="AppSettings"/>.
+/// </remarks>
+public sealed class AppSettingsService(IJSRuntime js, Localiser localiser)
+{
+    private const string StorageKey = "appSettings";
+
+    private static readonly JsonSerializerOptions JsonOptions = new() {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
+
+    private readonly IJSRuntime js = js;
+    private readonly Localiser localiser = localiser;
+
+    public AppSettings Settings { get; private set; } = new();
+
+    /// <summary>Reads stored settings and applies the language.</summary>
+    public async Task InitialiseAsync()
+    {
+        Settings = await ReadAsync() ?? new AppSettings();
+        await localiser.LoadAsync(Settings.LanguageSelection?.SelectedLanguageCode
+                                  ?? Localiser.DefaultLanguage);
+    }
+
+    public async Task SetLanguageAsync(string languageCode)
+    {
+        Settings.LanguageSelection ??= new LanguageSelectionSettings();
+        Settings.LanguageSelection.SelectedLanguageCode = languageCode;
+
+        await WriteAsync();
+        await localiser.LoadAsync(languageCode);
+    }
+
+    private async Task<AppSettings> ReadAsync()
+    {
+        try {
+            string json = await js.InvokeAsync<string>("localStorage.getItem", StorageKey);
+            return string.IsNullOrWhiteSpace(json)
+                ? null
+                : JsonSerializer.Deserialize<AppSettings>(json, JsonOptions);
+        }
+        catch (Exception) {
+            // Private browsing, cleared storage or a value written by some older
+            // version. Falling back to defaults is always better than failing to
+            // start over a preference.
+            return null;
+        }
+    }
+
+    private async Task WriteAsync()
+    {
+        try {
+            await js.InvokeVoidAsync("localStorage.setItem", StorageKey,
+                                     JsonSerializer.Serialize(Settings, JsonOptions));
+        }
+        catch (Exception) {
+        }
+    }
+}
+
+/// <summary>Mirrors the Angular <c>AppSettings</c> shape.</summary>
+public sealed class AppSettings
+{
+    /// <summary>
+    /// Read and written back verbatim. Only the diff ever consumed this, and the
+    /// diff does not exist here yet — but a user who set an EPSG code in the
+    /// Angular app should not have it silently erased by opening this one.
+    /// </summary>
+    public GeoReferenceSettings Georeferencing { get; set; }
+
+    public LanguageSelectionSettings LanguageSelection { get; set; }
+}
+
+public sealed class GeoReferenceSettings
+{
+    public int? EpsgNumber { get; set; }
+}
+
+public sealed class LanguageSelectionSettings
+{
+    public string SelectedLanguageCode { get; set; }
+}

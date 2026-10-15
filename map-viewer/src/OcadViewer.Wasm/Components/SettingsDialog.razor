@@ -1,0 +1,78 @@
+@using OcadViewer.Wasm.Services
+@inject AppSettingsService SettingsService
+@inject Localiser L
+
+@*
+    Settings, as a plain overlay rather than a Bootstrap modal: the modal needs
+    Bootstrap's JS bundle, and this is the only thing that would have wanted it.
+*@
+
+@if (Visible) {
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)" @onclick="Close">
+        <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation="true">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@L["#_settings"]</h5>
+                    <button type="button" class="btn-close" @onclick="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">@L["#_language"]</label>
+                        <select class="form-select" value="@L.Language" @onchange="OnLanguageChanged">
+                            @foreach (var language in Localiser.Languages) {
+                                <option value="@language.Code">@language.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <hr />
+
+                    <div>
+                        <label class="form-label">@L["#_georeferencing"]</label>
+
+                        @* Angular offers an EPSG picker here. It exists solely to
+                           feed the diff - nothing else ever read it - and the diff
+                           is deferred, so a picker here would configure nothing.
+                           What is genuinely useful now is showing what the parser
+                           read out of the file itself. *@
+                        <p class="form-control-plaintext mb-1">
+                            @if (string.IsNullOrWhiteSpace(Georeference)) {
+                                <span class="text-muted">@L["#_noGeoReferencingSet"]</span>
+                            }
+                            else {
+                                <code class="small">@Georeference</code>
+                            }
+                        </p>
+                        <p class="text-muted small mb-0">
+                            Read from the map file. Setting it by hand will matter
+                            again when version comparison returns; until then there
+                            is nothing for it to affect.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="Close">@L["#_cancel"]</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+
+    /// <summary>The projection the parser read from the currently loaded map.</summary>
+    [Parameter] public string Georeference { get; set; }
+
+    private async Task Close() => await VisibleChanged.InvokeAsync(false);
+
+    private async Task OnLanguageChanged(ChangeEventArgs e)
+    {
+        string code = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(code))
+            await SettingsService.SetLanguageAsync(code);
+    }
+}

@@ -3,8 +3,10 @@
 @using OcadViewer.Wasm.Services
 @inject ProjectService Project
 @inject IDiffSource DiffSource
+@inject Localiser L
+@implements IDisposable
 
-<PageTitle>OCAD Versioner</PageTitle>
+<PageTitle>@L["#_OCADVersioner"]</PageTitle>
 
 @* A 2 px bar, present only while something is happening, as in the Angular app. *@
 <div style="height:2px">
@@ -17,12 +19,13 @@
 </div>
 
 <div class="d-flex justify-content-between align-items-center">
-    <h3 class="my-2">OCAD Versioner</h3>
+    <h3 class="my-2">@L["#_OCADVersioner"]</h3>
     <div>
-        <a href="about" target="_blank" title="About" class="text-reset">
+        <a href="about" target="_blank" title="@L["#_about"]" class="text-reset">
             <i class="bi bi-book mx-3 h4"></i>
         </a>
-        <i class="bi bi-sliders mx-3 h4 text-muted" title="Settings — not built yet"></i>
+        <i class="bi bi-sliders mx-3 h4 cursorPointer" role="button" title="@L["#_settings"]"
+           @onclick="() => settingsOpen = true"></i>
     </div>
 </div>
 
@@ -35,11 +38,13 @@
 
 <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
     <button class="btn btn-primary btn-sm" @onclick="OpenProject" disabled="@(!supported || busy)">
-        @(Project.IsOpen ? "Open another folder" : "Open project folder")
+        @L["#_chooseOcadDirectory"]
     </button>
 
     @if (Project.IsOpen) {
-        <button class="btn btn-outline-secondary btn-sm" @onclick="Refresh" disabled="@busy">Refresh</button>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="Refresh" disabled="@busy">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
         <span class="text-muted small ms-2">
             @Project.Project.ProjectName
             @if (!string.IsNullOrEmpty(Project.Project.CurrentFileName)) {
@@ -69,20 +74,20 @@
             <VersionList Items="VersionItems()" SelectedNumber="selectedNumber" OnSelected="SelectVersion" />
 
             <div class="mt-auto py-3">
-                <h5>Create @Project.NextVersionName()</h5>
+                <h5>@L.Format("#_createNewVersion", ("fileName", Project.Project.CurrentFileName))</h5>
                 <div class="mb-2">
-                    <label class="form-label small mb-1">Title</label>
+                    <label class="form-label small mb-1">@L["#_title"]</label>
                     <input class="form-control form-control-sm" @bind="newTitle" disabled="@busy"
-                           placeholder="@($"{Project.NextVersionName()} of {Project.Project.CurrentFileName}")" />
+                           placeholder="@L.Format("#_versionTitleHelper", ("newVersionName", Project.NextVersionName()), ("fileName", Project.Project.CurrentFileName))" />
                 </div>
                 <div class="mb-2">
-                    <label class="form-label small mb-1">Description</label>
+                    <label class="form-label small mb-1">@L["#_description"]</label>
                     <textarea class="form-control form-control-sm" rows="3"
                               @bind="newDescription" disabled="@busy"></textarea>
                 </div>
                 <button class="btn btn-primary btn-sm" @onclick="CreateVersion"
                         disabled="@(busy || string.IsNullOrEmpty(Project.Project.CurrentFileName))">
-                    Create version
+                    @L.Format("#_newVersionSubmitText", ("newVersionName", Project.NextVersionName()), ("fileName", Project.Project.CurrentFileName))
                 </button>
                 <p class="text-muted small mt-2 mb-0">
                     Copies the working file into <code>Releases/@Project.NextVersionName()/</code>.
@@ -109,6 +114,8 @@
     </div>
 }
 
+<SettingsDialog @bind-Visible="settingsOpen" Georeference="@georeference" />
+
 @code {
     private OcadMapPair mapPair;
     private bool supported = true;
@@ -117,6 +124,8 @@
     private bool failed;
 
     private MapDiff diff = MapDiff.Empty;
+    private bool settingsOpen;
+    private string georeference;
 
     /// <summary>Which version is being compared, 0 meaning the working file.</summary>
     private int selectedNumber;
@@ -155,6 +164,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Changing language has to repaint this page, which owns most of the text.
+        L.Changed += OnLanguageChanged;
+
         try {
             supported = await Project.IsSupportedAsync();
         }
@@ -162,6 +174,10 @@
             supported = false;
         }
     }
+
+    private void OnLanguageChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.Changed -= OnLanguageChanged;
 
     private IReadOnlyList<VersionList.Item> VersionItems()
     {
@@ -226,7 +242,8 @@
 
         string newer = NewerName, older = OlderName;
 
-        await mapPair.LoadAsync(0, $"{newer}.ocd", await Project.ReadMapAsync(newer));
+        var loaded = await mapPair.LoadAsync(0, $"{newer}.ocd", await Project.ReadMapAsync(newer));
+        georeference = loaded.Georeference;
         await mapPair.LoadAsync(1, $"{older}.ocd", await Project.ReadMapAsync(older));
 
         diff = await DiffSource.CompareAsync(older, newer);

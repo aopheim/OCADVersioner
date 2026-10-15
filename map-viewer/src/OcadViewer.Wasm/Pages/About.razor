@@ -1,19 +1,25 @@
 @page "/about"
+@using OcadViewer.Wasm.Services
+@inject Localiser L
 
 @*
-    Deliberately minimal. The full About page is Stage 8 work; this exists because
-    the header links here, and because the BSD-3 licence on the vendored renderer
-    requires the notice to travel with what is served to a browser.
+    Uses the Angular translations where keys exist. The sections below have no key
+    because the Angular About page never said these things - they are about how
+    this app renders maps, which is new. They stay English until someone who
+    speaks Norwegian writes the translations; inventing them here would put bad
+    Norwegian into a file the Angular app also reads.
+
+    Also the home of the third-party notices, which the BSD-3 licence on the
+    vendored renderer requires to travel with what is served to a browser.
 *@
 
-<PageTitle>About OCAD Versioner</PageTitle>
+<PageTitle>@L["#_about"] @L["#_OCADVersioner"]</PageTitle>
 
-<h1>OCAD Versioner</h1>
+<h1>@L["#_OCADVersioner"]</h1>
 
-<p>
-    Version control for orienteering maps in OCAD format. Pick a project folder,
-    snapshot the map as a version, and compare versions side by side.
-</p>
+<p class="lead">@L["#_jumbo1Title"]</p>
+
+<p>@L["#_projectDirectorySelectorText"]</p>
 
 <h2 class="h5 mt-4">How the map is drawn</h2>
 <p>

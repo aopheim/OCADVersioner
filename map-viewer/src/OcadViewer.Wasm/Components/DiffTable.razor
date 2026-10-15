@@ -1,4 +1,5 @@
 @using OcadViewer.Wasm.Services
+@inject Localiser L
 
 @*
     Tabs and table, mirroring Angular's diff-table-tabs and ocad-diff-table. The
@@ -12,7 +13,7 @@
             <button type="button"
                     class="nav-link @(view == Current ? "active" : "")"
                     @onclick="() => SetView(view)">
-                @Label(view)
+                @L[LabelKey(view)]
                 @if (Diff.Count(view) > 0) {
                     <span class="mx-2 badge text-bg-secondary">@Diff.Count(view)</span>
                 }
@@ -29,19 +30,19 @@
     <table class="table table-sm table-striped table-hover">
         <thead>
             <tr>
-                <th scope="col">Symbol number</th>
-                <th scope="col">Symbol name</th>
+                <th scope="col">@L["#_symbolNumber"]</th>
+                <th scope="col">@L["#_symbolName"]</th>
                 @if (Current is DiffTableView.Added or DiffTableView.Deleted) {
-                    <th scope="col">Length</th>
-                    <th scope="col">Area</th>
+                    <th scope="col">@L["#_lengthInMeters"]</th>
+                    <th scope="col">@L["#_areaInSquareMeters"]</th>
                 }
                 else {
-                    <th scope="col">Moved</th>
-                    <th scope="col">Length change</th>
-                    <th scope="col">Area change</th>
+                    <th scope="col">@L["#_movedNumberOfMeters"]</th>
+                    <th scope="col">@L["#_percentageLengthDiff"]</th>
+                    <th scope="col">@L["#_percentageAreaDiff"]</th>
                 }
-                <th scope="col">Created</th>
-                <th scope="col">Last edited</th>
+                <th scope="col">@L["#_createdAt"]</th>
+                <th scope="col">@L["#_lastEditedAt"]</th>
             </tr>
         </thead>
         <tbody>
@@ -91,10 +92,10 @@
 
     private void SetView(DiffTableView view) => Current = view;
 
-    private static string Label(DiffTableView view) => view switch {
-        DiffTableView.Added => "Added",
-        DiffTableView.Updated => "Updated",
-        DiffTableView.Deleted => "Deleted",
+    private static string LabelKey(DiffTableView view) => view switch {
+        DiffTableView.Added => "#_added",
+        DiffTableView.Updated => "#_edited",
+        DiffTableView.Deleted => "#_deleted",
         _ => view.ToString()
     };
 
@@ -107,8 +108,8 @@
 
     // Blank rather than "0" when a measure does not apply to this symbol kind -
     // a zero length on a point symbol would read as a measurement, not an absence.
-    private static string Metres(double? value) => value is null ? "" : $"{value:N0} m";
-    private static string SquareMetres(double? value) => value is null ? "" : $"{value:N0} m²";
+    private string Metres(double? value) => value is null ? "" : $"{value:N0} {L["#_mAbbreviation"]}";
+    private string SquareMetres(double? value) => value is null ? "" : $"{value:N0} {L["#_m2Abbreviation"]}";
     private static string Percent(double? value) => value is null ? "" : $"{value:N1} %";
     private static string Date(DateTimeOffset? value)
         => value is null ? "" : value.Value.ToLocalTime().ToString("g");

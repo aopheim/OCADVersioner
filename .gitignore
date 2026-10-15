@@ -66,3 +66,6 @@ map-viewer/src/OcadViewer.TileSpike/wwwroot/lib/
 
 # Generated into the Blazor app by MSBuild from the repo root
 map-viewer/src/OcadViewer.Wasm/wwwroot/third-party-notices.txt
+
+# Translations copied in from the Angular app by MSBuild
+map-viewer/src/OcadViewer.Wasm/wwwroot/i18n/
