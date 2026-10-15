@@ -85,3 +85,16 @@ Copyright © 2013–2017 Bjørn Sandvik / Jan Pieter Waagmeester. Licensed under
 (`map-viewer/src/OcadViewer.Wasm/wwwroot/lib/leaflet/LICENSE-leaflet.sync.txt`).
 
 Keeps the two side-by-side maps in step.
+
+## Bootstrap Icons
+
+Copyright © 2019–2024 The Bootstrap Authors. Licensed under the **MIT** licence
+(`map-viewer/src/OcadViewer.Wasm/wwwroot/lib/bootstrap-icons/LICENSE-bootstrap-icons.txt`).
+
+## Application Insights JavaScript SDK
+
+Copyright © Microsoft Corporation. Licensed under the **MIT** licence
+(`map-viewer/src/OcadViewer.Wasm/wwwroot/lib/appinsights/LICENSE-applicationinsights.txt`).
+
+Vendored rather than loaded from a CDN, and only fetched at all when a
+monitoring key is configured, so a local build makes no third-party requests.

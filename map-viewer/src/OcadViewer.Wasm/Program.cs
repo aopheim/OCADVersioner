@@ -23,7 +23,20 @@ builder.Services.AddScoped<AppSettingsService>();
 // comparison arrives.
 builder.Services.AddScoped<IDiffSource, NoDiffSource>();
 
+builder.Services.AddScoped<TelemetryService>();
+
+// Blazor reports an unhandled component exception through ILogger, so hooking the
+// logging pipeline is how errors reach telemetry - the counterpart of Angular's
+// ErrorHandlerService.
+var telemetryLogging = new TelemetryLoggerProvider();
+builder.Logging.AddProvider(telemetryLogging);
+
 var host = builder.Build();
+
+// The logger provider had to be registered before the container existed; give it
+// the real one now so it reports through the same TelemetryService that starts
+// below, not a copy.
+telemetryLogging.Services = host.Services;
 
 // Fonts have to be registered before the first map is parsed, not merely before
 // it is drawn: the OCAD importer asks whether a face is installed while reading
@@ -34,5 +47,9 @@ using (var http = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment
 // Settings before the first render, so the interface does not appear in English
 // and then switch to the user's language a moment later.
 await host.Services.GetRequiredService<AppSettingsService>().InitialiseAsync();
+
+// Telemetry last, and never fatal: no key means no SDK is fetched at all.
+await host.Services.GetRequiredService<TelemetryService>()
+    .InitialiseAsync(builder.Configuration["Telemetry:ConnectionString"]);
 
 await host.RunAsync();

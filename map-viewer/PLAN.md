@@ -1,6 +1,6 @@
 # Replace the Angular app with a Blazor app that renders OCAD maps with PurplePen's renderer
 
-> **Status: Stages 0–5 and 7 complete. Stage 6 part-done (AOT). Stage 8 is next.**
+> **Status: Stages 0–5, 7 and 8 complete. Stage 6 part-done (AOT). Stage 9 is next.**
 > **End goal: a Blazor WebAssembly app that replaces the Angular app entirely.**
 > It is built side by side with Angular, which keeps serving users until Blazor
 > reaches parity, and is then retired. The map viewer inside it is a **Leaflet tile
@@ -736,16 +736,62 @@ port at all. The costs are keeping the AGPL-3.0 `ocad2geojson` dependency and
 parsing every file twice, once in JS and once in C#. That is the option to weigh
 first if a working diff is wanted before the expansion is designed.
 
-### Stage 8 — Remaining parity (3–5 days) — **NEXT**
+### Stage 8 — Remaining parity — **DONE**
 
-- Settings: EPSG picker and language, persisted. Note the Angular app bundles the
-  whole `epsg-index` twice; do not repeat that.
-- Localisation, en and no, from `src/assets/i18n/*.json` — including the ISOM2017
-  symbol names. Blazor's own localisation or a straight port of the JSON.
-- Application Insights telemetry and the global error handler.
-- About page and the third-party notices link.
+- **Settings** — language and EPSG, persisted to `localStorage` under the same
+  `appSettings` key and the same camelCase shape the Angular app writes, so both
+  apps read one another's settings during the migration. `Georeferencing` is
+  round-tripped untouched rather than parsed: it only matters to the diff, which
+  does not exist here yet, and rewriting a shape we do not use would be a way to
+  corrupt it. The Angular app's duplicated `epsg-index` bundle is not repeated.
+- **Localisation**, en and no, read at startup from `i18n/{lang}.json` — the
+  Angular app's own translation files, staged into `wwwroot` by the
+  `StageTranslations` target rather than copied, so there is one set of strings
+  for both apps. A missing key renders as the key itself, which makes gaps
+  visible instead of blank.
+- **About page and the third-party notices link.**
+- **Application Insights telemetry and the global error handler** — see below.
 
-### Stage 9 — Deploy side by side, then retire Angular (2–3 days)
+#### Telemetry
+
+`TelemetryService` wraps the vendored SDK through `wwwroot/js/telemetry.js`, and
+`TelemetryLoggerProvider` forwards `Error` and `Critical` logs to it. There is no
+`ErrorHandler` to override as in Angular: Blazor reports an unhandled component
+exception through `ILogger`, so hooking the logging pipeline catches the same class
+of failure.
+
+**Off unless a key is configured.** The key lives in `wwwroot/appsettings.json`
+under `Telemetry:ConnectionString`, empty in the repo. With no key the SDK script is
+never even fetched, so local builds make no third-party requests — verified in the
+browser, no request to `lib/appinsights/` and none to `js/telemetry.js`.
+
+Three things worth knowing:
+
+- **The provider is registered before the container exists**, so it takes an
+  `IServiceProvider` assigned after `builder.Build()`. Calling
+  `BuildServiceProvider()` inside the provider instead compiles and runs and
+  reports nothing: the logger gets a second `TelemetryService` that was never
+  initialised. The registration order in `Program.cs` is load-bearing.
+- **A .NET stack arrives with `parsedStack` empty.** The SDK's stack parser only
+  recognises JavaScript frames, so the portal shows the raw stack string rather
+  than a structured frame list. The whole trace is there and legible.
+- **Verify it against a local stub, not the real endpoint.** Point
+  `IngestionEndpoint` at a localhost server that logs request bodies and set a
+  dummy instrumentation key; nothing leaves the machine and the payload is
+  readable. A captured unhandled component exception arrives as `ExceptionData`,
+  severity 4, carrying the .NET type name, the message, the raw stack and the
+  logger category and event id as properties.
+
+**Stage 9 must add the key to the Blazor workflow**, the way the Angular workflow
+injects `APPINSIGHTSINSTRUMENTATIONKEY_PROD` at build time — otherwise the deployed
+app is silent and nothing says so.
+
+**Still outstanding:** the Norwegian translations for the strings the Angular app
+never had — the About page's rendering and telemetry paragraphs, and "Refresh".
+They stay English until someone who speaks Norwegian writes them; inventing them
+would put bad Norwegian into a file the Angular app also reads.
+
+### Stage 9 — Deploy side by side, then retire Angular (2–3 days) — **NEXT**
 
 Both apps live at once; Angular stays the default until Blazor is trusted. See
 *Deployment*.
@@ -802,6 +848,11 @@ jobs:
           key: wasm-${{ hashFiles('map-viewer/Directory.Packages.props') }}
       - run: dotnet workload install wasm-tools
       - run: dotnet publish map-viewer/src/OcadViewer.Wasm -c Release -o publish
+      - name: Inject the telemetry key          # without this the app is silent
+        run: |
+          jq --arg k "${{ secrets.APPINSIGHTSINSTRUMENTATIONKEY_PROD }}" \
+             '.Telemetry.ConnectionString = $k' \
+             publish/wwwroot/appsettings.json > tmp && mv tmp publish/wwwroot/appsettings.json
       - uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MAPVIEWER }}

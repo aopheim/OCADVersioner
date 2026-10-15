@@ -24,8 +24,21 @@
 <h2 class="h5 mt-4">How the map is drawn</h2>
 <p>
     Maps are parsed and rendered by Purple Pen's map engine, compiled to
-    WebAssembly and running entirely in your browser. Nothing is uploaded: the
-    files stay on your machine and there is no server.
+    WebAssembly and running entirely in your browser. There is no server:
+    <strong>your map files never leave your machine</strong> and are never
+    uploaded anywhere.
+</p>
+
+@*
+    This paragraph exists because the one above used to end "nothing is
+    uploaded", which stopped being true the moment telemetry was added. Usage
+    data is not map data, but the distinction belongs to the reader, not to us.
+*@
+<p class="text-muted small">
+    When this app is deployed with monitoring configured, anonymous usage and
+    error reports are sent to the maintainers so faults can be found and fixed.
+    That covers which pages were opened and what went wrong &mdash; never the
+    contents of your maps. Running it locally sends nothing at all.
 </p>
 
 <h2 class="h5 mt-4">Credits and licences</h2>
