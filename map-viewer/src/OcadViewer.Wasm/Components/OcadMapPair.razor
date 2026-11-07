@@ -7,14 +7,17 @@
     about Leaflet, so nothing above this component has to.
 *@
 
-<div class="ocad-map-pair">
-    <div class="ocad-map-pane">
-        <div class="ocad-map-caption">@LeftCaption</div>
-        <div @ref="leftEl" class="ocad-map"></div>
+@*
+    The same grid as Angular's ocad-map-viewer: two columns with a hair of gutter,
+    each map 80vh on white. The captions the spike used are gone - the comparison
+    header above already names both sides, which is where Angular says it.
+*@
+<div class="row g-1">
+    <div class="col-sm-6">
+        <div @ref="leftEl" class="mapDiv"></div>
     </div>
-    <div class="ocad-map-pane">
-        <div class="ocad-map-caption">@RightCaption</div>
-        <div @ref="rightEl" class="ocad-map"></div>
+    <div class="col-sm-6">
+        <div @ref="rightEl" class="mapDiv"></div>
     </div>
 </div>
 
@@ -23,9 +26,6 @@
     private ElementReference rightEl;
     private IJSObjectReference module;
     private IJSObjectReference maps;
-
-    [Parameter] public string LeftCaption { get; set; } = "newer";
-    [Parameter] public string RightCaption { get; set; } = "older";
 
     /// <summary>Raised after a map is loaded, with what the parser reported.</summary>
     [Parameter] public EventCallback<MapLoadInfo> OnMapLoaded { get; set; }

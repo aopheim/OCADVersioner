@@ -12,6 +12,8 @@
 
 <PageTitle>Skia smoke test</PageTitle>
 
+<div class="container py-4">
+
 <h1>Skia in WebAssembly &mdash; smoke test</h1>
 
 <p class="text-muted">
@@ -45,6 +47,8 @@
     <SKCanvasView @ref="canvasView" OnPaintSurface="OnPaint" IgnorePixelScaling="false"
                   style="width:100%; max-width:640px; height:360px; border:1px solid #ccc" />
 </section>
+
+</div>
 
 @code {
     private SKCanvasView canvasView;

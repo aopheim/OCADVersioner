@@ -1,16 +1,15 @@
-﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+@inherits LayoutComponentBase
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+@*
+    No shell at all, on purpose.
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+    The Blazor template puts every page inside a sidebar, a navigation menu and a
+    top row. The Angular app has none of those: each page is its own Bootstrap
+    container and the workspace carries its own header. Reproducing it therefore
+    means deleting the chrome rather than restyling it.
+
+    The diagnostic page at /smoke is reachable by URL; it was never part of the
+    Angular app and does not belong in a menu that the Angular app does not have.
+*@
+
+@Body

@@ -4,33 +4,61 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OCAD Map Viewer</title>
+    <title>OcadVersioner</title>
     <base href="/" />
     <link rel="preload" id="webassembly" />
+
+    <!--
+        The same stylesheets the Angular app loads, in the same order: Bootstrap,
+        Bootstrap Icons, Leaflet. app.css holds only what the Angular app keeps in
+        component styles - there is no theme of our own.
+    -->
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="lib/leaflet/leaflet.css" />
     <link rel="stylesheet" href="lib/bootstrap-icons/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="lib/leaflet/leaflet.css" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
-    <link href="OcadViewer.Wasm.styles.css" rel="stylesheet" />
+    <!-- No scoped-CSS bundle: there are no .razor.css files left, and linking the
+         bundle anyway is a 404 on every load. -->
     <script type="importmap"></script>
+
+    <!--
+        Bootstrap's own JS, as the Angular app loads it: modals, dropdowns and
+        popovers are driven by data-bs-* attributes, not reimplemented in C#.
+        Loaded before Blazor so the markup it manages is live as soon as it renders.
+    -->
+    <script src="lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="lib/leaflet/leaflet.js"></script>
     <script src="lib/leaflet/L.Map.Sync.js"></script>
 </head>
 
 <body>
+    <!--
+        The runtime is several megabytes, so something has to acknowledge the wait.
+        It is a Bootstrap spinner rather than the Blazor template's own, so the
+        first thing a user sees already belongs to the same interface as the rest.
+    -->
     <div id="app">
-        <svg class="loading-progress">
-            <circle r="40%" cx="50%" cy="50%" />
-            <circle r="40%" cx="50%" cy="50%" />
-        </svg>
-        <div class="loading-progress-text"></div>
+        <div class="d-flex flex-column align-items-center justify-content-center"
+             style="height:60vh">
+            <div class="spinner-border text-secondary" role="status">
+                <span class="visually-hidden">Loading</span>
+            </div>
+            <p class="text-muted small mt-3 mb-0" id="app-loading-text"></p>
+        </div>
     </div>
 
-    <div id="blazor-error-ui">
-        An unhandled error has occurred.
-        <a href="." class="reload">Reload</a>
-        <span class="dismiss">🗙</span>
+    <!--
+        Blazor shows this itself when an exception escapes a component. The Angular
+        app has no equivalent, but without it an unhandled error leaves the page
+        looking merely frozen, so it stays - as a Bootstrap alert.
+    -->
+    <!-- Hidden by app.css, not by d-none: Blazor reveals it with an inline
+         display, which cannot win against a utility class's !important. -->
+    <div id="blazor-error-ui" class="alert alert-danger border-0 rounded-0 mb-0">
+        <span class="me-2">An unhandled error has occurred.</span>
+        <a href="." class="reload alert-link">Reload</a>
+        <span class="dismiss float-end" role="button" aria-label="Dismiss">&#128937;</span>
     </div>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
 </body>

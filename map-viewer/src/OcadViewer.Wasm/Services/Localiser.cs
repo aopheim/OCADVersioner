@@ -20,11 +20,15 @@ public sealed class Localiser(HttpClient http)
 {
     public const string DefaultLanguage = "en";
 
-    /// <summary>Languages the app offers, as code and the name in that language.</summary>
+    /// <summary>
+    /// Languages the app offers, as code and the name in that language. Norwegian
+    /// first, because that is the order the Angular settings modal shows the flags
+    /// in - the default is still English, which is a separate thing.
+    /// </summary>
     public static readonly IReadOnlyList<(string Code, string Name)> Languages =
     [
-        ("en", "English"),
-        ("no", "Norsk")
+        ("no", "Norsk"),
+        ("en", "English")
     ];
 
     private readonly HttpClient http = http;

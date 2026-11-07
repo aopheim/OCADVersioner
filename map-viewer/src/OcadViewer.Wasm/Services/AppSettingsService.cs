@@ -44,6 +44,20 @@ public sealed class AppSettingsService(IJSRuntime js, Localiser localiser)
         await localiser.LoadAsync(languageCode);
     }
 
+    /// <summary>
+    /// Persists everything the settings modal edits, as Angular's Save button does:
+    /// one write, both values, nothing applied until then.
+    /// </summary>
+    public async Task SaveAsync(string languageCode, int? epsgNumber)
+    {
+        // Angular writes the whole georeferencing group, so a cleared code has to
+        // clear the stored one rather than leave the old value behind.
+        Settings.Georeferencing ??= new GeoReferenceSettings();
+        Settings.Georeferencing.EpsgNumber = epsgNumber;
+
+        await SetLanguageAsync(languageCode ?? Localiser.DefaultLanguage);
+    }
+
     private async Task<AppSettings> ReadAsync()
     {
         try {

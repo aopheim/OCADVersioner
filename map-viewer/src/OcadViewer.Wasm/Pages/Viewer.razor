@@ -8,6 +8,12 @@
 
 <PageTitle>@L["#_OCADVersioner"]</PageTitle>
 
+@*
+    container-fluid lives here rather than in the layout because that is where the
+    Angular app puts it: there is no shell, every page is its own container.
+*@
+<div class="container-fluid">
+
 @* A 2 px bar, present only while something is happening, as in the Angular app. *@
 <div style="height:2px">
     @if (busy) {
@@ -21,46 +27,36 @@
 <div class="d-flex justify-content-between align-items-center">
     <h3 class="my-2">@L["#_OCADVersioner"]</h3>
     <div>
-        <a href="about" target="_blank" title="@L["#_about"]" class="text-reset">
-            <i class="bi bi-book mx-3 h4"></i>
+        <a href="about" target="_blank" title="@L["#_about"]">
+            <i class="bi bi-book cursorPointer mx-3 h4 noColor"></i>
         </a>
-        <i class="bi bi-sliders mx-3 h4 cursorPointer" role="button" title="@L["#_settings"]"
-           @onclick="() => settingsOpen = true"></i>
+        @* Opened by Bootstrap itself, as in the Angular app, rather than by a
+           Blazor flag - that is what gets the backdrop and the escape key. *@
+        <i class="bi bi-sliders cursorPointer mx-3 h4" title="@L["#_settings"]"
+           data-bs-toggle="modal" data-bs-target="#appSettingsModal"></i>
     </div>
 </div>
 
-@if (!supported) {
-    <div class="alert alert-warning">
-        This browser cannot open folders. The File System Access API is only in
-        Chromium-based browsers &mdash; the same limitation the current app has.
-    </div>
-}
+@* The start page. It opens itself and owns choosing the folder, the working file
+   and reporting why either failed - so none of that is duplicated here. *@
+<ProjectDirectorySelector @ref="selector" OnProjectLoaded="OnProjectLoaded" />
 
-<div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-    <button class="btn btn-primary btn-sm" @onclick="OpenProject" disabled="@(!supported || busy)">
-        @L["#_chooseOcadDirectory"]
-    </button>
-
-    @if (Project.IsOpen) {
-        <button class="btn btn-outline-secondary btn-sm" @onclick="Refresh" disabled="@busy">
-            <i class="bi bi-arrow-clockwise"></i>
-        </button>
-        <span class="text-muted small ms-2">
+@if (Project.IsOpen) {
+    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+        <span class="text-muted small">
             @Project.Project.ProjectName
             @if (!string.IsNullOrEmpty(Project.Project.CurrentFileName)) {
                 <text> / @Project.Project.CurrentFileName</text>
             }
         </span>
-    }
-</div>
-
-@if (Project.IsOpen && Project.Project.OcdCandidates.Count > 1) {
-    <div class="alert alert-info py-2">
-        This folder has several <code>.ocd</code> files. Which one is the working file?
-        @foreach (string candidate in Project.Project.OcdCandidates) {
-            <button class="btn btn-sm ms-2 @(candidate == Project.Project.CurrentFileName ? "btn-secondary" : "btn-outline-secondary")"
-                    @onclick="() => SelectCurrent(candidate)" disabled="@busy">@candidate</button>
-        }
+        <button class="btn btn-outline-secondary btn-sm" @onclick="Refresh" disabled="@busy"
+                title="Re-read the folder">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="ChangeProject" disabled="@busy"
+                title="@L["#_chooseOcadDirectory"]">
+            <i class="bi bi-folder2-open"></i>
+        </button>
     </div>
 }
 
@@ -70,7 +66,7 @@
 
 @if (Project.IsOpen) {
     <div class="row">
-        <div class="col-md-3 d-flex flex-column">
+        <div class="col-md-2 d-flex flex-column">
             <VersionList Items="VersionItems()" SelectedNumber="selectedNumber" OnSelected="SelectVersion" />
 
             <div class="mt-auto py-3">
@@ -96,7 +92,7 @@
             </div>
         </div>
 
-        <div class="col-md-9">
+        <div class="col-md-10">
             <div class="d-flex justify-content-center align-items-center gap-3 mb-1">
                 @if (IsHistory) {
                     <i class="bi bi-book fs-4 text-primary" title="Comparing two past versions"></i>
@@ -106,7 +102,7 @@
                 <span class="fw-medium">@OlderLabel</span>
             </div>
 
-            <OcadMapPair @ref="mapPair" LeftCaption="@NewerLabel" RightCaption="@($"{OlderLabel} (synced)")" />
+            <OcadMapPair @ref="mapPair" />
 
             <DiffTable Diff="diff" Available="DiffSource.IsAvailable"
                        UnavailableReason="@DiffSource.UnavailableReason" />
@@ -114,17 +110,18 @@
     </div>
 }
 
-<SettingsDialog @bind-Visible="settingsOpen" Georeference="@georeference" />
+<SettingsDialog Georeference="@georeference" />
+
+</div>
 
 @code {
     private OcadMapPair mapPair;
-    private bool supported = true;
+    private ProjectDirectorySelector selector;
     private bool busy;
     private string status;
     private bool failed;
 
     private MapDiff diff = MapDiff.Empty;
-    private bool settingsOpen;
     private string georeference;
 
     /// <summary>Which version is being compared, 0 meaning the working file.</summary>
@@ -162,17 +159,10 @@
     /// <summary>True when looking at two past versions rather than the working file.</summary>
     private bool IsHistory => selectedNumber != 0;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         // Changing language has to repaint this page, which owns most of the text.
         L.Changed += OnLanguageChanged;
-
-        try {
-            supported = await Project.IsSupportedAsync();
-        }
-        catch {
-            supported = false;
-        }
     }
 
     private void OnLanguageChanged() => InvokeAsync(StateHasChanged);
@@ -200,14 +190,14 @@
         return items;
     }
 
-    private async Task OpenProject()
-        => await Run("Opening folder…", async () => {
-            await Project.OpenAsync();
+    /// <summary>
+    /// The folder is open and a working file is settled; show the maps.
+    /// </summary>
+    private async Task OnProjectLoaded()
+        => await Run("Loading…", async () => {
             selectedNumber = 0;
             await ShowComparison();
-        },
-        // The picker throws when the user cancels, which is not an error.
-        ignore: ex => ex.Message.Contains("abort", StringComparison.OrdinalIgnoreCase));
+        });
 
     private async Task Refresh()
         => await Run("Re-reading folder…", async () => {
@@ -215,11 +205,8 @@
             await ShowComparison();
         });
 
-    private async Task SelectCurrent(string fileName)
-        => await Run($"Selecting {fileName}…", async () => {
-            await Project.SelectCurrentFileAsync(fileName);
-            await ShowComparison();
-        });
+    /// <summary>Reopens the start dialog, to point the app at a different folder.</summary>
+    private async Task ChangeProject() => await selector.ShowAsync();
 
     private async Task SelectVersion(int number)
         => await Run("Loading…", async () => {
