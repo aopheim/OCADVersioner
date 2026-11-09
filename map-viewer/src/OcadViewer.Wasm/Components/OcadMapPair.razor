@@ -34,21 +34,35 @@
         int Version, double MinX, double MinY, double MaxX, double MaxY,
         long ParseMs, string Georeference);
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-            return;
+    /// <summary>
+    /// Importing the module and building the two Leaflet maps. Held as a task
+    /// rather than a flag because a caller can arrive before it has finished.
+    /// </summary>
+    private Task ready;
 
-        module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/ocadMaps.js");
-        maps = await module.InvokeAsync<IJSObjectReference>("createOcadMaps", leftEl, rightEl);
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+            ready ??= InitialiseAsync();
+    }
+
+    private async Task InitialiseAsync()
+    {
+        module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/leafletViewport.js");
+        maps = await module.InvokeAsync<IJSObjectReference>("createSyncedMaps", leftEl, rightEl);
     }
 
     /// <summary>Parses <paramref name="bytes"/> into a slot and shows it there.</summary>
     /// <param name="slot">0 for the left map, 1 for the right.</param>
     public async Task<MapLoadInfo> LoadAsync(int slot, string fileName, byte[] bytes)
     {
-        if (maps is null)
-            throw new InvalidOperationException("The map pair is not initialised yet.");
+        // The parent can get here before this component's own first render has
+        // finished setting up - the renderer does not wait for a child's
+        // OnAfterRenderAsync before running the parent's. Starting the work here
+        // if it has not started, and awaiting it either way, removes the race
+        // rather than reporting it as "not initialised yet", which is what a
+        // caller doing nothing wrong used to see.
+        await (ready ??= InitialiseAsync());
 
         MapLoadInfo info = await maps.InvokeAsync<MapLoadInfo>("loadInto", slot, fileName, bytes);
         await OnMapLoaded.InvokeAsync(info);

@@ -135,7 +135,7 @@
         if (!firstRender)
             return;
 
-        ui = await JS.InvokeAsync<IJSObjectReference>("import", "./js/ocadUi.js");
+        ui = await JS.InvokeAsync<IJSObjectReference>("import", "./js/bootstrapComponents.js");
 
         // The help popover is the one Bootstrap component that needs constructing.
         await ui.InvokeVoidAsync("initPopovers");

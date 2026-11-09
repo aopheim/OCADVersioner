@@ -34,7 +34,7 @@ What it used to prove is now provable from the console in one paste, against the
 running app and the real render path:
 
 ```js
-const { getTileInterop } = await import('/js/ocadRuntime.js');
+const { getTileInterop } = await import('/js/dotnetExports.js');
 const interop = await getTileInterop();
 const bytes = new Uint8Array(await (await fetch('/probe.ocd')).arrayBuffer());
 const info = JSON.parse(interop.LoadMap(0, 'probe.ocd', bytes));
@@ -310,7 +310,7 @@ product: the Angular app's feature set minus the diff, with nothing left over fr
 building it.
 
 **`OcadViewer.TileSpike` is deleted.** Its tile layer, scheduler and coordinate
-maths live in `wwwroot/js/ocadMaps.js` now, which is what it existed to produce,
+maths live in `wwwroot/js/leafletViewport.js` now, which is what it existed to produce,
 and its `[JSExport]` boundary is `TileInterop.cs`.
 
 **Skip `PurplePenCore` entirely.** Its `MapDisplay` adds course objects and print
@@ -774,7 +774,7 @@ first if a working diff is wanted before the expansion is designed.
 
 #### Telemetry
 
-`TelemetryService` wraps the vendored SDK through `wwwroot/js/telemetry.js`, and
+`TelemetryService` wraps the vendored SDK through `wwwroot/js/appInsights.js`, and
 `TelemetryLoggerProvider` forwards `Error` and `Critical` logs to it. There is no
 `ErrorHandler` to override as in Angular: Blazor reports an unhandled component
 exception through `ILogger`, so hooking the logging pipeline catches the same class
@@ -783,7 +783,7 @@ of failure.
 **Off unless a key is configured.** The key lives in `wwwroot/appsettings.json`
 under `Telemetry:ConnectionString`, empty in the repo. With no key the SDK script is
 never even fetched, so local builds make no third-party requests — verified in the
-browser, no request to `lib/appinsights/` and none to `js/telemetry.js`.
+browser, no request to `lib/appinsights/` and none to `js/appInsights.js`.
 
 Three things worth knowing:
 
@@ -821,7 +821,7 @@ Removed, with what each was for:
 
 | Removed | Was for | Why it went |
 |---|---|---|
-| `OcadViewer.TileSpike` | proving `[JSExport]` marshals `byte[]` as a typed array | proven; the code it produced is in `ocadMaps.js` |
+| `OcadViewer.TileSpike` | proving `[JSExport]` marshals `byte[]` as a typed array | proven; the code it produced is in `leafletViewport.js` |
 | `Pages/Smoke.razor` | nine Skia/font/blending checks | not an Angular feature, and the only thing needing `SkiaSharp.Views.Blazor` |
 | `SkiaSharp.Views.Blazor` | the smoke page's `SKCanvasView` | tiles render offscreen and go through `putImageData`; no Blazor canvas is involved |
 | `FontPack.Diagnose` | the smoke page's font checks | its only caller |
@@ -847,7 +847,7 @@ worker, this becomes worth having again; until then it was ceremony.
 `usePatternBitmaps`) and the tile stats counters had no callers. Re-adding them is
 about twenty lines: a `[JSExport]` that replaces the static `MapRenderSettings`,
 and a method on the tile-layer handle returning the `stats` object that is still
-maintained inside `ocadMaps.js` and still reachable at `globalThis.__ocad.stats`.
+maintained inside `leafletViewport.js` and still reachable at `globalThis.__ocad.stats`.
 
 ### Stage 9 — Deploy side by side, then retire Angular (2–3 days) — **NEXT**
 

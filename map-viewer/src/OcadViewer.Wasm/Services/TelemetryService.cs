@@ -41,7 +41,7 @@ public sealed class TelemetryService(IJSRuntime js, ILogger<TelemetryService> lo
         }
 
         try {
-            module = await js.InvokeAsync<IJSObjectReference>("import", "./js/telemetry.js");
+            module = await js.InvokeAsync<IJSObjectReference>("import", "./js/appInsights.js");
             enabled = await module.InvokeAsync<bool>("initialise", connectionString);
         }
         catch (Exception ex) {

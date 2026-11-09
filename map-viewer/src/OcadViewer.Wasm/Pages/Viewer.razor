@@ -117,6 +117,9 @@
 @code {
     private OcadMapPair mapPair;
     private ProjectDirectorySelector selector;
+
+    /// <summary>Set when a project has just opened and the maps still need loading.</summary>
+    private bool comparisonPending;
     private bool busy;
     private string status;
     private bool failed;
@@ -191,13 +194,31 @@
     }
 
     /// <summary>
-    /// The folder is open and a working file is settled; show the maps.
+    /// The folder is open and a working file is settled.
     /// </summary>
-    private async Task OnProjectLoaded()
-        => await Run("Loading…", async () => {
-            selectedNumber = 0;
-            await ShowComparison();
-        });
+    /// <remarks>
+    /// The maps cannot be loaded here. Until this moment the workspace was not on
+    /// the page at all - it renders only once a project is open - so OcadMapPair
+    /// does not exist yet and its <c>@ref</c> is still null. Asking for a render
+    /// and picking the work up afterwards is what makes the component available.
+    /// </remarks>
+    private void OnProjectLoaded()
+    {
+        selectedNumber = 0;
+        comparisonPending = true;
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Children render before their parent's OnAfterRenderAsync runs, so by now
+        // the map pair exists and has started its own JS module.
+        if (!comparisonPending || mapPair is null)
+            return;
+
+        comparisonPending = false;
+        await Run("Loading…", ShowComparison);
+    }
 
     private async Task Refresh()
         => await Run("Re-reading folder…", async () => {
@@ -225,7 +246,11 @@
     /// <summary>Loads both sides and asks for the comparison between them.</summary>
     private async Task ShowComparison()
     {
-        if (mapPair is null) return;
+        // Not a guard against ordinary timing - the caller is responsible for
+        // waiting until the workspace has rendered. Silently returning here is how
+        // "the folder opened but no maps appeared" would look.
+        if (mapPair is null)
+            throw new InvalidOperationException("The map pair is not on the page yet.");
 
         string newer = NewerName, older = OlderName;
 

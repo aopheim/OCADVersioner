@@ -112,7 +112,7 @@
         if (!firstRender)
             return;
 
-        ui = await JS.InvokeAsync<IJSObjectReference>("import", "./js/ocadUi.js");
+        ui = await JS.InvokeAsync<IJSObjectReference>("import", "./js/bootstrapComponents.js");
 
         // Opens itself, as in the Angular app: there is nothing else to do on this
         // page, so making the user click something first would be ceremony.

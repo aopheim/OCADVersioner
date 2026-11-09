@@ -18,6 +18,7 @@ const RELEASES = 'Releases';
 
 let projectDir = null;       // FileSystemDirectoryHandle for the project root
 let currentFile = null;      // FileSystemFileHandle for the working .ocd
+let chosenFileName = null;   // the name the user picked, kept across a rescan
 const versions = new Map();  // "V1" -> { ocd, meta }
 
 export function isSupported() {
@@ -45,6 +46,7 @@ export async function openProject() {
         throw new Error('This browser cannot open folders. Use a Chromium-based browser.');
 
     projectDir = await window.showDirectoryPicker({ mode: 'readwrite' });
+    chosenFileName = null;
     return await rescan();
 }
 
@@ -62,7 +64,14 @@ export async function rescan() {
         if (handle.kind === 'file' && name.toLowerCase().endsWith('.ocd'))
             candidates.push(name);
     }
-    if (candidates.length === 1)
+
+    // A rescan must not undo the user's choice. selectCurrentFile is followed by a
+    // rescan, so clearing the handle and only restoring it for a single candidate
+    // threw the selection away at the moment it was made - which surfaced later as
+    // "No map file for current", pointing at reading rather than at choosing.
+    if (chosenFileName && candidates.includes(chosenFileName))
+        currentFile = await projectDir.getFileHandle(chosenFileName);
+    else if (candidates.length === 1)
         currentFile = await projectDir.getFileHandle(candidates[0]);
 
     const releases = await getDirectory(projectDir, RELEASES, false);
@@ -104,6 +113,7 @@ export async function rescan() {
 export async function selectCurrentFile(fileName) {
     if (!projectDir) throw new Error('No project folder is open.');
     currentFile = await projectDir.getFileHandle(fileName);
+    chosenFileName = currentFile.name;
     return currentFile.name;
 }
 

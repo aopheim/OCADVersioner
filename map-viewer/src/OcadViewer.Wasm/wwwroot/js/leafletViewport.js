@@ -6,7 +6,7 @@
  * leaflet.sync work without knowing anything about the layer.
  */
 
-import { getTileInterop } from './ocadRuntime.js';
+import { getTileInterop } from './dotnetExports.js';
 
 const TILE_SIZE = 256;
 
@@ -180,7 +180,7 @@ const OcadTileLayer = L.GridLayer.extend({
  * Creates two synced maps over the given elements.
  * @returns a handle with loadInto, fit, stats and dispose.
  */
-export async function createOcadMaps(leftEl, rightEl) {
+export async function createSyncedMaps(leftEl, rightEl) {
     const interop = await getTileInterop();
 
     const makeMap = el => L.map(el, {

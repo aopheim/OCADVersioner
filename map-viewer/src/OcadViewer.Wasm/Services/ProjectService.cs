@@ -68,7 +68,7 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
     public bool IsOpen => Project is not null;
 
     private async Task<IJSObjectReference> ModuleAsync()
-        => module ??= await js.InvokeAsync<IJSObjectReference>("import", "./js/ocadFiles.js");
+        => module ??= await js.InvokeAsync<IJSObjectReference>("import", "./js/projectFolder.js");
 
     /// <summary>Whether this browser has the File System Access API at all.</summary>
     public async Task<bool> IsSupportedAsync()
