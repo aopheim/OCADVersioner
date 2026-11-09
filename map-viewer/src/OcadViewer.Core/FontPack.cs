@@ -165,42 +165,5 @@ namespace OcadViewer.Core
             SkiaFontManager.SetDefaultFontFamilyName(FallbackFamily);
             return count;
         }
-
-        /// <summary>
-        /// Reports whether font registration actually took effect, which is the
-        /// thing most likely to behave differently in the browser than on the
-        /// desktop. Call it after installing and surface the result.
-        /// </summary>
-        public static FontPackDiagnostics Diagnose()
-        {
-            string[] families;
-            string error = null;
-            try {
-                families = SkiaFontManager.GetFontFamilies();
-            }
-            catch (Exception ex) {
-                families = [];
-                error = $"{ex.GetType().Name}: {ex.Message}";
-            }
-
-            return new FontPackDiagnostics(
-                FallbackInstalled: SkiaFontManager.FontFamilyIsInstalled(FallbackFamily),
-                AliasesInstalled: AliasFamilies.All(SkiaFontManager.FontFamilyIsInstalled),
-                FamilyCount: families.Length,
-                Error: error);
-        }
-    }
-
-    /// <param name="FallbackInstalled">The fallback family resolved.</param>
-    /// <param name="AliasesInstalled">Every alias family resolved.</param>
-    /// <param name="FamilyCount">Families Skia can see, private plus system.</param>
-    /// <param name="Error">Set if enumerating families threw.</param>
-    public sealed record FontPackDiagnostics(
-        bool FallbackInstalled,
-        bool AliasesInstalled,
-        int FamilyCount,
-        string Error)
-    {
-        public bool Ok => Error is null && FallbackInstalled && AliasesInstalled;
     }
 }

@@ -1,8 +1,10 @@
-// Minimal static file server for the published WebAssembly spike.
+// Minimal static file server for a published Blazor WebAssembly build.
 //
-// Exists because the spike has no ASP.NET host: it is a plain .NET WebAssembly
-// module plus static files, which is precisely the point - that is what the
-// Angular app would consume.
+// `dotnet run` serves the app during development; this serves what `dotnet
+// publish` produces, which is a folder of static files with no .NET behind it -
+// the same thing Azure Static Web Apps serves. Problems that only appear in the
+// real bundle (trimming, fingerprinted assets, MIME types) show up here instead
+// of after a deploy.
 //
 //   node tools/serve.mjs <root> [port]
 

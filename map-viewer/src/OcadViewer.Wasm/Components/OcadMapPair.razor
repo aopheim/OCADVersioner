@@ -34,10 +34,6 @@
         int Version, double MinX, double MinY, double MaxX, double MaxY,
         long ParseMs, string Georeference);
 
-    public sealed record TileStats(
-        int Drawn, int Stale, int Outside, int Cancelled, int Queued,
-        double TotalMs, double MaxMs, double AvgMs);
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
@@ -57,22 +53,6 @@
         MapLoadInfo info = await maps.InvokeAsync<MapLoadInfo>("loadInto", slot, fileName, bytes);
         await OnMapLoaded.InvokeAsync(info);
         return info;
-    }
-
-    /// <summary>Abandons any render still running for a slot.</summary>
-    public async Task CancelAsync(int slot)
-    {
-        if (maps is not null)
-            await maps.InvokeVoidAsync("cancel", slot);
-    }
-
-    public async Task<TileStats> GetStatsAsync()
-        => maps is null ? null : await maps.InvokeAsync<TileStats>("stats");
-
-    public async Task ResetStatsAsync()
-    {
-        if (maps is not null)
-            await maps.InvokeVoidAsync("resetStats");
     }
 
     public async ValueTask DisposeAsync()

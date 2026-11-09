@@ -1,6 +1,7 @@
 # Replace the Angular app with a Blazor app that renders OCAD maps with PurplePen's renderer
 
-> **Status: Stages 0–5, 7 and 8 complete. Stage 6 part-done (AOT). Stage 9 is next.**
+> **Status: Stages 0–5, 7 and 8 complete, plus the parity cleanup. Stage 6
+> part-done (AOT). Stage 9 is next.**
 > **End goal: a Blazor WebAssembly app that replaces the Angular app entirely.**
 > It is built side by side with Angular, which keeps serving users until Blazor
 > reaches parity, and is then retired. The map viewer inside it is a **Leaflet tile
@@ -19,9 +20,33 @@ dotnet run --project map-viewer/src/OcadViewer.Wasm -c Release          # the ap
 pwsh map-viewer/tools/sync-purplepen.ps1 -PurplePenPath <path> -Check   # vendor drift
 ```
 
-`/` is the workspace, `/smoke` is the permanent diagnostic page — nine checks
-covering Skia, fonts, text metrics, blending and the version-metadata format.
-Run it first when something looks wrong; it localises most failures in seconds.
+`/` is the workspace and `/about` carries the third-party notices. Those, plus
+`/not-found`, are the whole app: it is the Angular app's feature set and nothing
+else.
+
+**The `/smoke` diagnostic page is gone**, removed in the parity cleanup along with
+the rest of the build scaffolding. It was nine checks over Skia, fonts, text
+metrics and blending, and it was the only thing pulling in `SkiaSharp.Views.Blazor`
+— a package the app does not otherwise need, since tiles are rendered offscreen
+and pushed through `putImageData` rather than drawn by a Blazor canvas component.
+
+What it used to prove is now provable from the console in one paste, against the
+running app and the real render path:
+
+```js
+const { getTileInterop } = await import('/js/ocadRuntime.js');
+const interop = await getTileInterop();
+const bytes = new Uint8Array(await (await fetch('/probe.ocd')).arrayBuffer());
+const info = JSON.parse(interop.LoadMap(0, 'probe.ocd', bytes));
+const px = interop.RenderTile(0, info.minX, info.minY,
+                              (info.maxX - info.minX) / 8,
+                              (info.maxY - info.minY) / 8, 256);
+// px.length === 262144 and a typed array; count non-white pixels to prove it drew.
+```
+
+Copy an `.ocd` into the served `wwwroot` as `probe.ocd` first, and delete it after.
+A pass means Skia's native library, HarfBuzz, the staged fonts, the `[JSExport]`
+boundary and DotSpatial's embedded EPSG table are all intact under trimming.
 
 ### Things that will cost you an hour if you do not know them
 
@@ -275,23 +300,18 @@ C:\repos\OCADVersioner\
     src\
       Graphics2D\  MapModel\  DotSpatial.Projections\  Map_SkiaStd\   # thin csprojs
       OcadViewer.Core\        # loader, renderer, font pack — no UI, no hosting
-      OcadViewer.Diff\        # map comparison in C# (Stage 7)
       OcadViewer.RenderCli\   # desktop .ocd -> PNG, for baselines
-      OcadViewer.TileSpike\   # the JS/Leaflet spike — reference, retired after Stage 4
       OcadViewer.Wasm\        # THE DELIVERABLE: the Blazor app
-    test\
-      Test_MapModel\          # name is load-bearing (InternalsVisibleTo)
-      OcadViewer.Diff.Tests\  # ported from json-diff-service.spec.ts
+    test\                     # not created yet — see Risk 9
 ```
 
-**`OcadViewer.Wasm` is the product.** It already exists and already proves the hard
-parts: Skia, fonts, text metrics and overprint blending all work in it, and its
-`/smoke` page stays as a permanent diagnostic. From Stage 4 it gains the Leaflet
-viewer, and from Stage 5 onward it gains the rest of the Angular app's features.
+**`OcadViewer.Wasm` is the product**, and after the parity cleanup it is *only* the
+product: the Angular app's feature set minus the diff, with nothing left over from
+building it.
 
-**`OcadViewer.TileSpike` is reference material.** Its `app.js` tile layer, scheduler
-and coordinate maths port directly into the Blazor app; its standalone page and
-`[JSExport]` plumbing exist to prove the boundary. Delete it once Stage 4 lands.
+**`OcadViewer.TileSpike` is deleted.** Its tile layer, scheduler and coordinate
+maths live in `wwwroot/js/ocadMaps.js` now, which is what it existed to produce,
+and its `[JSExport]` boundary is `TileInterop.cs`.
 
 **Skip `PurplePenCore` entirely.** Its `MapDisplay` adds course objects and print
 areas we don't need, and drags in 22 embedded PNGs, `symbols.xml`, six `.resx`
@@ -790,6 +810,44 @@ app is silent and nothing says so.
 never had — the About page's rendering and telemetry paragraphs, and "Refresh".
 They stay English until someone who speaks Norwegian writes them; inventing them
 would put bad Norwegian into a file the Angular app also reads.
+
+### Parity cleanup — **DONE**
+
+`OcadViewer.Wasm` is meant to be the Angular app's stand-in: its features, minus
+the diff, and nothing else. Everything built along the way to prove something, and
+then kept out of habit, is gone.
+
+Removed, with what each was for:
+
+| Removed | Was for | Why it went |
+|---|---|---|
+| `OcadViewer.TileSpike` | proving `[JSExport]` marshals `byte[]` as a typed array | proven; the code it produced is in `ocadMaps.js` |
+| `Pages/Smoke.razor` | nine Skia/font/blending checks | not an Angular feature, and the only thing needing `SkiaSharp.Views.Blazor` |
+| `SkiaSharp.Views.Blazor` | the smoke page's `SKCanvasView` | tiles render offscreen and go through `putImageData`; no Blazor canvas is involved |
+| `FontPack.Diagnose` | the smoke page's font checks | its only caller |
+| `probeBoundary` | Stage 4's marshalling measurement | measured: ~0.7 ms for 262 KB |
+| `mapSize` / `MapSizeAsync` | reading a version's file size | never called |
+| tile stats wrappers, `SetRenderOptions` | Stage 6 A/B measurement | no caller; see below |
+| the cancellation path | abandoning a render when the view moves | cannot work — see below |
+
+**`SkiaSharp.NativeAssets.WebAssembly` now has to be referenced explicitly.** It
+used to arrive through `SkiaSharp.Views.Blazor`. Without it the app builds and then
+dies at runtime with a `TypeInitializationException` inside `SkiaFontManager`,
+which reads like a font problem and is not.
+
+**The cancellation path was dead by construction, not by accident.** `RenderTile`
+set a flag that `Map.Draw` checked after every colour layer, and JS could clear it
+by calling `CancelRender`. But WebAssembly is single-threaded: while a render
+blocks, no JavaScript runs, so nothing can ever set the flag mid-render. The only
+moment JS could set it is before the render starts — which is exactly what the tile
+pump's staleness check already does, and that one works. If renders ever move to a
+worker, this becomes worth having again; until then it was ceremony.
+
+**Stage 6's remaining A/B levers went with it.** `SetRenderOptions` (for
+`usePatternBitmaps`) and the tile stats counters had no callers. Re-adding them is
+about twenty lines: a `[JSExport]` that replaces the static `MapRenderSettings`,
+and a method on the tile-layer handle returning the `stats` object that is still
+maintained inside `ocadMaps.js` and still reachable at `globalThis.__ocad.stats`.
 
 ### Stage 9 — Deploy side by side, then retire Angular (2–3 days) — **NEXT**
 

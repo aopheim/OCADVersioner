@@ -38,7 +38,6 @@ public static partial class TileInterop
         public long ParseMs { get; } = parseMs;
 
         /// <summary>Set by JS to abandon a render that is no longer wanted.</summary>
-        public bool CancelRequested { get; set; }
     }
 
     /// <summary>Writes a font into the in-memory filesystem, ready for registration.</summary>
@@ -119,23 +118,11 @@ public static partial class TileInterop
         if (loaded is null)
             return null;
 
-        loaded.CancelRequested = false;
         var rect = new RectangleF((float)minX, (float)minY, (float)width, (float)height);
 
         var stopwatch = Stopwatch.StartNew();
-        MapRenderResult result;
-        try {
-            result = MapRenderer.Render(
-                loaded.Map, rect, pixels, pixels, settings: Settings,
-                throwOnCancel: () => {
-                    if (loaded.CancelRequested)
-                        throw new OperationCanceledException();
-                });
-        }
-        catch (OperationCanceledException) {
-            LastRenderMs = stopwatch.Elapsed.TotalMilliseconds;
-            return null;
-        }
+        MapRenderResult result = MapRenderer.Render(
+            loaded.Map, rect, pixels, pixels, settings: Settings);
         stopwatch.Stop();
         LastRenderMs = stopwatch.Elapsed.TotalMilliseconds;
 
@@ -148,31 +135,6 @@ public static partial class TileInterop
 
         using var rgba = new SKBitmap(new SKImageInfo(pixels, pixels, SKColorType.Rgba8888, SKAlphaType.Unpremul));
         return bitmap.CopyTo(rgba, SKColorType.Rgba8888) ? rgba.Bytes : bitmap.Bytes;
-    }
-
-    /// <summary>
-    /// Asks the in-flight render for <paramref name="slot"/> to stop. Checked after
-    /// every colour layer, so it takes effect within one layer rather than at once.
-    /// </summary>
-    [JSExport]
-    internal static void CancelRender(int slot)
-    {
-        if (slot is >= 0 and < SlotCount && Slots[slot] is { } loaded)
-            loaded.CancelRequested = true;
-    }
-
-    /// <summary>
-    /// Swaps the render settings used for subsequent tiles, so the expensive
-    /// choices can be A/B measured in a running app rather than guessed at.
-    /// </summary>
-    [JSExport]
-    internal static void SetRenderOptions(bool usePatternBitmaps, bool blendOverprintedColors, bool antiAlias)
-    {
-        Settings = new MapRenderSettings {
-            UsePatternBitmaps = usePatternBitmaps,
-            BlendOverprintedColors = blendOverprintedColors,
-            AntiAlias = antiAlias
-        };
     }
 
     private static MapRenderSettings Settings = new();

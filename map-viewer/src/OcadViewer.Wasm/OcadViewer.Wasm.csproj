@@ -3,9 +3,6 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>disable</Nullable>
-    <!-- The Blazor template generates nullable annotations in NavMenu regardless
-         of this setting; the warning is about generated code, not ours. -->
-    <NoWarn>$(NoWarn);CS8669</NoWarn>
     <ImplicitUsings>enable</ImplicitUsings>
     <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
 
@@ -36,7 +33,11 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" PrivateAssets="all" />
-    <PackageReference Include="SkiaSharp.Views.Blazor" />
+    <!-- The two native packages have to be named explicitly. Neither arrives with
+         SkiaSharp itself, and without them the app fails at runtime rather than at
+         build time: a missing Skia native shows up as a TypeInitializationException
+         in SkiaFontManager, a missing HarfBuzz as a DllNotFoundException. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.WebAssembly" />
     <PackageReference Include="HarfBuzzSharp.NativeAssets.WebAssembly" />
   </ItemGroup>
 

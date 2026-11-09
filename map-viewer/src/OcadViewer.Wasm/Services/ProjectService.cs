@@ -104,9 +104,6 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
     public async Task<byte[]> ReadMapAsync(string versionName)
         => await (await ModuleAsync()).InvokeAsync<byte[]>("readMap", versionName);
 
-    public async Task<long> MapSizeAsync(string versionName)
-        => await (await ModuleAsync()).InvokeAsync<long>("mapSize", versionName);
-
     /// <summary>
     /// The name the next version should get.
     /// </summary>

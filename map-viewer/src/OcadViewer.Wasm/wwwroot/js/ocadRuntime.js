@@ -31,33 +31,3 @@ async function waitForRuntime(timeoutMs = 30000) {
     }
     throw new Error('.NET runtime did not become available');
 }
-
-/**
- * Checks that the boundary behaves the way the tile layer needs: a byte[] has to
- * arrive as a typed array, not a base64 string, and the round trip has to be cheap
- * relative to the render itself.
- */
-export async function probeBoundary(pixels = 256) {
-    const interop = await getTileInterop();
-
-    const started = performance.now();
-    const bytes = interop.RenderTile(0, 0, 0, 60, 60, pixels);
-    const callMs = performance.now() - started;
-
-    if (bytes === null)
-        return { ok: false, reason: 'no map loaded in slot 0' };
-
-    const renderMs = interop.GetLastRenderMs();
-    const expected = pixels * pixels * 4;
-
-    return {
-        ok: ArrayBuffer.isView(bytes) && bytes.length === expected,
-        type: Object.prototype.toString.call(bytes),
-        isTypedArray: ArrayBuffer.isView(bytes),
-        length: bytes.length,
-        expected,
-        renderMs: +renderMs.toFixed(1),
-        callMs: +callMs.toFixed(1),
-        marshallingMs: +(callMs - renderMs).toFixed(2)
-    };
-}

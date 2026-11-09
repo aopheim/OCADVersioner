@@ -15,7 +15,7 @@ const MIN_ZOOM = -6;
 const MAX_ZOOM = 4;
 
 function freshStats() {
-    return { drawn: 0, stale: 0, outside: 0, cancelled: 0, detached: 0, totalMs: 0, maxMs: 0 };
+    return { drawn: 0, stale: 0, outside: 0, noMap: 0, detached: 0, totalMs: 0, maxMs: 0 };
 }
 
 /* ---------------------------------------------------------------- scheduler */
@@ -147,7 +147,8 @@ function renderTile(job) {
         tile.getContext('2d').putImageData(
             new ImageData(new Uint8ClampedArray(bytes), size.x, size.y), 0, 0);
     } else {
-        stats.cancelled++;
+        // RenderTile only returns null when the slot holds no map.
+        stats.noMap++;
     }
     done(null, tile);
 }
@@ -289,29 +290,6 @@ export async function createOcadMaps(leftEl, rightEl) {
             layers[slot] = layer;
 
             return { ...info, georeference: interop.Georeference(slot) };
-        },
-
-        /** Abandons any in-flight render for a slot. */
-        cancel(slot) { interop.CancelRender(slot); },
-
-        stats() {
-            return {
-                ...stats,
-                queued: queue.length,
-                avgMs: stats.drawn ? +(stats.totalMs / stats.drawn).toFixed(1) : 0
-            };
-        },
-
-        resetStats() { Object.assign(stats, freshStats()); },
-
-        /** Re-fits the view to the loaded map. */
-        fit(slot = 0) {
-            const layer = layers[slot];
-            if (!layer) return;
-            const b = layer._ocadBounds;
-            maps[slot].fitBounds(
-                L.latLngBounds(L.latLng(b.minY, b.minX), L.latLng(b.maxY, b.maxX)),
-                { animate: false });
         },
 
         dispose() {

@@ -118,12 +118,6 @@ export async function readMap(versionName) {
 }
 
 /** Size in bytes, for showing progress before a parse that may take seconds. */
-export async function mapSize(versionName) {
-    const handle = versionName === 'current' ? currentFile : versions.get(versionName)?.ocd;
-    if (!handle) return 0;
-    return (await handle.getFile()).size;
-}
-
 /**
  * Copies the working file into Releases/<name>/ and writes its metadata, which is
  * exactly what the Angular app does so either app can read the result.
