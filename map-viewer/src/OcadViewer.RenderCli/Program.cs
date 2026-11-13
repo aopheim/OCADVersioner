@@ -81,7 +81,7 @@ namespace OcadViewer.RenderCli
                     int height = MapRenderer.HeightForWidth(bounds, width);
 
                     var settings = new MapRenderSettings {
-                        UsePatternBitmaps = options.UsePatternBitmaps,
+                        UsePatternBitmaps = !options.NoPatternBitmaps,
                         BlendOverprintedColors = !options.NoOverprint,
                     };
 
@@ -127,9 +127,10 @@ namespace OcadViewer.RenderCli
                                        maps. Defaults to <input>.png beside each input.
                   -w, --width <px>     Image width in pixels. Height follows the map's
                                        aspect ratio. Default 2000.
-                      --pattern-bitmaps
-                                       Render area patterns with pattern brushes instead
-                                       of stamped glyphs.
+                      --no-pattern-bitmaps
+                                       Render area patterns by stamping each glyph instead
+                                       of tiling a pattern brush. Slower, and the reference
+                                       the brush path is diffed against.
                       --no-overprint   Ignore the overprint flag on colours instead of
                                        blending them with Darken.
                 """);
@@ -140,7 +141,7 @@ namespace OcadViewer.RenderCli
             public List<string> Inputs { get; } = [];
             public int Width { get; private set; } = DefaultWidth;
             public string Output { get; private set; }
-            public bool UsePatternBitmaps { get; private set; }
+            public bool NoPatternBitmaps { get; private set; }
             public bool NoOverprint { get; private set; }
 
             public static CliOptions Parse(string[] args)
@@ -159,8 +160,8 @@ namespace OcadViewer.RenderCli
                                 throw new ArgumentException($"invalid width: {raw}");
                             options.Width = width;
                             break;
-                        case "--pattern-bitmaps":
-                            options.UsePatternBitmaps = true;
+                        case "--no-pattern-bitmaps":
+                            options.NoPatternBitmaps = true;
                             break;
                         case "--no-overprint":
                             options.NoOverprint = true;

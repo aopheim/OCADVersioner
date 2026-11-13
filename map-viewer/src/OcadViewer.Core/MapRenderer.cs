@@ -27,16 +27,24 @@ namespace OcadViewer.Core
         public bool BlendOverprintedColors { get; init; } = true;
 
         /// <summary>
-        /// Render area patterns by stamping glyphs (<c>false</c>) rather than by
-        /// building pattern brushes (<c>true</c>).
+        /// Render area patterns by building pattern brushes (<c>true</c>, the
+        /// default) rather than by stamping each glyph individually (<c>false</c>).
         /// </summary>
         /// <remarks>
-        /// Stamping avoids IGraphicsTarget.CreatePatternBrush and its offscreen
-        /// surfaces entirely, which is the safer default on WebAssembly. The bitmap
-        /// path is usually faster on dense areas, so this is worth measuring rather
-        /// than assuming.
+        /// Measured in the browser on large_map.ocd, with the cases interleaved so
+        /// that JIT drift cancels: brushes draw a dense 128 mm tile in 0.60x the
+        /// time stamping takes (291 ms against 485 ms), and 0.81x at fitted extent,
+        /// where minResolution culls most patterns anyway. No other render option
+        /// comes close; anti-aliasing, templates and overprint blending turned off
+        /// together save less than this one setting does.
+        ///
+        /// The two paths are not pixel-identical. 9.6% of pixels differ and 3%
+        /// substantially, all of it the phase of stipples in vegetation and
+        /// rough-open - nothing is missing or misplaced. Set this false for the
+        /// stamped rendering; OcadViewer.RenderCli --no-pattern-bitmaps writes one
+        /// to compare against.
         /// </remarks>
-        public bool UsePatternBitmaps { get; init; }
+        public bool UsePatternBitmaps { get; init; } = true;
 
         public bool AntiAlias { get; init; } = true;
 

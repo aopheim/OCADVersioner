@@ -30,6 +30,37 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <!-- Without this, `dotnet publish` fails and the app cannot be shipped at all:
+
+         WasmApp.Common.targets(697,5): error :
+         ...\wasm\for-publish\tokens\Microsoft_Extensions_DependencyInjection_
+         Abstractions_dll_compiled_methods.txt doesn't exist.
+
+       WasmStripILAfterAOT makes MonoAOTCompiler write, per assembly, a token file
+       listing the methods that got native code and whose IL can therefore be
+       dropped; ILStrip then reads one file per AOT'd assembly. After trimming,
+       DependencyInjection.Abstractions is interfaces and attributes with no
+       compilable method bodies left, so the compiler writes no file for it - and
+       ILStrip errors on the missing file instead of taking it to mean "nothing to
+       strip". Verified on a clean publish with SDK 10.0.102 / WebAssembly.Sdk
+       10.0.12: 81 assemblies AOT'd, 79 token files, and the only real miss is this
+       one.
+
+       _AOT_InternalForceInterpretAssemblies is the knob the SDK's own targets
+       document for this ("Skip known-huge assemblies specified in csproj"). Listed
+       assemblies are held out of the AOT input set and added back after ILStrip has
+       run, so no token file is ever looked for. It costs nothing here, because the
+       assembly produced no native code to begin with.
+
+       The alternative is WasmStripILAfterAOT=false, which also builds but leaves
+       the now-dead IL in every assembly - about 1.4 MB brotli on a 9.4 MB payload.
+       Drop this once the SDK treats a missing token file as empty. -->
+  <ItemGroup>
+    <!-- The .dll matters: the SDK matches on %(Filename), and without an extension
+         to strip MSBuild reads ".Abstractions" as one. -->
+    <_AOT_InternalForceInterpretAssemblies Include="Microsoft.Extensions.DependencyInjection.Abstractions.dll" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" PrivateAssets="all" />

@@ -432,6 +432,9 @@ Start with `usePatternBitmaps = false` (glyph stamping — avoids `CreatePattern
 and offscreen surfaces) and `blendOverprintedColors = true`. Both should be toggles so
 they can be A/B measured.
 
+*Measured later, and reversed: `usePatternBitmaps = true` is now the default. See
+the Stage 6 note below.*
+
 `minResolution` is paper-mm per destination pixel and must account for
 `devicePixelRatio`, or a 2× display culls features it should not. For a tile that is
 simply `worldWidth / tilePixels`.
@@ -674,8 +677,27 @@ dense terrain — still has individual tiles near 900 ms.
 - **Tile size.** 128 px instead of 256 would quarter the work per tile, giving faster
   first paint and finer-grained cancellation, at the cost of four times as many calls.
   The boundary is ~0.7 ms a call, so that trade should be strongly favourable.
-- **`usePatternBitmaps`.** Untested in either direction. `SetRenderOptions` is
-  exported so it can be A/B'd in a running app.
+- ~~**`usePatternBitmaps`.** Untested in either direction.~~ **Measured, and it is
+  the single biggest render lever.** A temporary `SetRenderOptions` export, with the
+  cases interleaved round-robin so JIT drift cancels, on a dense 128 mm tile of
+  `large_map.ocd`: baseline 485 ms; pattern bitmaps **291 ms (0.60×)**;
+  anti-aliasing off 428 ms (0.88×); templates off 434 ms (0.89×); overprint blending
+  off 459 ms (0.95×); all four off 283 ms (0.58×). So pattern bitmaps account for
+  essentially the whole available saving and the other three are noise beside it. At
+  fitted extent the win falls to 0.81×, because `minResolution` is then ~2 mm/px and
+  most patterns are culled before they are drawn.
+
+  Why: with stamping, `AreaSymDef.DrawPatternRows` loops over the lattice of the
+  *whole area object's* bounding box and calls `Glyph.Draw` per cell — managed work
+  that repeats on every tile the object touches, with Skia clipping away most of it.
+  With brushes, `CreatePatternBrushes` rasterises one small tile of the pattern per
+  (pattern, colour) pair and `SKShader` repeats it in native code. The brush cache
+  lives on the graphics target, which is new per tile, so the rasterisation cost is
+  paid once per tile rather than once per map — still far cheaper than the lattice.
+
+  Not pixel-identical: 9.6% of pixels differ, 3% substantially, all of it stipple
+  phase in vegetation and rough-open. `UsePatternBitmaps` stays a setting, and
+  `RenderCli --no-pattern-bitmaps` renders the stamped reference to diff against.
 - **Trimmer roots.** Can `MapModel` and `DotSpatial.Projections` come off the root
   list now, and what does that recover?
 - **Fonts.** TTF→WOFF2 would recover roughly 700 KB of the payload, which matters
