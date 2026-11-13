@@ -53,7 +53,11 @@
        assembly produced no native code to begin with.
 
        The alternative is WasmStripILAfterAOT=false, which also builds but leaves
-       the now-dead IL in every assembly - about 1.4 MB brotli on a 9.4 MB payload.
+       the now-dead IL in every assembly. Measured over the 52 assemblies ILStrip
+       rewrites, that is worth 0.55 MB brotli: 2.37 MB before, 1.81 MB after, out
+       of a 10.06 MB payload. Raw size is identical either way - stripping zeroes
+       method bodies in place, and the win is entirely that zeros compress.
+
        Drop this once the SDK treats a missing token file as empty. -->
   <ItemGroup>
     <!-- The .dll matters: the SDK matches on %(Filename), and without an extension
