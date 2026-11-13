@@ -948,6 +948,29 @@ jobs:
 `wwwroot` is the load-bearing part. The `paths:` filter keeps Angular-only commits
 from paying for a 3–10 minute native link.
 
+**Three things the committed workflow does that the sketch above does not**, all
+found while writing it:
+
+- **`DOTNET_INSTALL_DIR` is pinned into the workspace.** `setup-dotnet` installs
+  into `/usr/share/dotnet`, and `dotnet workload install` puts wasm-tools inside
+  that same root — so caching `~/.dotnet`, as the sketch did, would have cached
+  nothing at all and quietly reinstalled 1.5 GB on every run.
+- **`deployment_environment` splits develop off.** One Static Web App serving two
+  branches means a develop push lands on production. Non-main pushes now go to a
+  named environment. Note the expression is written
+  `develop && 'develop' || ''` rather than the other way round: `''` is falsy in
+  an Actions expression, so the natural-looking `main && '' || 'develop'` yields
+  `'develop'` on main.
+- **`skip_deploy_on_missing_secrets: true`**, as the Angular workflows have, so
+  the file can land before the Azure resource exists instead of failing every
+  push until it does.
+
+**Still needs a person**, and nothing deploys until both exist: the third Static
+Web App in Azure, and two repository secrets —
+`AZURE_STATIC_WEB_APPS_API_TOKEN_MAPVIEWER` (rename to match the Azure-generated
+name, the way the other two are named) and the existing
+`APPINSIGHTSINSTRUMENTATIONKEY_PROD`.
+
 The app's own `wwwroot/staticwebapp.config.json` already carries what is needed:
 
 - **`navigationFallback.exclude` containing `/_framework/*`** — without it a missing
