@@ -9,6 +9,12 @@
  *       V1/V1.ocd  V1.json
  *       V2/V2.ocd  V2.json
  *
+ * This module reads and writes; it does not interpret. Which folder names count as
+ * releases, what the next one is called and how the metadata parses are decided in
+ * C#, by OcadViewer.Versioning, because those rules are a contract with the Angular
+ * app and were previously stated here *and* there - in two languages, with nothing
+ * keeping them in step. What this reports is simply what it saw.
+ *
  * Handles cannot cross the JS/.NET boundary, so they are kept here and referred to
  * by name. Chromium only: showDirectoryPicker does not exist in Firefox or Safari,
  * which is the same limitation the Angular app already has.
@@ -16,25 +22,16 @@
 
 const RELEASES = 'Releases';
 
+/** The name C# and this module both use for the working file. */
+const WORKING_FILE = 'current';
+
 let projectDir = null;       // FileSystemDirectoryHandle for the project root
 let currentFile = null;      // FileSystemFileHandle for the working .ocd
 let chosenFileName = null;   // the name the user picked, kept across a rescan
-const versions = new Map();  // "V1" -> { ocd, meta }
+const folders = new Map();   // folder name -> { ocd, meta } under Releases/
 
 export function isSupported() {
     return typeof window.showDirectoryPicker === 'function';
-}
-
-/** A folder name is a release if it is V followed by a positive integer. */
-function isReleaseFolder(name) {
-    if (!name || name.length < 2 || !name.startsWith('V')) return false;
-    const n = Number(name.slice(1));
-    return Number.isFinite(n) && n > 0;
-}
-
-function versionNumber(name) {
-    const n = Number(name.replace('V', ''));
-    return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 /**
@@ -54,7 +51,7 @@ export async function openProject() {
 export async function rescan() {
     if (!projectDir) throw new Error('No project folder is open.');
 
-    versions.clear();
+    folders.clear();
     currentFile = null;
 
     // The working file is the only .ocd directly in the project root. If there is
@@ -76,10 +73,9 @@ export async function rescan() {
 
     const releases = await getDirectory(projectDir, RELEASES, false);
     const found = [];
+
     if (releases) {
         for await (const name of releases.keys()) {
-            if (!isReleaseFolder(name)) continue;
-
             const dir = await getDirectory(releases, name, false);
             if (!dir) continue;
 
@@ -88,24 +84,21 @@ export async function rescan() {
             // which writes to the user's folder just to ask a question.
             const ocd = await getFile(dir, `${name}.ocd`);
             const meta = await getFile(dir, `${name}.json`);
-            if (!ocd) continue;
 
-            versions.set(name, { ocd, meta });
+            folders.set(name, { ocd, meta });
             found.push({
                 name,
-                number: versionNumber(name),
-                metadata: meta ? await readJson(meta) : null
+                hasMapFile: ocd !== null,
+                metadataJson: meta ? await readText(meta) : null
             });
         }
     }
-
-    found.sort((a, b) => a.number - b.number);
 
     return {
         projectName: projectDir.name,
         currentFileName: currentFile?.name ?? null,
         ocdCandidates: candidates,
-        versions: found
+        releaseFolders: found
     };
 }
 
@@ -122,12 +115,14 @@ export async function selectCurrentFile(fileName) {
  * @returns Uint8Array
  */
 export async function readMap(versionName) {
-    const handle = versionName === 'current' ? currentFile : versions.get(versionName)?.ocd;
+    const handle = versionName === WORKING_FILE
+        ? currentFile
+        : folders.get(versionName)?.ocd;
+
     if (!handle) throw new Error(`No map file for "${versionName}".`);
     return new Uint8Array(await (await handle.getFile()).arrayBuffer());
 }
 
-/** Size in bytes, for showing progress before a parse that may take seconds. */
 /**
  * Copies the working file into Releases/<name>/ and writes its metadata, which is
  * exactly what the Angular app does so either app can read the result.
@@ -170,9 +165,9 @@ async function getFile(parent, name) {
     }
 }
 
-async function readJson(handle) {
+async function readText(handle) {
     try {
-        return JSON.parse(await (await handle.getFile()).text());
+        return await (await handle.getFile()).text();
     } catch {
         return null;
     }

@@ -1,74 +1,46 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 using Microsoft.JSInterop;
+
+using OcadViewer.Versioning;
 
 namespace OcadViewer.Wasm.Services;
 
 /// <summary>
-/// Metadata stored alongside each release, as <c>Releases/V&lt;n&gt;/V&lt;n&gt;.json</c>.
+/// Opens a project folder and creates versions in it.
 /// </summary>
 /// <remarks>
-/// The shape is fixed by the Angular app's <c>OcadVersionMetaData</c> and must stay
-/// compatible: both apps read and write these files while the migration is under
-/// way, and a user may create a version in one and open it in the other.
-/// </remarks>
-public sealed class VersionMetadata
-{
-    public string Title { get; set; }
-    public string Description { get; set; }
-
-    /// <summary>When the version was created. Serialised as ISO-8601 UTC.</summary>
-    public DateTimeOffset VersionCreatedAt { get; set; }
-
-    public int VersionNumber { get; set; }
-    public int NumberOfAddedSymbols { get; set; }
-    public int NumberOfEditedSymbols { get; set; }
-    public int NumberOfDeletedSymbols { get; set; }
-}
-
-/// <summary>One release found in the project folder.</summary>
-public sealed record ProjectVersion(string Name, int Number, VersionMetadata Metadata);
-
-/// <summary>What the project folder contains.</summary>
-/// <param name="OcdCandidates">
-/// Every <c>.ocd</c> directly in the project root. More than one means the user has
-/// to say which is the working file.
-/// </param>
-public sealed record ProjectInfo(
-    string ProjectName,
-    string CurrentFileName,
-    IReadOnlyList<string> OcdCandidates,
-    IReadOnlyList<ProjectVersion> Versions);
-
-/// <summary>
-/// Opens a project folder and reads or creates versions in it.
-/// </summary>
-/// <remarks>
+/// A client for <c>projectFolder.js</c>, and nothing more. What a release is
+/// called, which folders count as releases and which version compares against
+/// which all live in <see cref="OcadViewer.Versioning"/>, where they can be tested
+/// without a browser. This type used to carry those rules, the on-disk metadata
+/// shape and the JavaScript plumbing at once - three reasons to change in one
+/// file, two of which could not be exercised by a test.
+///
+/// Note what is absent: a method to read map bytes. Map data goes straight from
+/// the file to the renderer inside JavaScript and never passes through here. See
+/// <c>mapWorkspace.js</c>.
+///
 /// Scoped rather than transient: the underlying directory handle lives in the JS
-/// module for as long as the page does, and a component being disposed must not take
-/// the user's folder permission with it.
+/// module for as long as the page does, and a component being disposed must not
+/// take the user's folder permission with it.
 /// </remarks>
 public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
 {
     private readonly IJSRuntime js = js;
     private IJSObjectReference module;
 
-    /// <summary>JSON exactly as the Angular app writes it: camelCase, nulls omitted.</summary>
-    private static readonly JsonSerializerOptions JsonOptions = new() {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     /// <summary>The version name the Angular app uses for the working file.</summary>
-    public const string CurrentVersionName = "current";
+    public const string CurrentVersionName = VersionNaming.WorkingFileName;
 
     public ProjectInfo Project { get; private set; }
 
     public bool IsOpen => Project is not null;
 
+    private IReadOnlyList<ProjectVersion> Versions => Project?.Versions ?? [];
+
     private async Task<IJSObjectReference> ModuleAsync()
-        => module ??= await js.InvokeAsync<IJSObjectReference>("import", "./js/projectFolder.js");
+        => module ??= await js.ImportAsync("./js/projectFolder.js");
 
     /// <summary>Whether this browser has the File System Access API at all.</summary>
     public async Task<bool> IsSupportedAsync()
@@ -77,46 +49,32 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
     /// <summary>
     /// Prompts for a project folder. Must be called from a user gesture.
     /// </summary>
-    public async Task<ProjectInfo> OpenAsync()
-    {
-        var module = await ModuleAsync();
-        Project = Normalise(await module.InvokeAsync<RawProject>("openProject"));
-        return Project;
-    }
+    public async Task<ProjectInfo> OpenAsync() => await ScanAsync("openProject");
 
     /// <summary>Re-reads the folder, picking up changes made outside the app.</summary>
-    public async Task<ProjectInfo> RefreshAsync()
-    {
-        var module = await ModuleAsync();
-        Project = Normalise(await module.InvokeAsync<RawProject>("rescan"));
-        return Project;
-    }
+    public async Task<ProjectInfo> RefreshAsync() => await ScanAsync("rescan");
 
     /// <summary>Chooses the working file when the root holds several <c>.ocd</c> files.</summary>
     public async Task SelectCurrentFileAsync(string fileName)
     {
-        var module = await ModuleAsync();
-        await module.InvokeVoidAsync("selectCurrentFile", fileName);
+        await (await ModuleAsync()).InvokeVoidAsync("selectCurrentFile", fileName);
         await RefreshAsync();
     }
 
-    /// <summary>Reads a version's map bytes. Use <see cref="CurrentVersionName"/> for the working file.</summary>
-    public async Task<byte[]> ReadMapAsync(string versionName)
-        => await (await ModuleAsync()).InvokeAsync<byte[]>("readMap", versionName);
+    /// <summary>The name the next version will get.</summary>
+    public string NextVersionName() => ProjectFolder.NextVersionName(Versions);
 
     /// <summary>
-    /// The name the next version should get.
+    /// Which two versions a selection compares, newer first.
     /// </summary>
-    /// <remarks>
-    /// Highest existing number plus one. The Angular app counts folders instead,
-    /// which gives the same answer until someone deletes a release by hand - after
-    /// which counting would reuse a number and overwrite an existing version.
-    /// </remarks>
-    public string NextVersionName()
-    {
-        int highest = Project?.Versions.Count > 0 ? Project.Versions.Max(v => v.Number) : 0;
-        return $"V{highest + 1}";
-    }
+    /// <param name="selectedNumber">0 for the working file.</param>
+    public (string Newer, string Older) ComparisonFor(int selectedNumber)
+        => ProjectFolder.Comparison(selectedNumber, Versions);
+
+    /// <summary>
+    /// Whether this version has to be re-read every time it is shown.
+    /// </summary>
+    public static bool IsVolatile(string versionName) => VersionNaming.IsVolatile(versionName);
 
     /// <summary>
     /// Copies the working file into a new release folder and writes its metadata.
@@ -134,46 +92,47 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
             throw new InvalidOperationException("No working .ocd file is selected.");
 
         string name = NextVersionName();
+        VersionNaming.TryParse(name, out int number);
+
         var metadata = new VersionMetadata {
             Title = string.IsNullOrWhiteSpace(title) ? null : title,
             Description = string.IsNullOrWhiteSpace(description) ? null : description,
             VersionCreatedAt = DateTimeOffset.UtcNow,
-            VersionNumber = int.Parse(name[1..]),
+            VersionNumber = number,
             NumberOfAddedSymbols = 0,
             NumberOfEditedSymbols = 0,
             NumberOfDeletedSymbols = 0
         };
 
+        return await ScanAsync("createVersion", name,
+                               JsonSerializer.Serialize(metadata, AngularJson.Options));
+    }
+
+    /// <summary>
+    /// Runs a JS call that answers with a folder listing, and interprets it.
+    /// </summary>
+    private async Task<ProjectInfo> ScanAsync(string method, params object[] arguments)
+    {
         var module = await ModuleAsync();
-        Project = Normalise(await module.InvokeAsync<RawProject>(
-            "createVersion", name, JsonSerializer.Serialize(metadata, JsonOptions)));
+        RawProject raw = await module.InvokeAsync<RawProject>(method, arguments);
+
+        Project = new ProjectInfo(
+            raw.ProjectName,
+            raw.CurrentFileName,
+            raw.OcdCandidates ?? [],
+            ProjectFolder.ReleasesIn(raw.ReleaseFolders ?? []));
+
         return Project;
     }
 
-    /* The JS module returns plain objects; these mirror them for deserialisation. */
-
+    /// <summary>
+    /// What the JS module reports: names and bytes-on-disk facts, no judgements.
+    /// </summary>
     private sealed record RawProject(
-        string ProjectName, string CurrentFileName,
-        List<string> OcdCandidates, List<RawVersion> Versions);
+        string ProjectName,
+        string CurrentFileName,
+        List<string> OcdCandidates,
+        List<ReleaseFolder> ReleaseFolders);
 
-    private sealed record RawVersion(string Name, int Number, VersionMetadata Metadata);
-
-    private static ProjectInfo Normalise(RawProject raw) => new(
-        raw.ProjectName,
-        raw.CurrentFileName,
-        raw.OcdCandidates ?? [],
-        (raw.Versions ?? []).Select(v => new ProjectVersion(
-            v.Name, v.Number, v.Metadata ?? new VersionMetadata { VersionNumber = v.Number })).ToList());
-
-    public async ValueTask DisposeAsync()
-    {
-        try {
-            if (module is not null)
-                await module.DisposeAsync();
-        }
-        catch (JSDisconnectedException) {
-        }
-        catch (ObjectDisposedException) {
-        }
-    }
+    public async ValueTask DisposeAsync() => await module.ReleaseAsync();
 }

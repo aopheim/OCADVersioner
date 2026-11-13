@@ -1,12 +1,16 @@
-/* Two synced Leaflet maps whose tiles are drawn by the .NET renderer.
+/* Two synced Leaflet maps whose tiles come from somewhere else.
  *
  * Maps are drawn in OCAD paper millimetres, so Leaflet uses L.CRS.Simple and paper
  * coordinates are Leaflet coordinates directly: lng = paper X, lat = paper Y. Tile
  * world rects come from map.unproject, which keeps the maths to four lines and lets
  * leaflet.sync work without knowing anything about the layer.
+ *
+ * This module knows about Leaflet and nothing else. The tile renderer and the
+ * scheduler are passed in; it does not import the .NET runtime, read files, or
+ * know what a project version is. Composition happens in mapWorkspace.js.
  */
 
-import { getTileInterop } from './dotnetExports.js';
+import { createTilePump } from './tilePump.js';
 
 const TILE_SIZE = 256;
 
@@ -14,174 +18,28 @@ const TILE_SIZE = 256;
 const MIN_ZOOM = -6;
 const MAX_ZOOM = 4;
 
+/** Which pane. The names are the contract with the C# MapSide enum. */
+export const SIDES = ['left', 'right'];
+
 function freshStats() {
     return { drawn: 0, stale: 0, outside: 0, noMap: 0, detached: 0, totalMs: 0, maxMs: 0 };
 }
 
-/* ---------------------------------------------------------------- scheduler */
-
-/* WebAssembly is single threaded, so a tile render blocks everything - including
- * Leaflet's own animations. One tile per frame lets the browser paint what is
- * already done and keeps input alive between tiles.
- *
- * The pump deliberately does NOT rely on requestAnimationFrame alone. When the page
- * is hidden rAF stops firing, and a naive implementation latches "pumping" and then
- * deadlocks permanently, even after the page is shown again. The spike hit exactly
- * that. A timer fallback plus a watchdog is the fix. */
-const queue = [];
-
-/* One shared counter set. Per-layer counters looked tidier but reset every time a
- * slot was reloaded, and orphaned layers swallowed their own numbers - which hid a
- * bug where every tile was taking the detached path. */
-const stats = freshStats();
-let pumping = false;
-let lastPumpAt = 0;
-let watchdog = null;
-
-function schedule() {
-    if (!pumping) {
-        pumping = true;
-        nextTick();
-    }
-    startWatchdog();
-}
-
-let tickPending = false;
-
-function nextTick() {
-    if (tickPending) return;
-    tickPending = true;
-    lastPumpAt = performance.now();
-
-    // Arm both: rAF keeps us in step with painting when the page is visible, the
-    // timer keeps the queue moving when it is not. Whichever fires first clears
-    // the flag and does the work; the other finds nothing to do.
-    const run = () => {
-        if (!tickPending) return;
-        tickPending = false;
-        pump();
-    };
-    requestAnimationFrame(run);
-    setTimeout(run, 250);
-}
-
-function pump() {
-    const job = queue.shift();
-    if (!job) {
-        pumping = false;
-        stopWatchdog();
-        return;
-    }
-    try {
-        renderTile(job);
-    } catch (err) {
-        console.error('[ocad] tile render failed', err);
-        job.done(err, job.tile);
-    }
-    nextTick();
-}
-
-/* If the page is hidden mid-queue the pump can stall. Restart it when the page
- * comes back, and never let the latch stay set with work outstanding. */
-function startWatchdog() {
-    watchdog ??= setInterval(() => {
-        if (!queue.length) { stopWatchdog(); return; }
-        if (performance.now() - lastPumpAt > 2000) {
-            pumping = false;
-            schedule();
-        }
-    }, 1000);
-}
-
-function stopWatchdog() {
-    if (watchdog !== null) { clearInterval(watchdog); watchdog = null; }
-}
-
-document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && queue.length) { pumping = false; schedule(); }
-});
-
-/* ------------------------------------------------------------------ rendering */
-
-function renderTile(job) {
-    const { layer, coords, size, tile, done } = job;
-    const map = layer._map;
-
-    // The layer was detached while this job sat in the queue - which happens every
-    // time a slot is reloaded. Counted, because silently returning here once hid a
-    // bug where every single tile took this path.
-    if (!map || !layer._ocadBounds) { stats.detached++; done(null, tile); return; }
-
-    /* Leaflet prunes tiles as soon as the view moves past them, but a job already
-     * queued would still be rendered - at hundreds of milliseconds each, that is
-     * the difference between responsive and unusable. Drop anything pruned.
-     *
-     * Only check _tiles. Also testing tile.isConnected discards everything, because
-     * the element is not in the document yet at this point. */
-    const key = layer._tileCoordsToKey(coords);
-    if (!layer._tiles[key]) { stats.stale++; done(null, tile); return; }
-
-    const nwPoint = coords.scaleBy(size);
-    const sePoint = nwPoint.add(size);
-    const nw = map.unproject(nwPoint, coords.z);
-    const se = map.unproject(sePoint, coords.z);
-
-    const minX = nw.lng, maxX = se.lng;
-    const minY = se.lat, maxY = nw.lat;        // lat decreases downwards
-    const b = layer._ocadBounds;
-
-    // Same bounding-box idea the renderer uses internally, one level up.
-    if (maxX < b.minX || minX > b.maxX || maxY < b.minY || minY > b.maxY) {
-        stats.outside++;
-        done(null, tile);
-        return;
-    }
-
-    const bytes = layer._interop.RenderTile(layer._slot, minX, minY, maxX - minX, maxY - minY, size.x);
-    const ms = layer._interop.GetLastRenderMs();
-
-    if (bytes) {
-        stats.drawn++;
-        stats.totalMs += ms;
-        stats.maxMs = Math.max(stats.maxMs, ms);
-        tile.getContext('2d').putImageData(
-            new ImageData(new Uint8ClampedArray(bytes), size.x, size.y), 0, 0);
-    } else {
-        // RenderTile only returns null when the slot holds no map.
-        stats.noMap++;
-    }
-    done(null, tile);
-}
-
-/* ---------------------------------------------------------------- the layer */
-
-const OcadTileLayer = L.GridLayer.extend({
-    initialize(slot, interop, options) {
-        L.GridLayer.prototype.initialize.call(this, options);
-        this._slot = slot;
-        this._interop = interop;
-        this._ocadBounds = null;
-    },
-
-    createTile(coords, done) {
-        const size = this.getTileSize();
-        const tile = document.createElement('canvas');
-        tile.width = size.x;
-        tile.height = size.y;
-        queue.push({ tile, coords, size, done, layer: this });
-        schedule();
-        return tile;
-    }
-});
-
-/* ------------------------------------------------------------------- public */
-
 /**
  * Creates two synced maps over the given elements.
- * @returns a handle with loadInto, fit, stats and dispose.
+ *
+ * @param leftEl  element for the left map
+ * @param rightEl element for the right map
+ * @param renderTile (key, minX, minY, width, height, pixels) => Uint8Array|null
+ * @returns a handle with show, stats and dispose.
  */
-export async function createSyncedMaps(leftEl, rightEl) {
-    const interop = await getTileInterop();
+export function createSyncedMaps(leftEl, rightEl, renderTile) {
+    const pump = createTilePump();
+
+    /* One shared counter set per viewport. Per-layer counters looked tidier but
+     * reset every time a side was reloaded, and orphaned layers swallowed their
+     * own numbers - which hid a bug where every tile took the detached path. */
+    const stats = freshStats();
 
     const makeMap = el => L.map(el, {
         crs: L.CRS.Simple,
@@ -197,17 +55,19 @@ export async function createSyncedMaps(leftEl, rightEl) {
         fadeAnimation: false
     });
 
-    const maps = [makeMap(leftEl), makeMap(rightEl)];
-    // Leaflet refuses to sync maps with no view; a load replaces this via fitBounds.
-    maps.forEach(m => m.setView([0, 0], 0));
-    maps[0].sync(maps[1]);
-    maps[1].sync(maps[0]);
+    const maps = { left: makeMap(leftEl), right: makeMap(rightEl) };
+
+    // Leaflet refuses to sync maps with no view; the first show replaces this.
+    for (const side of SIDES) maps[side].setView([0, 0], 0);
+    maps.left.sync(maps.right);
+    maps.right.sync(maps.left);
 
     /* Leaflet measures its container once, at construction. Inside a component the
      * element is often still 0x0 at that point, and a map that believes it is zero
      * pixels wide decides no tiles are in view and silently draws nothing. Watch for
-     * the real size and tell Leaflet when it changes. */
-    /* Only react to an actual size change. Calling invalidateSize unconditionally
+     * the real size and tell Leaflet when it changes.
+     *
+     * Only react to an actual size change. Calling invalidateSize unconditionally
      * re-enters the observer - invalidateSize touches layout, which fires the
      * observer, which calls it again - and the resulting loop pins the view so the
      * map silently refuses to zoom. */
@@ -222,82 +82,174 @@ export async function createSyncedMaps(leftEl, rightEl) {
             if (previous && previous.w === w && previous.h === h) continue;
             lastSize.set(el, { w, h });
 
-            const map = maps.find(m => m.getContainer() === el);
-            map?.invalidateSize({ animate: false, pan: false });
+            for (const side of SIDES) {
+                if (maps[side].getContainer() === el)
+                    maps[side].invalidateSize({ animate: false, pan: false });
+            }
         }
     });
-    maps.forEach(m => resizeObserver.observe(m.getContainer()));
+    for (const side of SIDES) resizeObserver.observe(maps[side].getContainer());
 
-    const layers = [null, null];
+    const layers = { left: null, right: null };
     let fitted = false;
 
-    // Debugging handle. The maps are otherwise unreachable from the console, and
-    // "no tiles appeared" is almost always a view or sizing question.
-    const handle = { maps, layers, queue, stats };
-    globalThis.__ocad = handle;
+    /* ------------------------------------------------------------- rendering */
 
-    return {
-        /** Parses a file into a slot and shows it on that side. */
-        async loadInto(slot, fileName, bytes) {
-            const info = JSON.parse(interop.LoadMap(slot, fileName, bytes));
-            if (!info.ok) throw new Error(info.error);
+    function drawTile(job) {
+        const { layer, coords, size, tile } = job;
+        const map = layer._map;
 
-            const bounds = L.latLngBounds(
-                L.latLng(info.minY, info.minX),
-                L.latLng(info.maxY, info.maxX));
+        // The layer was detached while this job sat in the queue - which happens
+        // every time a side is reloaded. Counted, because silently returning here
+        // once hid a bug where every single tile took this path.
+        if (!map || !layer._ocadBounds) { stats.detached++; job.done(null, tile); return; }
 
-            // Drop any queued work for the layer being replaced, rather than letting
+        /* Leaflet prunes tiles as soon as the view moves past them, but a job
+         * already queued would still be rendered - at hundreds of milliseconds
+         * each, that is the difference between responsive and unusable. Drop
+         * anything pruned.
+         *
+         * Only check _tiles. Also testing tile.isConnected discards everything,
+         * because the element is not in the document yet at this point. */
+        const key = layer._tileCoordsToKey(coords);
+        if (!layer._tiles[key]) { stats.stale++; job.done(null, tile); return; }
+
+        const nwPoint = coords.scaleBy(size);
+        const sePoint = nwPoint.add(size);
+        const nw = map.unproject(nwPoint, coords.z);
+        const se = map.unproject(sePoint, coords.z);
+
+        const minX = nw.lng, maxX = se.lng;
+        const minY = se.lat, maxY = nw.lat;        // lat decreases downwards
+        const b = layer._ocadBounds;
+
+        // Same bounding-box idea the renderer uses internally, one level up.
+        if (maxX < b.minX || minX > b.maxX || maxY < b.minY || minY > b.maxY) {
+            stats.outside++;
+            job.done(null, tile);
+            return;
+        }
+
+        /* Measured here rather than asked of .NET afterwards. The renderer used to
+         * expose the stopwatch it kept inside the render call, which excluded
+         * marshalling and left the number sitting in a static that only meant
+         * anything until the next call. Wall time around the boundary is both
+         * honest and stateless. */
+        const started = performance.now();
+        const bytes = renderTile(layer._ocadKey, minX, minY, maxX - minX, maxY - minY, size.x);
+        const ms = performance.now() - started;
+
+        if (bytes) {
+            stats.drawn++;
+            stats.totalMs += ms;
+            stats.maxMs = Math.max(stats.maxMs, ms);
+            tile.getContext('2d').putImageData(
+                new ImageData(new Uint8ClampedArray(bytes), size.x, size.y), 0, 0);
+        } else {
+            // Only happens when the map behind this layer is no longer held.
+            stats.noMap++;
+        }
+        job.done(null, tile);
+    }
+
+    /* ---------------------------------------------------------------- layer */
+
+    const OcadTileLayer = L.GridLayer.extend({
+        initialize(mapKey, options) {
+            L.GridLayer.prototype.initialize.call(this, options);
+            this._ocadKey = mapKey;
+            this._ocadBounds = null;
+        },
+
+        createTile(coords, done) {
+            const size = this.getTileSize();
+            const tile = document.createElement('canvas');
+            tile.width = size.x;
+            tile.height = size.y;
+            pump.enqueue(() => drawTile({ tile, coords, size, done, layer: this }), this);
+            return tile;
+        }
+    });
+
+    /* --------------------------------------------------------------- public */
+
+    const handle = {
+        /**
+         * Shows the named map on one side.
+         * @param side 'left' or 'right'
+         * @param mapKey the name the tile source holds it under
+         * @param bounds {minX, minY, maxX, maxY} in paper millimetres
+         */
+        show(side, mapKey, bounds) {
+            if (!SIDES.includes(side))
+                throw new Error(`Unknown side "${side}".`);
+
+            // Drop queued work for the layer being replaced, rather than letting
             // the pump grind through tiles for a map that is no longer shown.
-            const outgoing = layers[slot];
+            const outgoing = layers[side];
             if (outgoing) {
-                for (let i = queue.length - 1; i >= 0; i--)
-                    if (queue[i].layer === outgoing) queue.splice(i, 1);
+                pump.remove(tag => tag === outgoing);
                 outgoing.remove();
             }
 
-            /* Fit only on the first load, and only on one map - leaflet.sync mirrors
-             * it to the other. Re-fitting on every load fights the user's own zoom,
-             * and fitting both maps makes sync bounce the view back and forth, which
-             * prunes tiles mid-flight. The spike saw 113 stale against 1 drawn before
-             * the view was allowed to settle. */
             /* Always re-measure before adding a layer. The ResizeObserver catches
-             * later changes, but the first load often happens before the browser has
-             * laid the component out, and a map that still believes it is 0x0 decides
-             * no tiles are in view and draws nothing at all - silently, with no error
-             * and a perfectly healthy-looking layer. */
-            maps.forEach(m => m.invalidateSize({ animate: false, pan: false }));
+             * later changes, but the first show often happens before the browser
+             * has laid the component out, and a map that still believes it is 0x0
+             * decides no tiles are in view and draws nothing at all - silently,
+             * with no error and a perfectly healthy-looking layer. */
+            for (const s of SIDES) maps[s].invalidateSize({ animate: false, pan: false });
 
+            /* Fit only on the first show, and only on one map - leaflet.sync
+             * mirrors it to the other. Re-fitting on every show fights the user's
+             * own zoom, and fitting both maps makes sync bounce the view back and
+             * forth, which prunes tiles mid-flight. The spike saw 113 stale
+             * against 1 drawn before the view was allowed to settle. */
             if (!fitted) {
-                maps[slot].fitBounds(bounds, { animate: false });
+                maps[side].fitBounds(
+                    L.latLngBounds(L.latLng(bounds.minY, bounds.minX),
+                                   L.latLng(bounds.maxY, bounds.maxX)),
+                    { animate: false });
                 fitted = true;
-                await new Promise(r => setTimeout(r, 50));
             }
 
             /* minZoom/maxZoom must be repeated here. GridLayer keeps its *own* zoom
              * limits, defaulting to minZoom 0, and when the map's zoom rounds below
              * them Leaflet sets _tileZoom to undefined and creates no tiles at all -
              * no error, no warning, an attached layer and an empty map. A large map
-             * fits at a negative zoom, so this bites exactly on the files that matter
-             * most: 628 mm fitted into a 314 px pane is zoom -1. */
-            const layer = new OcadTileLayer(slot, interop, {
+             * fits at a negative zoom, so this bites exactly on the files that
+             * matter most: 628 mm fitted into a 314 px pane is zoom -1. */
+            const layer = new OcadTileLayer(mapKey, {
                 tileSize: TILE_SIZE,
                 noWrap: true,
                 minZoom: MIN_ZOOM,
                 maxZoom: MAX_ZOOM
             });
-            layer._ocadBounds = { minX: info.minX, minY: info.minY, maxX: info.maxX, maxY: info.maxY };
-            layer.addTo(maps[slot]);
-            layers[slot] = layer;
-
-            return { ...info, georeference: interop.Georeference(slot) };
+            layer._ocadBounds = { ...bounds };
+            layer.addTo(maps[side]);
+            layers[side] = layer;
         },
 
+        /** Which map each side is showing, by name. */
+        showing() {
+            return { left: layers.left?._ocadKey ?? null, right: layers.right?._ocadKey ?? null };
+        },
+
+        stats,
+
         dispose() {
-            queue.length = 0;
+            pump.dispose();
             resizeObserver.disconnect();
-            stopWatchdog();
-            layers.forEach((l, i) => { l?.remove(); interop.UnloadMap(i); });
-            maps.forEach(m => m.remove());
+            for (const side of SIDES) {
+                layers[side]?.remove();
+                maps[side].remove();
+            }
         }
     };
+
+    // Debugging handle. The maps are otherwise unreachable from the console, and
+    // "no tiles appeared" is almost always a view or sizing question. The probes
+    // in PLAN.md use it.
+    globalThis.__ocad = { maps, layers, stats, pump };
+
+    return handle;
 }

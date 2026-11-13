@@ -2,6 +2,8 @@ using System.Text.Json;
 
 using Microsoft.JSInterop;
 
+using OcadViewer.Versioning;
+
 namespace OcadViewer.Wasm.Services;
 
 /// <summary>
@@ -16,11 +18,6 @@ namespace OcadViewer.Wasm.Services;
 public sealed class AppSettingsService(IJSRuntime js, Localiser localiser)
 {
     private const string StorageKey = "appSettings";
-
-    private static readonly JsonSerializerOptions JsonOptions = new() {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-    };
 
     private readonly IJSRuntime js = js;
     private readonly Localiser localiser = localiser;
@@ -64,7 +61,7 @@ public sealed class AppSettingsService(IJSRuntime js, Localiser localiser)
             string json = await js.InvokeAsync<string>("localStorage.getItem", StorageKey);
             return string.IsNullOrWhiteSpace(json)
                 ? null
-                : JsonSerializer.Deserialize<AppSettings>(json, JsonOptions);
+                : JsonSerializer.Deserialize<AppSettings>(json, AngularJson.Options);
         }
         catch (Exception) {
             // Private browsing, cleared storage or a value written by some older
@@ -78,7 +75,7 @@ public sealed class AppSettingsService(IJSRuntime js, Localiser localiser)
     {
         try {
             await js.InvokeVoidAsync("localStorage.setItem", StorageKey,
-                                     JsonSerializer.Serialize(Settings, JsonOptions));
+                                     JsonSerializer.Serialize(Settings, AngularJson.Options));
         }
         catch (Exception) {
         }

@@ -49,14 +49,6 @@ function loadSdk() {
     });
 }
 
-export function trackPageView(name, uri) {
-    insights?.trackPageView({ name, uri });
-}
-
-export function trackEvent(name, properties) {
-    insights?.trackEvent({ name }, properties);
-}
-
 /**
  * @param severity 1 Information, 2 Warning, 3 Error, 4 Critical - the SDK's own
  *                 SeverityLevel values, passed through from .NET.

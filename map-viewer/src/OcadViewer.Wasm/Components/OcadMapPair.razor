@@ -1,10 +1,12 @@
+@using OcadViewer.Wasm.Services
 @implements IAsyncDisposable
 @inject IJSRuntime JS
 
 @*
-    Two synced Leaflet maps. Blazor owns the page and the state; Leaflet owns the
-    viewport; the tiles come from .NET. The JS module is the only place that knows
-    about Leaflet, so nothing above this component has to.
+    Two synced Leaflet maps. Blazor owns the page and the state; JavaScript owns
+    the viewport, the file reading and the renderer behind them. This component
+    says which version belongs on which side and learns what the parser found;
+    map bytes never pass through .NET at all.
 *@
 
 @*
@@ -25,18 +27,16 @@
     private ElementReference leftEl;
     private ElementReference rightEl;
     private IJSObjectReference module;
-    private IJSObjectReference maps;
+    private IJSObjectReference workspace;
 
-    /// <summary>Raised after a map is loaded, with what the parser reported.</summary>
-    [Parameter] public EventCallback<MapLoadInfo> OnMapLoaded { get; set; }
-
-    public sealed record MapLoadInfo(
-        int Version, double MinX, double MinY, double MaxX, double MaxY,
-        long ParseMs, string Georeference);
+    /// <summary>What the parser reported about one version.</summary>
+    public sealed record MapInfo(
+        string Key, int Version, double MinX, double MinY, double MaxX, double MaxY,
+        double ParseMs, string Georeference);
 
     /// <summary>
-    /// Importing the module and building the two Leaflet maps. Held as a task
-    /// rather than a flag because a caller can arrive before it has finished.
+    /// Importing the module and building the workspace. Held as a task rather than
+    /// a flag because a caller can arrive before it has finished.
     /// </summary>
     private Task ready;
 
@@ -48,13 +48,21 @@
 
     private async Task InitialiseAsync()
     {
-        module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/leafletViewport.js");
-        maps = await module.InvokeAsync<IJSObjectReference>("createSyncedMaps", leftEl, rightEl);
+        module = await JS.ImportAsync("./js/mapWorkspace.js");
+        workspace = await module.InvokeAsync<IJSObjectReference>("createWorkspace", leftEl, rightEl);
     }
 
-    /// <summary>Parses <paramref name="bytes"/> into a slot and shows it there.</summary>
-    /// <param name="slot">0 for the left map, 1 for the right.</param>
-    public async Task<MapLoadInfo> LoadAsync(int slot, string fileName, byte[] bytes)
+    /// <summary>
+    /// Shows a version on one side.
+    /// </summary>
+    /// <param name="versionName">"current" for the working file, otherwise "V3".</param>
+    /// <param name="reload">
+    /// Whether the file must be re-read even if that version is already parsed.
+    /// True for the working file, which changes on disk while the app is open.
+    /// A release never changes, so showing one that is already in memory costs
+    /// nothing - no read, no parse.
+    /// </param>
+    public async Task<MapInfo> ShowAsync(MapSide side, string versionName, bool reload)
     {
         // The parent can get here before this component's own first render has
         // finished setting up - the renderer does not wait for a child's
@@ -64,25 +72,13 @@
         // caller doing nothing wrong used to see.
         await (ready ??= InitialiseAsync());
 
-        MapLoadInfo info = await maps.InvokeAsync<MapLoadInfo>("loadInto", slot, fileName, bytes);
-        await OnMapLoaded.InvokeAsync(info);
-        return info;
+        return await workspace.InvokeAsync<MapInfo>(
+            "show", side.JsName(), versionName, reload);
     }
 
     public async ValueTask DisposeAsync()
     {
-        // The page can be torn down mid-render; JS may already be gone.
-        try {
-            if (maps is not null) {
-                await maps.InvokeVoidAsync("dispose");
-                await maps.DisposeAsync();
-            }
-            if (module is not null)
-                await module.DisposeAsync();
-        }
-        catch (JSDisconnectedException) {
-        }
-        catch (ObjectDisposedException) {
-        }
+        await workspace.ReleaseAsync("dispose");
+        await module.ReleaseAsync();
     }
 }

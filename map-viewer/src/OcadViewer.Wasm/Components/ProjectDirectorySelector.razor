@@ -1,6 +1,6 @@
 @using OcadViewer.Wasm.Services
+@inherits LocalisedComponent
 @inject ProjectService Project
-@inject Localiser L
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
@@ -92,8 +92,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        L.Changed += OnLanguageChanged;
-
         try {
             supported = await Project.IsSupportedAsync();
         }
@@ -105,14 +103,12 @@
             errors.Add((ErrorType.UnsupportedBrowser, L["#_errorTypeUnsupportedBrowser"]));
     }
 
-    private void OnLanguageChanged() => InvokeAsync(StateHasChanged);
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
             return;
 
-        ui = await JS.InvokeAsync<IJSObjectReference>("import", "./js/bootstrapComponents.js");
+        ui = await JS.ImportAsync("./js/bootstrapComponents.js");
 
         // Opens itself, as in the Angular app: there is nothing else to do on this
         // page, so making the user click something first would be ceremony.
@@ -189,15 +185,5 @@
     private static bool IsCancellation(Exception ex)
         => ex.Message.Contains("abort", StringComparison.OrdinalIgnoreCase);
 
-    public async ValueTask DisposeAsync()
-    {
-        L.Changed -= OnLanguageChanged;
-
-        try {
-            if (ui is not null)
-                await ui.DisposeAsync();
-        }
-        catch (JSDisconnectedException) {
-        }
-    }
+    public async ValueTask DisposeAsync() => await ui.ReleaseAsync();
 }

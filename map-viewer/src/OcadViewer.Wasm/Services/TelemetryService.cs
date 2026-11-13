@@ -41,7 +41,7 @@ public sealed class TelemetryService(IJSRuntime js, ILogger<TelemetryService> lo
         }
 
         try {
-            module = await js.InvokeAsync<IJSObjectReference>("import", "./js/appInsights.js");
+            module = await js.ImportAsync("./js/appInsights.js");
             enabled = await module.InvokeAsync<bool>("initialise", connectionString);
         }
         catch (Exception ex) {
@@ -52,12 +52,12 @@ public sealed class TelemetryService(IJSRuntime js, ILogger<TelemetryService> lo
         }
     }
 
-    public async Task TrackPageViewAsync(string name, string uri = null)
-        => await SafeAsync(m => m.InvokeVoidAsync("trackPageView", name, uri));
-
-    public async Task TrackEventAsync(string name, IDictionary<string, object> properties = null)
-        => await SafeAsync(m => m.InvokeVoidAsync("trackEvent", name, properties));
-
+    /// <remarks>
+    /// Traces and exceptions only. The page-view and custom-event wrappers that
+    /// used to sit here had no callers at all - this app reports what the logging
+    /// pipeline hands it, which is errors. Adding them back is a few lines, on the
+    /// day something actually wants to call them.
+    /// </remarks>
     public async Task TrackAsync(string message, TelemetrySeverity severity,
                                  IDictionary<string, object> properties = null)
         => await SafeAsync(m => m.InvokeVoidAsync("trackTrace", message, (int)severity, properties));
@@ -80,11 +80,8 @@ public sealed class TelemetryService(IJSRuntime js, ILogger<TelemetryService> lo
             return;
 
         try {
-            await call(module);
-        }
-        catch (JSDisconnectedException) {
-        }
-        catch (ObjectDisposedException) {
+            // A page that has gone away is not a telemetry failure worth reporting.
+            await module.IfStillThereAsync(call);
         }
         catch (Exception ex) {
             // Reporting a problem must not itself become a problem, and must never
@@ -93,15 +90,5 @@ public sealed class TelemetryService(IJSRuntime js, ILogger<TelemetryService> lo
         }
     }
 
-    public async ValueTask DisposeAsync()
-    {
-        try {
-            if (module is not null)
-                await module.DisposeAsync();
-        }
-        catch (JSDisconnectedException) {
-        }
-        catch (ObjectDisposedException) {
-        }
-    }
+    public async ValueTask DisposeAsync() => await module.ReleaseAsync();
 }

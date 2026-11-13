@@ -1,10 +1,10 @@
 @page "/"
+@using OcadViewer.Versioning
 @using OcadViewer.Wasm.Components
 @using OcadViewer.Wasm.Services
+@inherits LocalisedComponent
 @inject ProjectService Project
 @inject IDiffSource DiffSource
-@inject Localiser L
-@implements IDisposable
 
 <PageTitle>@L["#_OCADVersioner"]</PageTitle>
 
@@ -67,29 +67,14 @@
 @if (Project.IsOpen) {
     <div class="row">
         <div class="col-md-2 d-flex flex-column">
-            <VersionList Items="VersionItems()" SelectedNumber="selectedNumber" OnSelected="SelectVersion" />
+            <VersionList Items="VersionItems()" SelectedNumber="selectedNumber"
+                         OnSelected="SelectVersion" />
 
-            <div class="mt-auto py-3">
-                <h5>@L.Format("#_createNewVersion", ("fileName", Project.Project.CurrentFileName))</h5>
-                <div class="mb-2">
-                    <label class="form-label small mb-1">@L["#_title"]</label>
-                    <input class="form-control form-control-sm" @bind="newTitle" disabled="@busy"
-                           placeholder="@L.Format("#_versionTitleHelper", ("newVersionName", Project.NextVersionName()), ("fileName", Project.Project.CurrentFileName))" />
-                </div>
-                <div class="mb-2">
-                    <label class="form-label small mb-1">@L["#_description"]</label>
-                    <textarea class="form-control form-control-sm" rows="3"
-                              @bind="newDescription" disabled="@busy"></textarea>
-                </div>
-                <button class="btn btn-primary btn-sm" @onclick="CreateVersion"
-                        disabled="@(busy || string.IsNullOrEmpty(Project.Project.CurrentFileName))">
-                    @L.Format("#_newVersionSubmitText", ("newVersionName", Project.NextVersionName()), ("fileName", Project.Project.CurrentFileName))
-                </button>
-                <p class="text-muted small mt-2 mb-0">
-                    Copies the working file into <code>Releases/@Project.NextVersionName()/</code>.
-                    Symbol counts are written as zero until comparison exists.
-                </p>
-            </div>
+            <CreateVersionForm @ref="versionForm"
+                               FileName="@Project.Project.CurrentFileName"
+                               NextVersionName="@Project.NextVersionName()"
+                               Busy="busy"
+                               OnCreate="CreateVersion" />
         </div>
 
         <div class="col-md-10">
@@ -97,9 +82,9 @@
                 @if (IsHistory) {
                     <i class="bi bi-book fs-4 text-primary" title="Comparing two past versions"></i>
                 }
-                <span class="fw-medium">@NewerLabel</span>
+                <span class="fw-medium">@Comparison.Newer</span>
                 <i class="bi bi-arrows"></i>
-                <span class="fw-medium">@OlderLabel</span>
+                <span class="fw-medium">@Comparison.Older</span>
             </div>
 
             <OcadMapPair @ref="mapPair" />
@@ -117,6 +102,7 @@
 @code {
     private OcadMapPair mapPair;
     private ProjectDirectorySelector selector;
+    private CreateVersionForm versionForm;
 
     /// <summary>Set when a project has just opened and the maps still need loading.</summary>
     private bool comparisonPending;
@@ -130,47 +116,15 @@
     /// <summary>Which version is being compared, 0 meaning the working file.</summary>
     private int selectedNumber;
 
-    private string newTitle;
-    private string newDescription;
-
     /// <summary>
-    /// The newer side of the comparison, which is the selected version.
+    /// The two sides of the current comparison. Which version sits opposite which
+    /// is a rule about project folders, not about this page, so it is answered by
+    /// <see cref="ProjectService"/> - and tested without a browser.
     /// </summary>
-    private string NewerName => selectedNumber == 0
-        ? ProjectService.CurrentVersionName
-        : $"V{selectedNumber}";
-
-    /// <summary>
-    /// The older side: the highest-numbered version below the selected one. The
-    /// working file compares against the newest release, which is the comparison
-    /// the Angular app opens with.
-    /// </summary>
-    private string OlderName
-    {
-        get {
-            var below = Project.Project?.Versions
-                .Where(v => selectedNumber == 0 || v.Number < selectedNumber)
-                .OrderByDescending(v => v.Number)
-                .FirstOrDefault();
-            return below?.Name ?? ProjectService.CurrentVersionName;
-        }
-    }
-
-    private string NewerLabel => NewerName;
-    private string OlderLabel => OlderName;
+    private (string Newer, string Older) Comparison => Project.ComparisonFor(selectedNumber);
 
     /// <summary>True when looking at two past versions rather than the working file.</summary>
     private bool IsHistory => selectedNumber != 0;
-
-    protected override void OnInitialized()
-    {
-        // Changing language has to repaint this page, which owns most of the text.
-        L.Changed += OnLanguageChanged;
-    }
-
-    private void OnLanguageChanged() => InvokeAsync(StateHasChanged);
-
-    public void Dispose() => L.Changed -= OnLanguageChanged;
 
     private IReadOnlyList<VersionList.Item> VersionItems()
     {
@@ -199,7 +153,7 @@
     /// <remarks>
     /// The maps cannot be loaded here. Until this moment the workspace was not on
     /// the page at all - it renders only once a project is open - so OcadMapPair
-    /// does not exist yet and its <c>@ref</c> is still null. Asking for a render
+    /// does not exist yet and its <c>@@ref</c> is still null. Asking for a render
     /// and picking the work up afterwards is what makes the component available.
     /// </remarks>
     private void OnProjectLoaded()
@@ -235,15 +189,21 @@
             await ShowComparison();
         });
 
-    private async Task CreateVersion()
+    private async Task CreateVersion((string Title, string Description) entry)
         => await Run("Creating version…", async () => {
-            await Project.CreateVersionAsync(newTitle, newDescription);
-            newTitle = newDescription = null;
+            await Project.CreateVersionAsync(entry.Title, entry.Description);
+            versionForm?.Reset();
             selectedNumber = 0;
             await ShowComparison();
         });
 
-    /// <summary>Loads both sides and asks for the comparison between them.</summary>
+    /// <summary>Puts both sides of the comparison on screen.</summary>
+    /// <remarks>
+    /// Each side is named, not numbered, and a release is only re-read when it is
+    /// not already parsed - so moving from "V4 against V3" to "V3 against V2"
+    /// parses V2 alone. Only the working file is reloaded every time, because only
+    /// the working file can have changed on disk.
+    /// </remarks>
     private async Task ShowComparison()
     {
         // Not a guard against ordinary timing - the caller is responsible for
@@ -252,17 +212,19 @@
         if (mapPair is null)
             throw new InvalidOperationException("The map pair is not on the page yet.");
 
-        string newer = NewerName, older = OlderName;
+        (string newer, string older) = Comparison;
 
-        var loaded = await mapPair.LoadAsync(0, $"{newer}.ocd", await Project.ReadMapAsync(newer));
+        OcadMapPair.MapInfo loaded = await mapPair.ShowAsync(
+            MapSide.Left, newer, ProjectService.IsVolatile(newer));
         georeference = loaded.Georeference;
-        await mapPair.LoadAsync(1, $"{older}.ocd", await Project.ReadMapAsync(older));
+
+        await mapPair.ShowAsync(MapSide.Right, older, ProjectService.IsVolatile(older));
 
         diff = await DiffSource.CompareAsync(older, newer);
     }
 
     /// <summary>Runs an action with the progress bar, busy flag and error reporting.</summary>
-    private async Task Run(string message, Func<Task> action, Func<Exception, bool> ignore = null)
+    private async Task Run(string message, Func<Task> action)
     {
         busy = true;
         failed = false;
@@ -272,9 +234,6 @@
 
         try {
             await action();
-            status = null;
-        }
-        catch (Exception ex) when (ignore?.Invoke(ex) == true) {
             status = null;
         }
         catch (Exception ex) {

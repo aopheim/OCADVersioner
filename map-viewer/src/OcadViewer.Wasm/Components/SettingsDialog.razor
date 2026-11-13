@@ -135,7 +135,7 @@
         if (!firstRender)
             return;
 
-        ui = await JS.InvokeAsync<IJSObjectReference>("import", "./js/bootstrapComponents.js");
+        ui = await JS.ImportAsync("./js/bootstrapComponents.js");
 
         // The help popover is the one Bootstrap component that needs constructing.
         await ui.InvokeVoidAsync("initPopovers");
@@ -159,13 +159,7 @@
 
     public async ValueTask DisposeAsync()
     {
-        try {
-            if (ui is not null)
-                await ui.DisposeAsync();
-        }
-        catch (JSDisconnectedException) {
-        }
-
+        await ui.ReleaseAsync();
         self?.Dispose();
     }
 

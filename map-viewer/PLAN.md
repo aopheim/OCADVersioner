@@ -887,6 +887,73 @@ Retirement is a deliberate, reversible sequence:
 
 **Done when:** `ocad-versioner/` is gone and nothing references it.
 
+## Architecture, and the tests that hold it in place
+
+An adversarial review of this branch found the dependency direction sound and the
+orthogonality poor, concentrated almost entirely in one place. What follows is
+what the shape is now, and what enforces it.
+
+**Projects.** One chain pointing inward, plus a domain project that depends on
+nothing:
+
+```
+Graphics2D ← MapModel ← Map_SkiaStd ← OcadViewer.Core ← RenderCli
+                                           ↑
+                   OcadViewer.Versioning ← OcadViewer.Wasm ← ArchitectureTests
+```
+
+`OcadViewer.Versioning` is new. It holds what a release is called, what its
+metadata looks like on disk and which version compares against which — rules that
+are a contract with the Angular app, and that previously lived in a Razor page, a
+service that needed a browser, and a JavaScript module, in two languages. Having
+them in one dependency-free project is what makes them testable at all.
+
+**Modules.** The JavaScript has the same shape, which the compiler cannot check:
+
+```
+tilePump.js ← leafletViewport.js ←┐
+                                  ├─ mapWorkspace.js ← OcadMapPair.razor
+dotnetExports.js ← mapTiles.js ←──┤
+projectFolder.js ←────────────────┘
+```
+
+`mapWorkspace.js` is the composition root and the only module the C# talks to.
+`leafletViewport.js` no longer imports the .NET runtime, so the viewport can be
+loaded and reasoned about without Blazor underneath it.
+
+**Maps are addressed by name.** The slot index — 0 and 1, meaning the same thing
+in the page, the component, the Leaflet module and the interop — is gone.
+`MapStore` keeps parsed maps under their version name, so showing V3 beside V2 and
+then V2 beside V1 parses V1 alone. Measured in the browser over open-plus-four-
+switches: **6 parses where the old design did 10**, and selecting the oldest
+release parses nothing at all. Capacity is three, not two: both panes plus the one
+being swapped in, because at two the incoming map evicted one the other pane was
+still drawing and 8 tiles came back empty.
+
+**Map bytes no longer cross the boundary three times.** They were read in
+JavaScript, marshalled into .NET, handed back out to JavaScript and marshalled in
+again — for data the page never looked at. The workspace reads and parses them
+without C# ever seeing them.
+
+**What the tests enforce** (`tests/OcadViewer.ArchitectureTests`, 58 of them):
+
+- the allowed project-reference table, that the graph is acyclic, that the domain
+  project depends on nothing, that only the browser host references browser
+  packages, and that no vendored wrapper depends on our code;
+- the same, read from the compiled assemblies' metadata rather than the project
+  files, so a dependency arriving transitively is caught too;
+- the allowed JavaScript import graph, that only one module knows there is a .NET
+  runtime, that only one touches the File System Access API, and that no module
+  keeps coordination state at module scope;
+- that each decision stated once stays stated once: the release-naming rule, the
+  JSON shape shared with Angular, the JS teardown idiom, the language
+  subscription, the pane names;
+- the project-folder rules themselves, including that timestamps are written the
+  way the browser writes them.
+
+The assemblies are read with `System.Reflection.Metadata` and never loaded, which
+also keeps the suite runnable where policy refuses unsigned binaries.
+
 ## WASM specifics
 
 **Emscripten version match — verified, and it is good news.** SkiaSharp 3.119.4's targets select `3.1.56/{st|mt}[,simd]` archives for net9.0+, and .NET 10.0.102's `wasm-tools` manifest ships Emscripten **3.1.56**. Exact match; ABI mismatch is off the table. The targets also force `WasmBuildNative=true` (so native relinking, and the workload, are mandatory) and carry a link-order workaround for `dotnet/runtime#109289` — evidence the path is actively maintained.
