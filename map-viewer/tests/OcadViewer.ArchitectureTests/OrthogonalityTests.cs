@@ -100,6 +100,7 @@ public sealed class OrthogonalityTests
         ["bootstrapComponents.js"] = [],
         ["appInsights.js"] = [],
         ["changeMask.js"] = [],
+        ["hotkeys.js"] = [],
         ["mapTiles.js"] = ["dotnetExports.js"],
         ["leafletViewport.js"] = ["tilePump.js"],
         ["mapWorkspace.js"] = ["projectFolder.js", "mapTiles.js", "leafletViewport.js", "changeMask.js"],
