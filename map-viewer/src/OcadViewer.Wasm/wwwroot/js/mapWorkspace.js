@@ -15,8 +15,8 @@
 
 import { readMap } from './projectFolder.js';
 import { createTileSource } from './mapTiles.js';
-import { createSyncedMaps, SIDES } from './leafletViewport.js';
-import { paint, showsAnything, coverage, boundsOf } from './changeMask.js';
+import { createSyncedMaps } from './leafletViewport.js';
+import { paint, coverage, boundsOf } from './changeMask.js';
 
 /**
  * Builds the viewer over two elements.
@@ -40,6 +40,18 @@ export async function createWorkspace(leftEl, rightEl) {
     function forgetChanges() {
         if (changes?.url) URL.revokeObjectURL(changes.url);
         changes = null;
+    }
+
+    /**
+     * Which pane is showing a version, found by name rather than by position.
+     *
+     * The newer side is the left one today, and saying so here would be the
+     * third place that knew it. Asking the viewport what it is showing keeps
+     * this working if the panes are ever swapped or a third is added.
+     */
+    function sideShowing(versionName) {
+        const showing = view.showing();
+        return Object.keys(showing).find(side => showing[side] === versionName) ?? null;
     }
 
     /** Drops any mask that was computed against this version. */
@@ -84,19 +96,21 @@ export async function createWorkspace(leftEl, rightEl) {
         },
 
         /**
-         * Shows where the two versions differ, as a tinted overlay on both panes.
+         * Shows where the two versions differ, as a tinted overlay.
          *
-         * The mask is computed once per comparison - both whole maps rendered and
-         * differenced - and then kept, so turning the filters on and off is a
-         * repaint of the same bytes with no .NET call at all.
+         * On the newer side only. The change is a property of the newer map -
+         * this is what was done to it - and tinting the older one as well
+         * covered the very pixels you turn to it to see.
          *
-         * @param filters {added, deleted}; neither set means hide the overlay
+         * The mask is computed once per comparison, both whole maps rendered and
+         * differenced, and then kept with the image painted from it. Turning the
+         * overlay off and on again costs nothing.
+         *
          * @returns what was drawn, for reporting: size, pixel counts, timings
          */
-        async showChanges(olderName, newerName, filters) {
-            if (!showsAnything(filters)) {
+        async showChanges(olderName, newerName, show) {
+            if (!show) {
                 view.clearOverlays();
-                if (changes?.url) { URL.revokeObjectURL(changes.url); changes.url = null; }
                 return { shown: false };
             }
 
@@ -116,20 +130,23 @@ export async function createWorkspace(leftEl, rightEl) {
                 if (!mask)
                     throw new Error('One of the two versions is no longer loaded.');
 
-                changes = { older: olderName, newer: newerName, plan, mask, url: null };
+                changes = {
+                    older: olderName, newer: newerName, plan, mask,
+                    url: await paint(mask, plan.width, plan.height)
+                };
             }
 
-            if (changes.url) URL.revokeObjectURL(changes.url);
-            changes.filters = filters;
-            changes.url = await paint(changes.mask, changes.plan.width, changes.plan.height, filters);
+            const side = sideShowing(newerName);
+            if (!side)
+                throw new Error(`${newerName} is not on screen.`);
 
-            const bounds = {
+            view.clearOverlays();
+            view.setOverlay(side, changes.url, {
                 minX: changes.plan.minX, minY: changes.plan.minY,
                 maxX: changes.plan.maxX, maxY: changes.plan.maxY
-            };
-            for (const side of SIDES) view.setOverlay(side, changes.url, bounds);
+            });
 
-            const { shown, total } = coverage(changes.mask, filters);
+            const { shown, total } = coverage(changes.mask);
 
             return {
                 shown: true,
@@ -142,21 +159,21 @@ export async function createWorkspace(leftEl, rightEl) {
         },
 
         /**
-         * Moves both panes to frame everything the overlay is showing.
+         * Moves both panes to frame every change.
          *
          * A small revision is a few specks on a whole map - correct, and almost
          * impossible to find by eye. The mask already knows where they are.
          *
          * @param paddingMm breathing room around the changes
          * @returns the framed rectangle in paper millimetres, or null if there
-         *          is nothing shown to frame
+         *          is nothing to frame
          */
         zoomToChanges(paddingMm = 12) {
-            if (!changes?.mask || !changes.filters)
+            if (!changes?.mask)
                 return null;
 
             const { width, height, minX, minY, maxX, maxY } = changes.plan;
-            const box = boundsOf(changes.mask, width, height, changes.filters);
+            const box = boundsOf(changes.mask, width, height);
             if (!box) return null;
 
             // Mask pixels to paper millimetres. The mask covers the map's own

@@ -34,22 +34,13 @@
         string Key, int Version, double MinX, double MinY, double MaxX, double MaxY,
         double ParseMs, string Georeference);
 
-    /// <summary>Which kinds of change the overlay shows.</summary>
-    /// <param name="Added">
-    /// Ink that appeared, and ink that changed to other ink - everything except
-    /// an outright removal.
-    /// </param>
-    /// <param name="Deleted">Ink that went back to blank paper.</param>
-    public sealed record ChangeFilters(bool Added, bool Deleted);
-
     /// <summary>
     /// What the change overlay drew, for reporting.
     /// </summary>
     /// <param name="ShownPixels">
-    /// How many pixels these filters light up. Counted on the other side of the
-    /// boundary on purpose: which kinds of change a filter covers is the mask's
-    /// rule, and a page working it out again to write a percentage would be a
-    /// second copy of it.
+    /// How many pixels changed. Counted on the other side of the boundary,
+    /// where the mask is, rather than handed over as a tally for the page to
+    /// add up.
     /// </param>
     public sealed record ChangeSummary(
         bool Shown, int Width, int Height, double ComputedMs,
@@ -101,20 +92,20 @@
     }
 
     /// <summary>
-    /// Shows where two versions differ, as a tinted overlay on both panes.
+    /// Shows where two versions differ, as a tinted overlay on the newer one.
     /// </summary>
     /// <remarks>
     /// The mask costs two whole-map renders, so it is computed once per
-    /// comparison and kept; changing which kinds are shown only repaints it.
-    /// Passing filters that show nothing takes the overlay away.
+    /// comparison and kept, image and all - turning the overlay off and on
+    /// again is free.
     /// </remarks>
     public async Task<ChangeSummary> ShowChangesAsync(
-        string olderVersion, string newerVersion, ChangeFilters filters)
+        string olderVersion, string newerVersion, bool show)
     {
         await (ready ??= InitialiseAsync());
 
         return await workspace.InvokeAsync<ChangeSummary>(
-            "showChanges", olderVersion, newerVersion, filters);
+            "showChanges", olderVersion, newerVersion, show);
     }
 
     /// <summary>

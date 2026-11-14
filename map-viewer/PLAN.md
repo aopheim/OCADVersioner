@@ -803,13 +803,24 @@ where both sides have ink it can see the change but not which way, which is
   389/389/435 ms — the cost is geometry, not rasterising), so the mask is sharp
   enough to zoom into. Storigarden, 347 × 302 mm, comes out 1390 × 1210 and takes
   **about 1.2 s on the dev build**, measured over three version pairs.
-- **The filters are free.** Added/edited and deletions are two independent
-  toggles that repaint the same bytes in JavaScript; only changing the
-  *comparison* costs another pass. Verified: four filter changes, one render.
-- **One colour, by choice.** The buttons say which kinds are showing, so the
-  picture does not have to. Note the tint currently collides with the purple
-  OCAD uses for overprint and boundaries — see the screenshots in the commit
-  that added this.
+- **One switch, on the newer map only.** It began as two filters — added/edited
+  and deletions — and that was one question too many: the change is a property
+  of the newer version, and tinting the older one as well covered the pixels you
+  turn to it to see. Switching the overlay off and on again is free; only a new
+  comparison costs a pass.
+- **Crimson, and the hue is not taste.** An orienteering map already spends most
+  of the spectrum — brown contours, blue water, yellow and orange open land,
+  green vegetation, black rock, and purple for overprint and boundaries, which
+  the first attempt's magenta was nearly indistinguishable from. Crimson is the
+  gap.
+- **A crosshair button frames the changes.** A 0.1 % revision is a few specks on
+  a whole map, correct and impossible to find by eye; the mask already knows
+  where they are.
+- **The classification stays in the renderer.** `PixelChange` still records
+  appeared, vanished and altered because that is free to produce and is the
+  honest output. Nothing above reads it: the only thing crossing the boundary is
+  "zero means unchanged". If direction is ever wanted on screen, the information
+  is already there.
 
 What it cannot do is name an object, explain a change, or link to a table row. A
 moved object appears as vanished at the old position and appeared at the new one

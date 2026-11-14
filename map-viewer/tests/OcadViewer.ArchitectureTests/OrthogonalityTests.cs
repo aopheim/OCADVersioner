@@ -207,53 +207,17 @@ public sealed class OrthogonalityTests
     }
 
     [Test]
-    public void TheChangeMaskValuesMeanTheSameThingInBothLanguages()
-    {
-        Dictionary<string, int> fromCSharp = EnumValues(
-            Single(csharp, "MapStore.cs").Code, "PixelChange");
-        Dictionary<string, int> fromJs = ObjectValues(
-            Single(scripts, "changeMask.js").Code, "CHANGE");
-
-        Assert.That(fromJs, Is.EqualTo(fromCSharp),
-            "The renderer writes one byte per pixel and the painter reads it. The two ends have "
-            + "to agree on what each number means, and there is no type across that boundary to "
-            + "make them - the bytes are just bytes. Getting it wrong would not fail anywhere: "
-            + "it would quietly colour deletions as additions.");
-    }
-
-    [Test]
-    public void WhatEachKindOfChangeMeansIsDecidedInOnePlacePerLanguage()
+    public void OnlyTheRendererKnowsWhatKindOfChangeAPixelIs()
     {
         IReadOnlyList<SourceFile> offenders = Matching(
             all, @"\b(appeared|vanished|altered)\b", RegexOptions.IgnoreCase);
 
-        Assert.That(NamesOf(offenders), Is.EquivalentTo(new[] { "MapStore.cs", "changeMask.js" }),
-            "MapStore names the four kinds; changeMask.js decides which of them each filter "
-            + "shows. The page used to work that out again - that added covers appeared and "
-            + "altered - so it could write its percentage, which is a rule that has to agree "
-            + "with the picture stated twice in two languages.");
-    }
-
-    /// <summary>Reads <c>Name = 0,</c> members out of an enum declaration.</summary>
-    private static Dictionary<string, int> EnumValues(string code, string name)
-    {
-        Match body = Regex.Match(code, @"enum\s+" + Regex.Escape(name) + @"\s*:?\s*\w*\s*\{(?<body>[^}]*)\}");
-        Assert.That(body.Success, Is.True, $"No enum {name} found.");
-
-        return Regex.Matches(body.Groups["body"].Value, @"(?<key>\w+)\s*=\s*(?<value>\d+)")
-                    .ToDictionary(m => m.Groups["key"].Value.ToLowerInvariant(),
-                                  m => int.Parse(m.Groups["value"].Value));
-    }
-
-    /// <summary>Reads <c>key: 0,</c> members out of a JavaScript object literal.</summary>
-    private static Dictionary<string, int> ObjectValues(string code, string name)
-    {
-        Match body = Regex.Match(code, Regex.Escape(name) + @"\s*=\s*\{(?<body>[^}]*)\}");
-        Assert.That(body.Success, Is.True, $"No object {name} found.");
-
-        return Regex.Matches(body.Groups["body"].Value, @"(?<key>\w+)\s*:\s*(?<value>\d+)")
-                    .ToDictionary(m => m.Groups["key"].Value.ToLowerInvariant(),
-                                  m => int.Parse(m.Groups["value"].Value));
+        Assert.That(NamesOf(offenders), Is.EquivalentTo(new[] { "MapStore.cs" }),
+            "The renderer classifies each changed pixel, because it is the only thing that can. "
+            + "Nothing above it reads that classification: the overlay asks one question - did "
+            + "this change - so the only thing crossing the boundary is \"zero means unchanged\". "
+            + "The JavaScript used to carry a copy of the four names to decide which of them "
+            + "each filter showed, and a copy of their numbers with no type to keep it honest.");
     }
 
     /* ------------------------------------------------- contracts stated once */
