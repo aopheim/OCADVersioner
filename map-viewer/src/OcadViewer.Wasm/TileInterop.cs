@@ -97,8 +97,62 @@ public static partial class TileInterop
                                                       (float)width, (float)height),
                         pixels)?.Rgba;
 
+    /// <summary>
+    /// How big the change mask for this comparison will be, and what it covers.
+    /// </summary>
+    /// <remarks>
+    /// Asked before <see cref="RenderChangeMask"/> so the caller can lay the
+    /// overlay out and say how much work it is about to start. Nothing is
+    /// remembered between the two calls; both derive from the map's bounds.
+    /// </remarks>
+    [JSExport]
+    internal static string PlanChangeMask(string newerKey)
+    {
+        ChangeMaskPlan plan = Store.PlanChangeMask(newerKey);
+
+        return plan is null
+            ? JsonSerializer.Serialize(
+                new ChangeMaskInfo { Ok = false, Error = $"\"{newerKey}\" is not loaded." },
+                TileInteropJson.Default.ChangeMaskInfo)
+            : JsonSerializer.Serialize(
+                new ChangeMaskInfo {
+                    Ok = true,
+                    Width = plan.Width,
+                    Height = plan.Height,
+                    MinX = plan.Area.Left,
+                    MinY = plan.Area.Top,
+                    MaxX = plan.Area.Right,
+                    MaxY = plan.Area.Bottom
+                },
+                TileInteropJson.Default.ChangeMaskInfo);
+    }
+
+    /// <summary>
+    /// Where the two versions differ: one byte per pixel, row by row.
+    /// </summary>
+    /// <returns>
+    /// 0 unchanged, 1 appeared, 2 vanished, 3 altered - or <c>null</c> if either
+    /// version has gone from the store.
+    /// </returns>
+    [JSExport]
+    internal static byte[] RenderChangeMask(string olderKey, string newerKey)
+        => Store.RenderChangeMask(olderKey, newerKey);
+
     private static string Write(MapLoadResult result)
         => JsonSerializer.Serialize(result, TileInteropJson.Default.MapLoadResult);
+}
+
+/// <summary>What <see cref="TileInterop.PlanChangeMask"/> answers with.</summary>
+internal sealed record ChangeMaskInfo
+{
+    public bool Ok { get; init; }
+    public string Error { get; init; }
+    public int? Width { get; init; }
+    public int? Height { get; init; }
+    public double? MinX { get; init; }
+    public double? MinY { get; init; }
+    public double? MaxX { get; init; }
+    public double? MaxY { get; init; }
 }
 
 /// <summary>
@@ -133,6 +187,7 @@ internal sealed record MapLoadResult
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(MapLoadResult))]
+[JsonSerializable(typeof(ChangeMaskInfo))]
 internal sealed partial class TileInteropJson : JsonSerializerContext
 {
 }

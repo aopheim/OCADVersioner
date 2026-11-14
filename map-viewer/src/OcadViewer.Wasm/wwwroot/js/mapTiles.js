@@ -47,6 +47,25 @@ export async function createTileSource() {
         /** Raw RGBA for one square tile, or null if that map is no longer held. */
         render(key, minX, minY, width, height, pixels) {
             return interop.RenderTile(key, minX, minY, width, height, pixels);
+        },
+
+        /**
+         * How big a change mask for this comparison would be, and what it covers.
+         * @returns {ok, width, height, minX, minY, maxX, maxY} or {ok: false, error}
+         */
+        planChangeMask(newerKey) {
+            return JSON.parse(interop.PlanChangeMask(newerKey));
+        },
+
+        /**
+         * Where two versions differ: one byte per pixel.
+         *
+         * This is the expensive one - it renders both versions of the whole map -
+         * so it is called once per comparison and the result kept.
+         * @returns Uint8Array, or null if either version has gone from the store
+         */
+        renderChangeMask(olderKey, newerKey) {
+            return interop.RenderChangeMask(olderKey, newerKey);
         }
     };
 }

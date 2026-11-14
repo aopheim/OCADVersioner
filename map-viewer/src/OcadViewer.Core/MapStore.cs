@@ -49,6 +49,31 @@ namespace OcadViewer.Core
     /// <param name="Rgba">Straight RGBA, four bytes per pixel, row by row.</param>
     public sealed record RenderedTile(byte[] Rgba, int Pixels, TimeSpan RenderTime);
 
+    /// <summary>What happened at one pixel between two versions.</summary>
+    /// <remarks>
+    /// Both versions are drawn onto opaque white, so "no ink here" is exactly
+    /// white and the direction of a change is readable wherever one side is
+    /// blank. Where both sides have ink the mask can see that it changed but not
+    /// which way, which is <see cref="Altered"/> - common wherever a line was
+    /// redrawn across a coloured area rather than across open ground.
+    /// </remarks>
+    public enum PixelChange : byte
+    {
+        Unchanged = 0,
+
+        /// <summary>Blank before, ink after.</summary>
+        Appeared = 1,
+
+        /// <summary>Ink before, blank after.</summary>
+        Vanished = 2,
+
+        /// <summary>Ink both times, and not the same ink.</summary>
+        Altered = 3
+    }
+
+    /// <summary>The size and extent a change mask will be computed at.</summary>
+    public sealed record ChangeMaskPlan(int Width, int Height, RectangleF Area);
+
     /// <summary>
     /// Keeps a small number of parsed maps, each under a name the caller chooses.
     /// </summary>
@@ -208,6 +233,131 @@ namespace OcadViewer.Core
 
             using SKBitmap bitmap = result.Bitmap;
             return new RenderedTile(ToRgba(bitmap, pixels), pixels, stopwatch.Elapsed);
+        }
+
+        /// <summary>
+        /// Where the two versions differ, pixel by pixel.
+        /// </summary>
+        /// <returns>
+        /// One <see cref="PixelChange"/> per pixel, row by row, sized by
+        /// <see cref="PlanChangeMask"/>. <c>null</c> if either version is missing.
+        /// </returns>
+        /// <remarks>
+        /// Both versions are drawn over the same rectangle at the same size and
+        /// compared. That is the whole trick: it needs no object identity, no
+        /// georeferencing and no diff engine, and it reports what a person would
+        /// actually see as different. What it cannot do is explain itself - a
+        /// moved object shows as vanished at the old position and appeared at the
+        /// new one, with nothing tying the two together.
+        ///
+        /// The comparison is exact. Identical geometry renders to identical
+        /// pixels here, down to the phase of area patterns, because a pattern is
+        /// anchored to the map rather than to the tile - so there is no noise to
+        /// filter out, and anything lit really is different. The corollary is
+        /// that redefining a symbol lights up every object using it.
+        /// </remarks>
+        public byte[] RenderChangeMask(string olderKey, string newerKey)
+        {
+            StoredMap older = Get(olderKey);
+            StoredMap newer = Get(newerKey);
+
+            if (older is null || newer is null)
+                return null;
+
+            ChangeMaskPlan plan = PlanFor(newer);
+
+            MapRenderResult before = MapRenderer.Render(
+                older.Map, plan.Area, plan.Width, plan.Height, Settings);
+
+            using SKBitmap beforeBitmap = before.Bitmap;
+
+            MapRenderResult after = MapRenderer.Render(
+                newer.Map, plan.Area, plan.Width, plan.Height, Settings);
+
+            using SKBitmap afterBitmap = after.Bitmap;
+
+            return Classify(beforeBitmap, afterBitmap, plan.Width * plan.Height);
+        }
+
+        /// <summary>
+        /// The size and extent <see cref="RenderChangeMask"/> will use for a
+        /// comparison whose newer side is <paramref name="newerKey"/>.
+        /// </summary>
+        /// <returns><c>null</c> if that version is not loaded.</returns>
+        /// <remarks>
+        /// Separate from the render so a caller can lay out the overlay, and show
+        /// how big the job is, before paying for it. It is a pure function of the
+        /// map's bounds, so both calls agree without anything being remembered
+        /// between them.
+        /// </remarks>
+        public ChangeMaskPlan PlanChangeMask(string newerKey)
+        {
+            StoredMap newer = Get(newerKey);
+            return newer is null ? null : PlanFor(newer);
+        }
+
+        /// <summary>
+        /// Detail is fixed per millimetre of paper rather than per map, so a small
+        /// map is quick and a large one stays sharp.
+        /// </summary>
+        /// <remarks>
+        /// Resolution is close to free here: the same area at 128, 256 and 512
+        /// pixels measured 389, 389 and 435 ms, because the cost is managed
+        /// geometry work rather than rasterising. The cap is about memory, not
+        /// time - two bitmaps of this size exist at once while the mask is built.
+        /// </remarks>
+        private static ChangeMaskPlan PlanFor(StoredMap map)
+        {
+            const float PixelsPerMillimetre = 4f;
+            const int MaxEdge = 4096;
+
+            RectangleF area = map.Bounds;
+
+            float scale = PixelsPerMillimetre;
+            float longest = Math.Max(area.Width, area.Height) * scale;
+            if (longest > MaxEdge)
+                scale *= MaxEdge / longest;
+
+            int width = Math.Max(1, (int)Math.Round(area.Width * scale));
+            int height = Math.Max(1, (int)Math.Round(area.Height * scale));
+
+            return new ChangeMaskPlan(width, height, area);
+        }
+
+        /// <summary>
+        /// Compares two renders of the same rectangle, pixel by pixel.
+        /// </summary>
+        /// <remarks>
+        /// Reads the bitmaps' own memory rather than <c>SKBitmap.Bytes</c>, which
+        /// copies: at this size that would be tens of megabytes of copying for
+        /// data that is read once. The two bitmaps share a layout, whatever Skia
+        /// chose, and in every layout Skia uses the three colour bytes come first
+        /// - so "all three at 255" means white in both RGBA and BGRA without
+        /// having to know which one this is.
+        /// </remarks>
+        private static byte[] Classify(SKBitmap before, SKBitmap after, int pixelCount)
+        {
+            ReadOnlySpan<byte> oldPixels = before.GetPixelSpan();
+            ReadOnlySpan<byte> newPixels = after.GetPixelSpan();
+
+            var mask = new byte[pixelCount];
+
+            for (int i = 0, at = 0; i < pixelCount; i++, at += 4) {
+                byte oldR = oldPixels[at], oldG = oldPixels[at + 1], oldB = oldPixels[at + 2];
+                byte newR = newPixels[at], newG = newPixels[at + 1], newB = newPixels[at + 2];
+
+                if (oldR == newR && oldG == newG && oldB == newB)
+                    continue;
+
+                bool wasBlank = oldR == 255 && oldG == 255 && oldB == 255;
+                bool isBlank = newR == 255 && newG == 255 && newB == 255;
+
+                mask[i] = (byte)(wasBlank ? PixelChange.Appeared
+                               : isBlank ? PixelChange.Vanished
+                               : PixelChange.Altered);
+            }
+
+            return mask;
         }
 
         /// <summary>

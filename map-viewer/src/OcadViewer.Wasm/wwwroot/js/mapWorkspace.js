@@ -15,7 +15,8 @@
 
 import { readMap } from './projectFolder.js';
 import { createTileSource } from './mapTiles.js';
-import { createSyncedMaps } from './leafletViewport.js';
+import { createSyncedMaps, SIDES } from './leafletViewport.js';
+import { paint, showsAnything, tally } from './changeMask.js';
 
 /**
  * Builds the viewer over two elements.
@@ -29,6 +30,25 @@ export async function createWorkspace(leftEl, rightEl) {
      * change, so this survives the map itself being evicted from .NET's store and
      * re-read later. */
     const parsed = new Map();
+
+    /* The change mask for one comparison: the bytes, what they cover, and the
+     * image currently painted from them. Kept because computing it means
+     * rendering both whole maps - seconds of work - while changing which kinds
+     * of change are shown is only a repaint of these same bytes. */
+    let changes = null;
+
+    function forgetChanges() {
+        if (changes?.url) URL.revokeObjectURL(changes.url);
+        changes = null;
+    }
+
+    /** Drops any mask that was computed against this version. */
+    function invalidate(versionName) {
+        if (changes && (changes.older === versionName || changes.newer === versionName)) {
+            view.clearOverlays();
+            forgetChanges();
+        }
+    }
 
     return {
         /**
@@ -49,6 +69,10 @@ export async function createWorkspace(leftEl, rightEl) {
                     throw new Error(info.error ?? `Could not read ${versionName}.`);
 
                 parsed.set(versionName, info);
+
+                // The file on disk has just been read again, so any mask built
+                // against the old contents is describing a map that is gone.
+                invalidate(versionName);
             }
 
             const info = parsed.get(versionName);
@@ -59,11 +83,66 @@ export async function createWorkspace(leftEl, rightEl) {
             return info;
         },
 
+        /**
+         * Shows where the two versions differ, as a tinted overlay on both panes.
+         *
+         * The mask is computed once per comparison - both whole maps rendered and
+         * differenced - and then kept, so turning the filters on and off is a
+         * repaint of the same bytes with no .NET call at all.
+         *
+         * @param filters {added, deleted}; neither set means hide the overlay
+         * @returns what was drawn, for reporting: size, pixel counts, timings
+         */
+        async showChanges(olderName, newerName, filters) {
+            if (!showsAnything(filters)) {
+                view.clearOverlays();
+                if (changes?.url) { URL.revokeObjectURL(changes.url); changes.url = null; }
+                return { shown: false };
+            }
+
+            let computedMs = 0;
+
+            if (changes?.older !== olderName || changes?.newer !== newerName) {
+                forgetChanges();
+
+                const plan = tiles.planChangeMask(newerName);
+                if (!plan.ok)
+                    throw new Error(plan.error ?? `Cannot measure ${newerName}.`);
+
+                const started = performance.now();
+                const mask = tiles.renderChangeMask(olderName, newerName);
+                computedMs = performance.now() - started;
+
+                if (!mask)
+                    throw new Error('One of the two versions is no longer loaded.');
+
+                changes = { older: olderName, newer: newerName, plan, mask, url: null };
+            }
+
+            if (changes.url) URL.revokeObjectURL(changes.url);
+            changes.url = await paint(changes.mask, changes.plan.width, changes.plan.height, filters);
+
+            const bounds = {
+                minX: changes.plan.minX, minY: changes.plan.minY,
+                maxX: changes.plan.maxX, maxY: changes.plan.maxY
+            };
+            for (const side of SIDES) view.setOverlay(side, changes.url, bounds);
+
+            return {
+                shown: true,
+                width: changes.plan.width,
+                height: changes.plan.height,
+                computedMs: Math.round(computedMs),
+                counts: tally(changes.mask)
+            };
+        },
+
         showing: () => view.showing(),
 
         stats: view.stats,
 
         dispose() {
+            forgetChanges();
             view.dispose();
             for (const name of parsed.keys())
                 tiles.unload(name);

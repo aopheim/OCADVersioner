@@ -778,6 +778,44 @@ port at all. The costs are keeping the AGPL-3.0 `ocad2geojson` dependency and
 parsing every file twice, once in JS and once in C#. That is the option to weigh
 first if a working diff is wanted before the expansion is designed.
 
+### The change overlay — **DONE**, and it needs no diff
+
+What the diff was mostly wanted for — *where did this map change since last
+season* — turns out not to need a diff at all. Both versions are already drawn by
+the same renderer; rendering them over the same rectangle at the same size and
+comparing the pixels answers the question directly.
+
+`MapStore.RenderChangeMask` returns one byte per pixel: 0 unchanged, 1 appeared,
+2 vanished, 3 altered. Both versions are drawn onto opaque white, so "no ink" is
+exactly `#FFFFFF` and the direction is readable wherever one side is blank;
+where both sides have ink it can see the change but not which way, which is
+`Altered`.
+
+- **No object identity, no georeferencing, no `ocad2geojson`.** It works on maps
+  the diff could never have handled, and it reports what a person would actually
+  see as different.
+- **Exact comparison, no tolerance.** Identical geometry renders to identical
+  pixels — area-pattern phase is anchored to the map, not the tile — so there is
+  no noise to filter. The corollary is that redefining a symbol lights up every
+  object using it. Accepted deliberately; `Altered` is where that would show.
+- **One pass per comparison**, at 4 px per paper millimetre, capped at 4096 on
+  the long edge. Resolution is nearly free (the same area at 128/256/512 px took
+  389/389/435 ms — the cost is geometry, not rasterising), so the mask is sharp
+  enough to zoom into. Storigarden, 347 × 302 mm, comes out 1390 × 1210 and takes
+  **about 1.2 s on the dev build**, measured over three version pairs.
+- **The filters are free.** Added/edited and deletions are two independent
+  toggles that repaint the same bytes in JavaScript; only changing the
+  *comparison* costs another pass. Verified: four filter changes, one render.
+- **One colour, by choice.** The buttons say which kinds are showing, so the
+  picture does not have to. Note the tint currently collides with the purple
+  OCAD uses for overprint and boundaries — see the screenshots in the commit
+  that added this.
+
+What it cannot do is name an object, explain a change, or link to a table row. A
+moved object appears as vanished at the old position and appeared at the new one
+with nothing tying them together. That is the honest boundary of the technique,
+and the reason the diff above is deferred rather than cancelled.
+
 ### Stage 8 — Remaining parity — **DONE**
 
 - **Settings** — language and EPSG, persisted to `localStorage` under the same

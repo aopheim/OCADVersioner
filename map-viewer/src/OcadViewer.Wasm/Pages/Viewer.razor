@@ -57,6 +57,25 @@
                 title="@L["#_chooseOcadDirectory"]">
             <i class="bi bi-folder2-open"></i>
         </button>
+
+        @* The change overlay. Two independent filters: either, both, or neither,
+           and neither is how it goes away. Off on arrival, because building it
+           means rendering both maps in full. *@
+        <div class="vr mx-1"></div>
+        <button class="btn btn-sm @(showAdded ? "btn-primary" : "btn-outline-secondary")"
+                @onclick="ToggleAdded" disabled="@busy"
+                title="Show what was added or edited since @Comparison.Older">
+            <i class="bi bi-plus-square"></i>
+        </button>
+        <button class="btn btn-sm @(showDeleted ? "btn-primary" : "btn-outline-secondary")"
+                @onclick="ToggleDeleted" disabled="@busy"
+                title="Show what was deleted since @Comparison.Older">
+            <i class="bi bi-dash-square"></i>
+        </button>
+
+        @if (ChangedShare() is { } share) {
+            <span class="text-muted small">@share</span>
+        }
     </div>
 }
 
@@ -115,6 +134,12 @@
 
     /// <summary>Which version is being compared, 0 meaning the working file.</summary>
     private int selectedNumber;
+
+    /// <summary>Which kinds of change the overlay is showing. Both off is off.</summary>
+    private bool showAdded;
+    private bool showDeleted;
+
+    private OcadMapPair.ChangeSummary changeSummary;
 
     /// <summary>
     /// The two sides of the current comparison. Which version sits opposite which
@@ -221,6 +246,57 @@
         await mapPair.ShowAsync(MapSide.Right, older, ProjectService.IsVolatile(older));
 
         diff = await DiffSource.CompareAsync(older, newer);
+
+        // The overlay belongs to a pair of versions, so a new comparison needs a
+        // new mask. Only paid for if the user has asked to see one.
+        await ApplyChangeOverlay();
+    }
+
+    private async Task ToggleAdded()
+        => await Run("Finding changes…", async () => {
+            showAdded = !showAdded;
+            await ApplyChangeOverlay();
+        });
+
+    private async Task ToggleDeleted()
+        => await Run("Finding changes…", async () => {
+            showDeleted = !showDeleted;
+            await ApplyChangeOverlay();
+        });
+
+    /// <summary>
+    /// Brings the overlay in line with the filters and the current comparison.
+    /// </summary>
+    /// <remarks>
+    /// Cheap when both filters are off, and cheap again when only the filters
+    /// changed - the mask is kept per comparison, and switching which kinds show
+    /// repaints it without going back to the renderer.
+    /// </remarks>
+    private async Task ApplyChangeOverlay()
+    {
+        if (mapPair is null)
+            return;
+
+        (string newer, string older) = Comparison;
+
+        changeSummary = await mapPair.ShowChangesAsync(
+            older, newer, new OcadMapPair.ChangeFilters(showAdded, showDeleted));
+    }
+
+    /// <summary>How much of the map the overlay is lighting up, or null.</summary>
+    private string ChangedShare()
+    {
+        if (changeSummary is not { Shown: true, Counts: { } counts })
+            return null;
+
+        int total = counts.Unchanged + counts.Appeared + counts.Vanished + counts.Altered;
+        if (total == 0)
+            return null;
+
+        int shown = (showAdded ? counts.Appeared + counts.Altered : 0)
+                  + (showDeleted ? counts.Vanished : 0);
+
+        return $"{shown * 100.0 / total:0.0}% of the map";
     }
 
     /// <summary>Runs an action with the progress bar, busy flag and error reporting.</summary>

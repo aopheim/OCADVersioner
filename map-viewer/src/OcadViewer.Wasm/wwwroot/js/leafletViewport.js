@@ -91,6 +91,7 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
     for (const side of SIDES) resizeObserver.observe(maps[side].getContainer());
 
     const layers = { left: null, right: null };
+    const overlays = { left: null, right: null };
     let fitted = false;
 
     /* ------------------------------------------------------------- rendering */
@@ -234,17 +235,52 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             return { left: layers.left?._ocadKey ?? null, right: layers.right?._ocadKey ?? null };
         },
 
+        /**
+         * Puts an image over the map on one side, replacing any previous one.
+         *
+         * Used for the change mask. It sits above the tiles and below Leaflet's
+         * controls, and panning and zooming move it with the map for free -
+         * which is the whole reason the mask is computed once over the map's own
+         * rectangle rather than per tile.
+         *
+         * @param url an object URL; the caller keeps ownership and revokes it
+         * @param bounds {minX, minY, maxX, maxY} in paper millimetres
+         */
+        setOverlay(side, url, bounds) {
+            if (!SIDES.includes(side))
+                throw new Error(`Unknown side "${side}".`);
+
+            clearOverlay(side);
+
+            overlays[side] = L.imageOverlay(
+                url,
+                L.latLngBounds(L.latLng(bounds.minY, bounds.minX),
+                               L.latLng(bounds.maxY, bounds.maxX)),
+                { interactive: false, className: 'changeMask' }
+            ).addTo(maps[side]);
+        },
+
+        clearOverlays() {
+            for (const side of SIDES) clearOverlay(side);
+        },
+
         stats,
 
         dispose() {
             pump.dispose();
             resizeObserver.disconnect();
             for (const side of SIDES) {
+                clearOverlay(side);
                 layers[side]?.remove();
                 maps[side].remove();
             }
         }
     };
+
+    function clearOverlay(side) {
+        overlays[side]?.remove();
+        overlays[side] = null;
+    }
 
     // Debugging handle. The maps are otherwise unreachable from the console, and
     // "no tiles appeared" is almost always a view or sizing question. The probes

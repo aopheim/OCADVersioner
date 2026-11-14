@@ -99,9 +99,10 @@ public sealed class OrthogonalityTests
         ["projectFolder.js"] = [],
         ["bootstrapComponents.js"] = [],
         ["appInsights.js"] = [],
+        ["changeMask.js"] = [],
         ["mapTiles.js"] = ["dotnetExports.js"],
         ["leafletViewport.js"] = ["tilePump.js"],
-        ["mapWorkspace.js"] = ["projectFolder.js", "mapTiles.js", "leafletViewport.js"],
+        ["mapWorkspace.js"] = ["projectFolder.js", "mapTiles.js", "leafletViewport.js", "changeMask.js"],
     };
 
     [Test]
@@ -203,6 +204,43 @@ public sealed class OrthogonalityTests
             "Module-level mutable state is a singleton with no name. The tile pump used to be "
             + "exactly that - one queue, one latch and one watchdog shared by every map on the "
             + "page - which made a second viewport quietly impossible.");
+    }
+
+    [Test]
+    public void TheChangeMaskValuesMeanTheSameThingInBothLanguages()
+    {
+        Dictionary<string, int> fromCSharp = EnumValues(
+            Single(csharp, "MapStore.cs").Code, "PixelChange");
+        Dictionary<string, int> fromJs = ObjectValues(
+            Single(scripts, "changeMask.js").Code, "CHANGE");
+
+        Assert.That(fromJs, Is.EqualTo(fromCSharp),
+            "The renderer writes one byte per pixel and the painter reads it. The two ends have "
+            + "to agree on what each number means, and there is no type across that boundary to "
+            + "make them - the bytes are just bytes. Getting it wrong would not fail anywhere: "
+            + "it would quietly colour deletions as additions.");
+    }
+
+    /// <summary>Reads <c>Name = 0,</c> members out of an enum declaration.</summary>
+    private static Dictionary<string, int> EnumValues(string code, string name)
+    {
+        Match body = Regex.Match(code, @"enum\s+" + Regex.Escape(name) + @"\s*:?\s*\w*\s*\{(?<body>[^}]*)\}");
+        Assert.That(body.Success, Is.True, $"No enum {name} found.");
+
+        return Regex.Matches(body.Groups["body"].Value, @"(?<key>\w+)\s*=\s*(?<value>\d+)")
+                    .ToDictionary(m => m.Groups["key"].Value.ToLowerInvariant(),
+                                  m => int.Parse(m.Groups["value"].Value));
+    }
+
+    /// <summary>Reads <c>key: 0,</c> members out of a JavaScript object literal.</summary>
+    private static Dictionary<string, int> ObjectValues(string code, string name)
+    {
+        Match body = Regex.Match(code, Regex.Escape(name) + @"\s*=\s*\{(?<body>[^}]*)\}");
+        Assert.That(body.Success, Is.True, $"No object {name} found.");
+
+        return Regex.Matches(body.Groups["body"].Value, @"(?<key>\w+)\s*:\s*(?<value>\d+)")
+                    .ToDictionary(m => m.Groups["key"].Value.ToLowerInvariant(),
+                                  m => int.Parse(m.Groups["value"].Value));
     }
 
     /* ------------------------------------------------- contracts stated once */

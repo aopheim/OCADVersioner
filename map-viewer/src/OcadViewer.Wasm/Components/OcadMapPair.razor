@@ -34,6 +34,21 @@
         string Key, int Version, double MinX, double MinY, double MaxX, double MaxY,
         double ParseMs, string Georeference);
 
+    /// <summary>Which kinds of change the overlay shows.</summary>
+    /// <param name="Added">
+    /// Ink that appeared, and ink that changed to other ink - everything except
+    /// an outright removal.
+    /// </param>
+    /// <param name="Deleted">Ink that went back to blank paper.</param>
+    public sealed record ChangeFilters(bool Added, bool Deleted);
+
+    /// <summary>What the change overlay drew, for reporting.</summary>
+    public sealed record ChangeSummary(
+        bool Shown, int Width, int Height, double ComputedMs, ChangeCounts Counts);
+
+    /// <summary>How many pixels fell into each kind.</summary>
+    public sealed record ChangeCounts(int Unchanged, int Appeared, int Vanished, int Altered);
+
     /// <summary>
     /// Importing the module and building the workspace. Held as a task rather than
     /// a flag because a caller can arrive before it has finished.
@@ -74,6 +89,23 @@
 
         return await workspace.InvokeAsync<MapInfo>(
             "show", side.JsName(), versionName, reload);
+    }
+
+    /// <summary>
+    /// Shows where two versions differ, as a tinted overlay on both panes.
+    /// </summary>
+    /// <remarks>
+    /// The mask costs two whole-map renders, so it is computed once per
+    /// comparison and kept; changing which kinds are shown only repaints it.
+    /// Passing filters that show nothing takes the overlay away.
+    /// </remarks>
+    public async Task<ChangeSummary> ShowChangesAsync(
+        string olderVersion, string newerVersion, ChangeFilters filters)
+    {
+        await (ready ??= InitialiseAsync());
+
+        return await workspace.InvokeAsync<ChangeSummary>(
+            "showChanges", olderVersion, newerVersion, filters);
     }
 
     public async ValueTask DisposeAsync()
