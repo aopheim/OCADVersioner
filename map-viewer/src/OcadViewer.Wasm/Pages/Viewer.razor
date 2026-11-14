@@ -106,9 +106,11 @@
                 @if (IsHistory) {
                     <i class="bi bi-book fs-4 text-primary" title="Comparing two past versions"></i>
                 }
-                <span class="fw-medium">@Label(Comparison.Newer)</span>
-                <i class="bi bi-arrows"></i>
+                @* In the order the maps are in, so a glance at the heading and a
+                   glance at the panes agree. *@
                 <span class="fw-medium">@Label(Comparison.Older)</span>
+                <i class="bi bi-arrows"></i>
+                <span class="fw-medium">@Label(Comparison.Newer)</span>
             </div>
 
             <OcadMapPair @ref="mapPair" />
@@ -265,11 +267,14 @@
 
         (string newer, string older) = Comparison;
 
+        // Older on the left, newer on the right: time runs that way, and the
+        // overlay - which is painted on the newer map - then sits where the eye
+        // ends up rather than where it starts.
         OcadMapPair.MapInfo loaded = await mapPair.ShowAsync(
-            MapSide.Left, newer, ProjectService.IsVolatile(newer));
+            MapSide.Right, newer, ProjectService.IsVolatile(newer));
         georeference = loaded.Georeference;
 
-        await mapPair.ShowAsync(MapSide.Right, older, ProjectService.IsVolatile(older));
+        await mapPair.ShowAsync(MapSide.Left, older, ProjectService.IsVolatile(older));
 
         diff = await DiffSource.CompareAsync(older, newer);
 

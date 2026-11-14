@@ -45,7 +45,7 @@ export async function createWorkspace(leftEl, rightEl) {
     /**
      * Which pane is showing a version, found by name rather than by position.
      *
-     * The newer side is the left one today, and saying so here would be the
+     * The newer side is the right one today, and saying so here would be the
      * third place that knew it. Asking the viewport what it is showing keeps
      * this working if the panes are ever swapped or a third is added.
      */
