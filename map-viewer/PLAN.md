@@ -827,65 +827,6 @@ moved object appears as vanished at the old position and appeared at the new one
 with nothing tying them together. That is the honest boundary of the technique,
 and the reason the diff above is deferred rather than cancelled.
 
-### Where it changed — a list of places, not one picture
-
-The overlay answers "did anything change here" wherever you happen to be
-looking. It does not answer the question a reviewer arrives with, which is
-*what changed* — for that you have to find the tinted pixels first, and on a
-0.2 % revision they are a few specks on a sheet 347 mm across.
-
-`OcadViewer.Changes` groups the mask into places and the page lists them:
-largest first, each with its size in paper millimetres and its share of the
-change, and clicking one flies both panes to it.
-
-- **A NuGet package does the clustering, not us.** `Dbscan` (MIT, pure managed,
-  no dependencies on net6.0 and up) with `Dbscan.RBush` for the spatial index.
-  The OpenCvSharp and AForge style of connected-component labelling was the
-  obvious alternative and is unusable here: both carry a native or
-  `System.Drawing` dependency, and a WebAssembly build can take neither.
-- **The R-tree index is not optional.** The package's default searches every
-  point against every other. An ordinary revision is a few hundred cells and
-  would not notice; comparing a map with an unrelated one — which users do by
-  accident — produces tens of thousands, and that is minutes. There is a test
-  with a 1.44-megapixel mask, a fifth of it changed, that fails if the index
-  stops being a spatial one.
-- **Clustering runs on millimetre cells, not pixels.** A whole-map comparison
-  changes hundreds of thousands of pixels and nothing is learnt by treating
-  each as a point. Each cell keeps the exact pixel box it covered, so a region
-  still reports a tight rectangle and not one rounded out to the grid.
-- **Every parameter is in millimetres of paper**, so the answers do not move
-  when the mask is computed at a different resolution — which it is, since a
-  large map is scaled down to fit the 4096-pixel cap.
-- **The defaults were measured, not guessed.** A 2 mm gap with a minimum of 4
-  cells, and a place has to hold 1 % of the change to be listed. Every part of
-  that was argued with by the data: at a 3 or 4 mm gap, a storigarden release
-  compared with one three releases older came back as *one* region 65 × 34 mm
-  covering three squares the mapper had worked in separately. Dropping the
-  density minimum to 1 did the same thing at 2 mm — a thread of antialiasing
-  along barely-moved lines chains distant places together, and refusing to let
-  sparse cells extend a region is the part of density clustering that plain
-  "join up whatever touches" does not have. With the minimum restored the same
-  comparison came back as 53 regions, of which 52 were specks of a square
-  millimetre, which is where the 1 % floor came from.
-- **The floor is a share, not a size, and it is never silent.** When one
-  clearing was redrawn, the pixels that shifted along nearby lines are not
-  places to visit; when three small symbols moved and nothing else, each is a
-  third of everything that happened and all three belong in the list. Whatever
-  is left out is counted and said out loud — "2 places changed, and 2053 too
-  small to list" — because a list that quietly stopped short would be read as
-  everything.
-- **`IChangeGrouper` is the seam.** The grouping is a choice, not a fact:
-  connected components, a quadtree, or a real object-level diff would each give
-  a different and defensible list for the same mask. `ChangeGroupers` is the
-  one place that picks one, `DbscanChangeGrouper` the one place that names a
-  library, and an architecture test fails if either name appears anywhere else.
-  The grouping tests are written against the interface, so a replacement has to
-  satisfy the same list to take its place.
-- **The page asks by rank, not by rectangle.** It is showing a list it was
-  given; sending the rank back means the rectangle is read from the one copy of
-  the grouping, so a rank left over from another comparison frames nothing
-  instead of framing the wrong place.
-
 ### Stage 8 — Remaining parity — **DONE**
 
 - **Settings** — language and EPSG, persisted to `localStorage` under the same
@@ -1001,28 +942,20 @@ An adversarial review of this branch found the dependency direction sound and th
 orthogonality poor, concentrated almost entirely in one place. What follows is
 what the shape is now, and what enforces it.
 
-**Projects.** One chain pointing inward, plus two domain projects that depend on
-nothing of ours:
+**Projects.** One chain pointing inward, plus a domain project that depends on
+nothing:
 
 ```
 Graphics2D ← MapModel ← Map_SkiaStd ← OcadViewer.Core ← RenderCli
                                            ↑
-                                     OcadViewer.Wasm ← ArchitectureTests
-                                        ↙       ↘
-                    OcadViewer.Versioning       OcadViewer.Changes
+                   OcadViewer.Versioning ← OcadViewer.Wasm ← ArchitectureTests
 ```
 
-`OcadViewer.Versioning` holds what a release is called, what its metadata looks
-like on disk and which version compares against which — rules that are a
-contract with the Angular app, and that previously lived in a Razor page, a
+`OcadViewer.Versioning` is new. It holds what a release is called, what its
+metadata looks like on disk and which version compares against which — rules that
+are a contract with the Angular app, and that previously lived in a Razor page, a
 service that needed a browser, and a JavaScript module, in two languages. Having
 them in one dependency-free project is what makes them testable at all.
-
-`OcadViewer.Changes` turns a change mask into a list of places. It is the only
-project with a third-party algorithm in it, behind `IChangeGrouper`, and it
-knows nothing about maps, renderers or panes — a reference to `OcadViewer.Core`
-would be the first step to it learning which pane the overlay is drawn on. The
-architecture tests fail on one.
 
 **Modules.** The JavaScript has the same shape, which the compiler cannot check:
 
@@ -1051,26 +984,21 @@ JavaScript, marshalled into .NET, handed back out to JavaScript and marshalled i
 again — for data the page never looked at. The workspace reads and parses them
 without C# ever seeing them.
 
-**What the tests enforce** (`tests/OcadViewer.ArchitectureTests`, 75 of them):
+**What the tests enforce** (`tests/OcadViewer.ArchitectureTests`, 58 of them):
 
-- the allowed project-reference table, that the graph is acyclic, that neither domain
-  project depends on anything of ours, that only the browser host references browser
+- the allowed project-reference table, that the graph is acyclic, that the domain
+  project depends on nothing, that only the browser host references browser
   packages, and that no vendored wrapper depends on our code;
 - the same, read from the compiled assemblies' metadata rather than the project
   files, so a dependency arriving transitively is caught too;
 - the allowed JavaScript import graph, that only one module knows there is a .NET
   runtime, that only one touches the File System Access API, and that no module
   keeps coordination state at module scope;
-- that only `OcadViewer.Changes` names a clustering library, so the grouping
-  stays something a caller asks for rather than something it is given;
 - that each decision stated once stays stated once: the release-naming rule, the
   JSON shape shared with Angular, the JS teardown idiom, the language
   subscription, the pane names;
 - the project-folder rules themselves, including that timestamps are written the
-  way the browser writes them, and what grouping a change mask has to answer -
-  written against `IChangeGrouper`, so a different algorithm has to satisfy the
-  same list, and including a 1.44-megapixel mask that catches the clustering
-  losing its spatial index.
+  way the browser writes them.
 
 The assemblies are read with `System.Reflection.Metadata` and never loaded, which
 also keeps the suite runnable where policy refuses unsigned binaries.

@@ -6,11 +6,10 @@
     than about what it computes. They exist because every rule in the review that
     had no test had already been broken somewhere.
 
-    It deliberately references only the two projects that depend on nothing of
-    ours, OcadViewer.Versioning and OcadViewer.Changes, whose rules it also tests
-    directly. The vendored assemblies are never loaded: the dependency tests read
-    assembly metadata with System.Reflection.Metadata instead, which also means
-    the suite runs on a machine whose policy refuses to load unsigned binaries.
+    It deliberately references only OcadViewer.Versioning. The vendored assemblies
+    are never loaded: the dependency tests read assembly metadata with
+    System.Reflection.Metadata instead, which also means the suite runs on a
+    machine whose policy refuses to load unsigned binaries.
   -->
 
   <PropertyGroup>
@@ -28,8 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/OcadViewer.Changes/OcadViewer.Changes.csproj" />
-    <ProjectReference Include="../../src/OcadViewer.Versioning/OcadViewer.Versioning.csproj" />
+    <ProjectReference Include="..\..\src\OcadViewer.Versioning\OcadViewer.Versioning.csproj" />
   </ItemGroup>
 
 </Project>

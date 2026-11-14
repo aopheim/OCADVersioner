@@ -220,23 +220,6 @@ public sealed class OrthogonalityTests
             + "each filter showed, and a copy of their numbers with no type to keep it honest.");
     }
 
-    [Test]
-    public void OnlyTheGroupingProjectNamesTheClusteringLibrary()
-    {
-        // No closing word boundary: the name appears both as the namespace and
-        // inside DbscanChangeGrouper, and a rule that only caught the import
-        // would have let the type itself be constructed anywhere.
-        IReadOnlyList<SourceFile> offenders = Matching(all, @"\bdbscan", RegexOptions.IgnoreCase);
-
-        Assert.That(NamesOf(offenders),
-            Is.EquivalentTo(new[] { "ChangeGroupers.cs", "DbscanChangeGrouper.cs" }),
-            "Which algorithm turns changed pixels into a list of places is a decision, not a "
-            + "fact: connected components, a quadtree or a real object-level diff would each "
-            + "give a different and defensible answer. The adapter implements one, "
-            + "ChangeGroupers picks it, and everything else - the interop, the workspace, the "
-            + "page - is written against IChangeGrouper and cannot tell which it got.");
-    }
-
     /* ------------------------------------------------- contracts stated once */
 
     [Test]

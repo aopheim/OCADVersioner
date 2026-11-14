@@ -20,18 +20,6 @@
     <PackageVersion Include="System.Text.Encoding.CodePages" Version="10.0.8" />
 
     <!--
-    Grouping changed pixels into regions. Pure managed, no dependencies on net6.0
-    and up, MIT licensed. Chosen over the OpenCvSharp / AForge style of
-    connected-component labelling because those carry a native or System.Drawing
-    dependency, and a WebAssembly build can take neither.
-    -->
-    <PackageVersion Include="Dbscan" Version="3.0.0" />
-    <!-- The R-tree index for it. The default index searches every point against
-         every other, which the degenerate case here reaches: a map compared with
-         an unrelated one lights up tens of thousands of cells. -->
-    <PackageVersion Include="Dbscan.RBush" Version="3.0.0" />
-
-    <!--
     Do not upgrade ImageSharp past 2.1.3. Later versions carry the Six Labors Split
     License; 2.1.3 is the last Apache-2.0 release. The known advisories only apply
     when decoding untrusted images, which this app does not do - it decodes bitmap

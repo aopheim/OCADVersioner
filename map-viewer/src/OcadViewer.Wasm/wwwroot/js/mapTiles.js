@@ -1,8 +1,8 @@
 /* Maps and tiles from the .NET renderer, addressed by name.
  *
  * This is the ONLY module that reaches into .NET. Everything above it - the
- * Leaflet viewport, the pump - is handed a plain object with these methods and
- * has no idea what is behind them. That boundary is enforced by
+ * Leaflet viewport, the pump - is handed a plain object with these four methods
+ * and has no idea what is behind them. That boundary is enforced by
  * OcadViewer.ArchitectureTests; before it existed the Leaflet module imported the
  * runtime directly and could not be loaded, tested or reused without Blazor.
  */
@@ -66,21 +66,6 @@ export async function createTileSource() {
          */
         renderChangeMask(olderKey, newerKey) {
             return interop.RenderChangeMask(olderKey, newerKey);
-        },
-
-        /**
-         * The places that mask is pointing at, largest first.
-         *
-         * The mask goes back across the boundary because grouping needs the
-         * same bytes, and the alternatives - rendering both maps again, or
-         * keeping a second copy of the mask on the .NET side - cost more.
-         *
-         * @returns {regions: [{rank, area, pixels}], changedPixels, totalPixels,
-         *          bounds} with every rectangle in paper millimetres
-         */
-        groupChanges(mask, width, height, minX, minY, maxX, maxY) {
-            return JSON.parse(
-                interop.GroupChanges(mask, width, height, minX, minY, maxX, maxY));
         }
     };
 }

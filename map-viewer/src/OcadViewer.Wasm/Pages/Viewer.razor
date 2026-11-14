@@ -68,8 +68,8 @@
         </button>
 
         <button class="btn btn-outline-secondary btn-sm" @onclick="ZoomToChanges"
-                disabled="@(busy || changeSummary is not { Shown: true, Regions.Count: > 0 })"
-                title="Zoom out to every place that changed">
+                disabled="@(busy || changeSummary is not { Shown: true, ShownPixels: > 0 })"
+                title="Zoom to what the overlay is showing">
             <i class="bi bi-crosshair"></i>
         </button>
 
@@ -89,25 +89,13 @@
             <VersionList Items="VersionItems()" SelectedNumber="selectedNumber"
                          OnSelected="SelectVersion" />
 
-            @* Directly under the versions, above the create form: this is the
-               thing you work from while reviewing a revision, and below the
-               form it was off the bottom of the screen. *@
-            @if (showChanges && changeSummary is { Regions.Count: > 0 } found) {
-                <ChangeRegionList Regions="found.Regions"
-                                  ChangedPixels="found.ShownPixels"
-                                  SmallerRegions="found.SmallerRegions"
-                                  SelectedRank="selectedRank"
-                                  Busy="busy"
-                                  OnSelected="ZoomToRegion" />
-            }
-
             <CreateVersionForm @ref="versionForm"
                                FileName="@Project.Project.CurrentFileName"
                                NextVersionName="@Project.NextVersionName()"
                                Busy="busy"
                                OnCreate="CreateVersion" />
-
         </div>
+
         <div class="col-md-10">
             <div class="d-flex justify-content-center align-items-center gap-3 mb-1">
                 @if (IsHistory) {
@@ -151,9 +139,6 @@
     private bool showChanges;
 
     private OcadMapPair.ChangeSummary changeSummary;
-
-    /// <summary>Which place the maps are framed on, 0 for none of them.</summary>
-    private int selectedRank;
 
     /// <summary>
     /// The two sides of the current comparison. Which version sits opposite which
@@ -288,31 +273,11 @@
         (string newer, string older) = Comparison;
 
         changeSummary = await mapPair.ShowChangesAsync(older, newer, showChanges);
-
-        // A rank only means something inside one comparison, and the overlay has
-        // just been rebuilt or dropped.
-        selectedRank = 0;
     }
 
-    /// <summary>Frames every place the overlay is pointing at.</summary>
+    /// <summary>Frames whatever the overlay is showing, however small it is.</summary>
     private async Task ZoomToChanges()
-        => await Run("Zooming…", async () => {
-            selectedRank = 0;
-            await mapPair.ZoomToChangesAsync();
-        });
-
-    /// <summary>Frames one of those places.</summary>
-    /// <remarks>
-    /// The rank goes back, not the rectangle. The page is showing a list it was
-    /// given; asking by rank means the rectangle is read from the one copy of
-    /// the grouping, so a rank left over from another comparison frames nothing
-    /// rather than framing the wrong place.
-    /// </remarks>
-    private async Task ZoomToRegion(int rank)
-        => await Run("Zooming…", async () => {
-            selectedRank = rank;
-            await mapPair.ZoomToRegionAsync(rank);
-        });
+        => await Run("Zooming…", async () => await mapPair.ZoomToChangesAsync());
 
     /// <summary>
     /// How much of the map the overlay is lighting up, or null.

@@ -2,7 +2,6 @@ using System.Runtime.InteropServices.JavaScript;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-using OcadViewer.Changes;
 using OcadViewer.Core;
 
 using PurplePen.MapModel;
@@ -10,8 +9,7 @@ using PurplePen.MapModel;
 namespace OcadViewer.Wasm;
 
 /// <summary>
-/// The JavaScript face of <see cref="MapStore"/> and the change grouping: hold
-/// maps by name, draw tiles, say where two versions differ.
+/// The JavaScript face of <see cref="MapStore"/>: hold maps by name, draw tiles.
 /// </summary>
 /// <remarks>
 /// A marshalling shim and nothing else. Everything it used to decide - which map
@@ -140,31 +138,6 @@ public static partial class TileInterop
     internal static byte[] RenderChangeMask(string olderKey, string newerKey)
         => Store.RenderChangeMask(olderKey, newerKey);
 
-    /// <summary>
-    /// The places a change mask is pointing at, largest first.
-    /// </summary>
-    /// <remarks>
-    /// The mask comes back in because the caller already has it. Grouping needs
-    /// the same bytes <see cref="RenderChangeMask"/> just produced, and the two
-    /// honest alternatives are worse: rendering both whole maps a second time
-    /// costs seconds, and keeping the mask on this side would be a second cache
-    /// of it, to go stale against the one the caller keeps for painting. One
-    /// byte per pixel crossing once per comparison is the cheap option here.
-    ///
-    /// <para>No <c>ok</c> flag, unlike the calls around it. A map that will not
-    /// open is an ordinary thing for a user to have; a mask that does not match
-    /// its own dimensions is a bug, and should arrive as one.</para>
-    /// </remarks>
-    [JSExport]
-    internal static string GroupChanges(byte[] mask, int width, int height,
-                                        double minX, double minY, double maxX, double maxY)
-    {
-        ChangeGrouping found = ChangeGroupers.Default.Group(
-            new ChangeMask(mask, width, height, new PaperRectangle(minX, minY, maxX, maxY)));
-
-        return JsonSerializer.Serialize(found, TileInteropJson.Default.ChangeGrouping);
-    }
-
     private static string Write(MapLoadResult result)
         => JsonSerializer.Serialize(result, TileInteropJson.Default.MapLoadResult);
 }
@@ -215,7 +188,6 @@ internal sealed record MapLoadResult
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(MapLoadResult))]
 [JsonSerializable(typeof(ChangeMaskInfo))]
-[JsonSerializable(typeof(ChangeGrouping))]
 internal sealed partial class TileInteropJson : JsonSerializerContext
 {
 }
