@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Turning a change mask into a list of places that changed.
+
+    A mask is a raster: one byte per pixel, zero meaning nothing changed there.
+    That answers "how much changed" but not "where", and a mapper reviewing a
+    revision wants the second question - a handful of spots to visit, not a
+    percentage.
+
+    The grouping is pure geometry. It knows nothing about maps, renderers,
+    Leaflet or the browser, so it depends on nothing but the clustering package
+    and is tested as a function of its inputs.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The only third-party code in here, and the only file allowed to name it
+         is the adapter behind IChangeGrouper. -->
+    <PackageReference Include="Dbscan" />
+    <PackageReference Include="Dbscan.RBush" />
+  </ItemGroup>
+
+</Project>

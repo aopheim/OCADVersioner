@@ -1,14 +1,17 @@
-/* Turning a change mask into something a map can show.
+/* Colouring a change mask.
  *
  * The mask is one byte per pixel, straight from the renderer: zero where the
- * two versions agree, non-zero where they do not. This module only colours it.
+ * two versions agree, non-zero where they do not. This module only paints it.
  * It knows nothing about .NET, Leaflet or project versions.
  *
- * Note what it does NOT know: the renderer classifies each changed pixel as
- * appeared, vanished or altered, and nothing here reads that. The overlay is a
- * single question - did this change - so the vocabulary stays on the side that
- * can actually answer it, and the contract across the boundary is just "zero
- * means unchanged".
+ * Note what it does NOT know. The renderer classifies each changed pixel as
+ * appeared, vanished or altered, and nothing here reads that: the overlay asks
+ * a single question - did this change - so the vocabulary stays on the side
+ * that can answer it. It does not count the changed pixels or work out where
+ * they are, either. Both of those are measurements of the same bytes, and the
+ * side that already walks them pixel by pixel reports them in the same pass.
+ * What is left is the one thing a browser can do and .NET cannot: make a
+ * picture the page can hang on a map.
  */
 
 /* Crimson, and the hue is not a matter of taste. An orienteering map already
@@ -47,43 +50,4 @@ export async function paint(mask, width, height) {
     // image is tens of megabytes of string, built and parsed for nothing.
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     return URL.createObjectURL(blob);
-}
-
-/**
- * How much of the map changed.
- * @returns {{shown: number, total: number}} in pixels
- */
-export function coverage(mask) {
-    let shown = 0;
-
-    for (let i = 0; i < mask.length; i++)
-        if (mask[i]) shown++;
-
-    return { shown, total: mask.length };
-}
-
-/**
- * The smallest rectangle holding every change.
- *
- * In mask pixels, with y running downwards from the top of the mask - the
- * caller turns that into whatever coordinates it works in. Null when nothing
- * changed.
- *
- * @returns {{left: number, top: number, right: number, bottom: number}|null}
- */
-export function boundsOf(mask, width, height) {
-    let left = width, top = height, right = -1, bottom = -1;
-
-    for (let y = 0, i = 0; y < height; y++) {
-        for (let x = 0; x < width; x++, i++) {
-            if (!mask[i]) continue;
-
-            if (x < left) left = x;
-            if (x > right) right = x;
-            if (y < top) top = y;
-            if (y > bottom) bottom = y;
-        }
-    }
-
-    return right < 0 ? null : { left, top, right, bottom };
 }

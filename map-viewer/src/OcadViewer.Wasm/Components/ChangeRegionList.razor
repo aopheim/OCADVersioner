@@ -1,0 +1,78 @@
+@using OcadViewer.Changes
+
+@*
+    The places that changed, down the left side under the versions.
+
+    The overlay answers "did anything change here" wherever you happen to be
+    looking. This answers the question you actually arrive with - what changed -
+    by naming the places and taking you to them, which is the difference between
+    a picture and a review.
+*@
+
+<div class="mt-2">
+    <div class="small text-muted mb-1">
+        @Regions.Count @(Regions.Count == 1 ? "place" : "places") changed@(Rest())
+    </div>
+
+    <div class="list-group">
+        @foreach (ChangeRegion region in Regions) {
+            <button type="button"
+                    class="list-group-item list-group-item-action py-1 @(region.Rank == SelectedRank ? "active" : "")"
+                    @onclick="() => OnSelected.InvokeAsync(region.Rank)"
+                    disabled="@Busy"
+                    title="@Position(region)">
+                <div class="d-flex w-100 justify-content-between align-items-center">
+                    <span class="small">
+                        <i class="bi bi-bounding-box-circles me-1"></i>@Size(region)
+                    </span>
+                    <small class="ms-2 flex-shrink-0">@Share(region)</small>
+                </div>
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<ChangeRegion> Regions { get; set; } = [];
+
+    /// <summary>Every changed pixel, so a region can say how much of the change it is.</summary>
+    [Parameter] public int ChangedPixels { get; set; }
+
+    /// <summary>The region currently framed, or 0 for none.</summary>
+    [Parameter] public int SelectedRank { get; set; }
+
+    [Parameter] public bool Busy { get; set; }
+
+    /// <summary>
+    /// How many places were too small to be worth listing, if any.
+    /// </summary>
+    /// <remarks>
+    /// Said out loud, because a list that quietly stopped short would have a
+    /// mapper believing they had seen everything. The overlay still shows them.
+    /// </remarks>
+    [Parameter] public int SmallerRegions { get; set; }
+
+    [Parameter] public EventCallback<int> OnSelected { get; set; }
+
+    private string Rest()
+        => SmallerRegions > 0 ? $", and {SmallerRegions} too small to list" : string.Empty;
+
+    /// <summary>
+    /// How big the place is, in millimetres of paper.
+    /// </summary>
+    /// <remarks>
+    /// Millimetres and not pixels: the mask's resolution is an implementation
+    /// detail that changes with the size of the map, while a mapper reading
+    /// "2 x 3 mm" knows at once whether that is one symbol or a whole clearing.
+    /// Rounded up, so nothing reads as 0 x 0.
+    /// </remarks>
+    private static string Size(ChangeRegion region)
+        => $"{Math.Ceiling(region.Area.Width):0} x {Math.Ceiling(region.Area.Height):0} mm";
+
+    /// <summary>How much of everything that changed is in this one place.</summary>
+    private string Share(ChangeRegion region)
+        => ChangedPixels > 0 ? $"{region.Pixels * 100.0 / ChangedPixels:0}%" : string.Empty;
+
+    private static string Position(ChangeRegion region)
+        => $"{region.Area.MinX:0} mm across, {region.Area.MinY:0} mm up the sheet";
+}

@@ -9,13 +9,15 @@ namespace OcadViewer.ArchitectureTests;
 /// </summary>
 /// <remarks>
 /// The intended shape is a single chain pointing inward, from the hosts to the
-/// vendored renderer, with a domain project hanging off the side that depends on
-/// nothing:
+/// vendored renderer, with two domain projects hanging off the side that depend on
+/// nothing of ours:
 ///
 /// <code>
 ///   Graphics2D ← MapModel ← Map_SkiaStd ← OcadViewer.Core ← RenderCli
 ///                                              ↑
-///                      OcadViewer.Versioning ← OcadViewer.Wasm
+///                                        OcadViewer.Wasm
+///                                            ↙       ↘
+///                        OcadViewer.Versioning       OcadViewer.Changes
 /// </code>
 ///
 /// That was true when these tests were written, and the only thing keeping it
@@ -37,9 +39,10 @@ public sealed class ProjectDependencyTests
         ["Map_SkiaStd"] = ["Graphics2D", "MapModel"],
         ["OcadViewer.Core"] = ["Map_SkiaStd"],
         ["OcadViewer.Versioning"] = [],
+        ["OcadViewer.Changes"] = [],
         ["OcadViewer.RenderCli"] = ["OcadViewer.Core"],
-        ["OcadViewer.Wasm"] = ["OcadViewer.Core", "OcadViewer.Versioning"],
-        ["OcadViewer.ArchitectureTests"] = ["OcadViewer.Versioning"],
+        ["OcadViewer.Wasm"] = ["OcadViewer.Core", "OcadViewer.Versioning", "OcadViewer.Changes"],
+        ["OcadViewer.ArchitectureTests"] = ["OcadViewer.Versioning", "OcadViewer.Changes"],
     };
 
     /// <summary>Packages that only a UI host has any business referencing.</summary>
@@ -132,6 +135,17 @@ public sealed class ProjectDependencyTests
             Assert.That(versioning.PackageReferences, Is.Empty,
                 "Not even a package. Its only dependency is the framework.");
         });
+    }
+
+    [Test]
+    public void TheGroupingProjectKnowsNothingOfTheRestOfTheSolution()
+    {
+        Project changes = Find("OcadViewer.Changes");
+
+        Assert.That(changes.ProjectReferences, Is.Empty,
+            "OcadViewer.Changes turns a raster into a list of rectangles. A reference to "
+            + "OcadViewer.Core would mean it had learnt what a map is, and the next thing it "
+            + "learnt would be which pane the overlay is drawn on.");
     }
 
     [Test]

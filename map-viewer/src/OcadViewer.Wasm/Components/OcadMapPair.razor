@@ -1,3 +1,4 @@
+@using OcadViewer.Changes
 @using OcadViewer.Wasm.Services
 @implements IAsyncDisposable
 @inject IJSRuntime JS
@@ -42,12 +43,20 @@
     /// where the mask is, rather than handed over as a tally for the page to
     /// add up.
     /// </param>
+    /// <param name="Regions">
+    /// The places that changed, largest first, in paper millimetres - the same
+    /// <see cref="ChangeRegion"/> the grouping produced, carried across
+    /// unchanged rather than copied into a shape of this component's own.
+    /// </param>
+    /// <param name="SmallerRegions">
+    /// How many places the grouping found but left out of the list for being
+    /// too small a share of the change. Shown, so the list never looks complete
+    /// when it is not.
+    /// </param>
     public sealed record ChangeSummary(
-        bool Shown, int Width, int Height, double ComputedMs,
-        int ShownPixels, int TotalPixels);
-
-    /// <summary>A rectangle of the map, in paper millimetres.</summary>
-    public sealed record PaperArea(double MinX, double MinY, double MaxX, double MaxY);
+        bool Shown, int Width, int Height, double ComputedMs, double GroupedMs,
+        int ShownPixels, int TotalPixels,
+        IReadOnlyList<ChangeRegion> Regions, int SmallerRegions);
 
     /// <summary>
     /// Importing the module and building the workspace. Held as a task rather than
@@ -92,12 +101,13 @@
     }
 
     /// <summary>
-    /// Shows where two versions differ, as a tinted overlay on the newer one.
+    /// Shows where two versions differ, as a tinted overlay on the newer one,
+    /// and lists the places it is pointing at.
     /// </summary>
     /// <remarks>
-    /// The mask costs two whole-map renders, so it is computed once per
-    /// comparison and kept, image and all - turning the overlay off and on
-    /// again is free.
+    /// The work costs two whole-map renders, so it is done once per comparison
+    /// and kept, picture and region list and all - turning the overlay off and
+    /// on again is free.
     /// </remarks>
     public async Task<ChangeSummary> ShowChangesAsync(
         string olderVersion, string newerVersion, bool show)
@@ -109,15 +119,33 @@
     }
 
     /// <summary>
-    /// Moves both panes to frame everything the overlay is currently showing.
+    /// Moves both panes to frame everything the overlay is pointing at.
     /// </summary>
-    /// <returns>The framed rectangle, or null if nothing is shown.</returns>
-    public async Task<PaperArea> ZoomToChangesAsync()
+    /// <returns>The framed rectangle, or null if there is nothing to frame.</returns>
+    public async Task<PaperRectangle> ZoomToChangesAsync()
     {
         if (workspace is null)
             return null;
 
-        return await workspace.InvokeAsync<PaperArea>("zoomToChanges");
+        return await workspace.InvokeAsync<PaperRectangle>("zoomToChanges");
+    }
+
+    /// <summary>
+    /// Moves both panes to frame one of the places that changed.
+    /// </summary>
+    /// <param name="rank">As the region reported it; 1 is the largest.</param>
+    /// <remarks>
+    /// By rank and not by rectangle. The page picks a region out of a list it
+    /// was given, and sending the rank back means the rectangle is read from
+    /// the one copy of the grouping, where a rectangle passed down and back
+    /// could disagree with it after the comparison changed.
+    /// </remarks>
+    public async Task<PaperRectangle> ZoomToRegionAsync(int rank)
+    {
+        if (workspace is null)
+            return null;
+
+        return await workspace.InvokeAsync<PaperRectangle>("zoomToRegion", rank);
     }
 
     public async ValueTask DisposeAsync()

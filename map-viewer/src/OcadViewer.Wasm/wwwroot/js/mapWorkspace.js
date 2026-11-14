@@ -16,7 +16,7 @@
 import { readMap } from './projectFolder.js';
 import { createTileSource } from './mapTiles.js';
 import { createSyncedMaps } from './leafletViewport.js';
-import { paint, coverage, boundsOf } from './changeMask.js';
+import { paint } from './changeMask.js';
 
 /**
  * Builds the viewer over two elements.
@@ -31,10 +31,11 @@ export async function createWorkspace(leftEl, rightEl) {
      * re-read later. */
     const parsed = new Map();
 
-    /* The change mask for one comparison: the bytes, what they cover, and the
-     * image currently painted from them. Kept because computing it means
-     * rendering both whole maps - seconds of work - while changing which kinds
-     * of change are shown is only a repaint of these same bytes. */
+    /* What one comparison came to: the plan it was computed under, what the
+     * grouping found, and the image hanging on the map. Kept because getting
+     * here means rendering both whole maps and differencing them - seconds of
+     * work - while turning the overlay off and on, or walking the region list,
+     * is free from this. The mask itself is not kept; see showChanges. */
     let changes = null;
 
     function forgetChanges() {
@@ -60,6 +61,24 @@ export async function createWorkspace(leftEl, rightEl) {
             view.clearOverlays();
             forgetChanges();
         }
+    }
+
+    /**
+     * Puts a rectangle of paper on screen, with room around it.
+     *
+     * Zooming to everything and zooming to one place differ in which rectangle
+     * they ask for and nothing else, so the asking is written once.
+     */
+    function frame(area, paddingMm) {
+        if (!area) return null;
+
+        const padded = {
+            minX: area.minX - paddingMm, minY: area.minY - paddingMm,
+            maxX: area.maxX + paddingMm, maxY: area.maxY + paddingMm
+        };
+
+        view.fitTo(padded);
+        return padded;
     }
 
     return {
@@ -102,11 +121,12 @@ export async function createWorkspace(leftEl, rightEl) {
          * this is what was done to it - and tinting the older one as well
          * covered the very pixels you turn to it to see.
          *
-         * The mask is computed once per comparison, both whole maps rendered and
-         * differenced, and then kept with the image painted from it. Turning the
-         * overlay off and on again costs nothing.
+         * Computed once per comparison: both whole maps rendered, differenced,
+         * grouped into places, and the picture painted. Turning the overlay off
+         * and on again costs nothing, and neither does the region list.
          *
-         * @returns what was drawn, for reporting: size, pixel counts, timings
+         * @returns what was drawn and found, for reporting and for the list of
+         *          places: size, pixel counts, timings, regions
          */
         async showChanges(olderName, newerName, show) {
             if (!show) {
@@ -115,6 +135,7 @@ export async function createWorkspace(leftEl, rightEl) {
             }
 
             let computedMs = 0;
+            let groupedMs = 0;
 
             if (changes?.older !== olderName || changes?.newer !== newerName) {
                 forgetChanges();
@@ -130,8 +151,17 @@ export async function createWorkspace(leftEl, rightEl) {
                 if (!mask)
                     throw new Error('One of the two versions is no longer loaded.');
 
+                const grouping = performance.now();
+                const found = tiles.groupChanges(
+                    mask, plan.width, plan.height,
+                    plan.minX, plan.minY, plan.maxX, plan.maxY);
+                groupedMs = performance.now() - grouping;
+
+                // The mask itself is not kept. Everything anything above here
+                // asks of it - how much changed, where, and what it looks like -
+                // has now been answered, and it is a megabyte per comparison.
                 changes = {
-                    older: olderName, newer: newerName, plan, mask,
+                    older: olderName, newer: newerName, plan, found,
                     url: await paint(mask, plan.width, plan.height)
                 };
             }
@@ -146,15 +176,16 @@ export async function createWorkspace(leftEl, rightEl) {
                 maxX: changes.plan.maxX, maxY: changes.plan.maxY
             });
 
-            const { shown, total } = coverage(changes.mask);
-
             return {
                 shown: true,
                 width: changes.plan.width,
                 height: changes.plan.height,
                 computedMs: Math.round(computedMs),
-                shownPixels: shown,
-                totalPixels: total
+                groupedMs: Math.round(groupedMs),
+                shownPixels: changes.found.changedPixels,
+                smallerRegions: changes.found.smallerRegions,
+                totalPixels: changes.found.totalPixels,
+                regions: changes.found.regions
             };
         },
 
@@ -162,35 +193,30 @@ export async function createWorkspace(leftEl, rightEl) {
          * Moves both panes to frame every change.
          *
          * A small revision is a few specks on a whole map - correct, and almost
-         * impossible to find by eye. The mask already knows where they are.
+         * impossible to find by eye. The grouping already knows where they are.
          *
          * @param paddingMm breathing room around the changes
          * @returns the framed rectangle in paper millimetres, or null if there
          *          is nothing to frame
          */
         zoomToChanges(paddingMm = 12) {
-            if (!changes?.mask)
-                return null;
+            return frame(changes?.found?.bounds, paddingMm);
+        },
 
-            const { width, height, minX, minY, maxX, maxY } = changes.plan;
-            const box = boundsOf(changes.mask, width, height);
-            if (!box) return null;
+        /**
+         * Moves both panes to frame one of the places that changed.
+         *
+         * @param rank as the region reported it, 1 for the largest
+         * @param paddingMm breathing room; less than for the whole set, because
+         *                  this is deliberately a close look
+         * @returns the framed rectangle in paper millimetres, or null if there
+         *          is no region with that rank
+         */
+        zoomToRegion(rank, paddingMm = 6) {
+            const region = changes?.found?.regions
+                ?.find(candidate => candidate.rank === rank);
 
-            // Mask pixels to paper millimetres. The mask covers the map's own
-            // rectangle exactly, and its rows run downwards while paper Y runs
-            // up, which is the only subtlety here.
-            const x = px => minX + (px / width) * (maxX - minX);
-            const y = py => maxY - (py / height) * (maxY - minY);
-
-            const area = {
-                minX: x(box.left) - paddingMm,
-                maxX: x(box.right + 1) + paddingMm,
-                minY: y(box.bottom + 1) - paddingMm,
-                maxY: y(box.top) + paddingMm
-            };
-
-            view.fitTo(area);
-            return area;
+            return frame(region?.area, paddingMm);
         },
 
         showing: () => view.showing(),
