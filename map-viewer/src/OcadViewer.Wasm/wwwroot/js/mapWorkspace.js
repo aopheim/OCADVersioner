@@ -16,7 +16,7 @@
 import { readMap } from './projectFolder.js';
 import { createTileSource } from './mapTiles.js';
 import { createSyncedMaps, SIDES } from './leafletViewport.js';
-import { paint, showsAnything, tally } from './changeMask.js';
+import { paint, showsAnything, coverage, boundsOf } from './changeMask.js';
 
 /**
  * Builds the viewer over two elements.
@@ -120,6 +120,7 @@ export async function createWorkspace(leftEl, rightEl) {
             }
 
             if (changes.url) URL.revokeObjectURL(changes.url);
+            changes.filters = filters;
             changes.url = await paint(changes.mask, changes.plan.width, changes.plan.height, filters);
 
             const bounds = {
@@ -128,13 +129,51 @@ export async function createWorkspace(leftEl, rightEl) {
             };
             for (const side of SIDES) view.setOverlay(side, changes.url, bounds);
 
+            const { shown, total } = coverage(changes.mask, filters);
+
             return {
                 shown: true,
                 width: changes.plan.width,
                 height: changes.plan.height,
                 computedMs: Math.round(computedMs),
-                counts: tally(changes.mask)
+                shownPixels: shown,
+                totalPixels: total
             };
+        },
+
+        /**
+         * Moves both panes to frame everything the overlay is showing.
+         *
+         * A small revision is a few specks on a whole map - correct, and almost
+         * impossible to find by eye. The mask already knows where they are.
+         *
+         * @param paddingMm breathing room around the changes
+         * @returns the framed rectangle in paper millimetres, or null if there
+         *          is nothing shown to frame
+         */
+        zoomToChanges(paddingMm = 12) {
+            if (!changes?.mask || !changes.filters)
+                return null;
+
+            const { width, height, minX, minY, maxX, maxY } = changes.plan;
+            const box = boundsOf(changes.mask, width, height, changes.filters);
+            if (!box) return null;
+
+            // Mask pixels to paper millimetres. The mask covers the map's own
+            // rectangle exactly, and its rows run downwards while paper Y runs
+            // up, which is the only subtlety here.
+            const x = px => minX + (px / width) * (maxX - minX);
+            const y = py => maxY - (py / height) * (maxY - minY);
+
+            const area = {
+                minX: x(box.left) - paddingMm,
+                maxX: x(box.right + 1) + paddingMm,
+                minY: y(box.bottom + 1) - paddingMm,
+                maxY: y(box.top) + paddingMm
+            };
+
+            view.fitTo(area);
+            return area;
         },
 
         showing: () => view.showing(),

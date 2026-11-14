@@ -18,8 +18,14 @@ export const CHANGE = {
 /* One colour for every kind of change, by choice: the buttons say which kinds
  * are showing, so the picture does not have to. A second colour here would
  * imply the mask always knows which way a change went, and over ink it does
- * not. */
-const TINT = { r: 214, g: 51, b: 168, a: 170 };
+ * not.
+ *
+ * Crimson, and the hue is not a matter of taste. An orienteering map already
+ * spends most of the spectrum: brown contours, blue water, yellow and orange
+ * open land, green vegetation, black rock and paths, and - the one that caught
+ * the first attempt out - purple for overprint and boundaries, which a magenta
+ * tint is nearly indistinguishable from. Crimson is the gap. */
+const TINT = { r: 232, g: 0, b: 60, a: 165 };
 
 /**
  * Which mask values each filter shows.
@@ -85,13 +91,50 @@ export async function paint(mask, width, height, filters) {
     return URL.createObjectURL(blob);
 }
 
-/** How many pixels each kind accounts for. For reporting, not for drawing. */
-export function tally(mask) {
-    const counts = { unchanged: 0, appeared: 0, vanished: 0, altered: 0 };
-    const names = ['unchanged', 'appeared', 'vanished', 'altered'];
+/**
+ * How much of the map these filters light up.
+ *
+ * Answered here rather than from a per-kind tally handed upwards, because
+ * working out that "added" means appeared *plus* altered is this module's job.
+ * Stating that rule anywhere else - and the page did state it, to write its
+ * percentage - is a second copy to keep in step.
+ *
+ * @returns {{shown: number, total: number}} in pixels
+ */
+export function coverage(mask, filters) {
+    const show = wanted(filters);
+    let shown = 0;
 
     for (let i = 0; i < mask.length; i++)
-        counts[names[mask[i]]]++;
+        if (show[mask[i]]) shown++;
 
-    return counts;
+    return { shown, total: mask.length };
+}
+
+/**
+ * The smallest rectangle holding everything these filters light up.
+ *
+ * In mask pixels, with y running downwards from the top of the mask - the
+ * caller turns that into whatever coordinates it works in. Null when nothing is
+ * shown.
+ *
+ * @returns {{left: number, top: number, right: number, bottom: number}|null}
+ */
+export function boundsOf(mask, width, height, filters) {
+    const show = wanted(filters);
+
+    let left = width, top = height, right = -1, bottom = -1;
+
+    for (let y = 0, i = 0; y < height; y++) {
+        for (let x = 0; x < width; x++, i++) {
+            if (!show[mask[i]]) continue;
+
+            if (x < left) left = x;
+            if (x > right) right = x;
+            if (y < top) top = y;
+            if (y > bottom) bottom = y;
+        }
+    }
+
+    return right < 0 ? null : { left, top, right, bottom };
 }

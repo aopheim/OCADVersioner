@@ -26,6 +26,17 @@ function freshStats() {
 }
 
 /**
+ * A paper-millimetre rectangle as Leaflet bounds.
+ *
+ * Paper coordinates are Leaflet coordinates under L.CRS.Simple - lng is X and
+ * lat is Y - and everything above this module speaks {minX, minY, maxX, maxY}.
+ * This is the one place that conversion happens.
+ */
+function latLngBounds(area) {
+    return L.latLngBounds(L.latLng(area.minY, area.minX), L.latLng(area.maxY, area.maxX));
+}
+
+/**
  * Creates two synced maps over the given elements.
  *
  * @param leftEl  element for the left map
@@ -206,10 +217,7 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
              * forth, which prunes tiles mid-flight. The spike saw 113 stale
              * against 1 drawn before the view was allowed to settle. */
             if (!fitted) {
-                maps[side].fitBounds(
-                    L.latLngBounds(L.latLng(bounds.minY, bounds.minX),
-                                   L.latLng(bounds.maxY, bounds.maxX)),
-                    { animate: false });
+                maps[side].fitBounds(latLngBounds(bounds), { animate: false });
                 fitted = true;
             }
 
@@ -253,11 +261,19 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             clearOverlay(side);
 
             overlays[side] = L.imageOverlay(
-                url,
-                L.latLngBounds(L.latLng(bounds.minY, bounds.minX),
-                               L.latLng(bounds.maxY, bounds.maxX)),
+                url, latLngBounds(bounds),
                 { interactive: false, className: 'changeMask' }
             ).addTo(maps[side]);
+        },
+
+        /**
+         * Moves the view to frame a rectangle of paper.
+         *
+         * Only one map is told; leaflet.sync mirrors it to the other, and
+         * fitting both would make them argue about the result.
+         */
+        fitTo(area) {
+            maps[SIDES[0]].fitBounds(latLngBounds(area), { animate: false });
         },
 
         clearOverlays() {

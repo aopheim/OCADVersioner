@@ -42,12 +42,21 @@
     /// <param name="Deleted">Ink that went back to blank paper.</param>
     public sealed record ChangeFilters(bool Added, bool Deleted);
 
-    /// <summary>What the change overlay drew, for reporting.</summary>
+    /// <summary>
+    /// What the change overlay drew, for reporting.
+    /// </summary>
+    /// <param name="ShownPixels">
+    /// How many pixels these filters light up. Counted on the other side of the
+    /// boundary on purpose: which kinds of change a filter covers is the mask's
+    /// rule, and a page working it out again to write a percentage would be a
+    /// second copy of it.
+    /// </param>
     public sealed record ChangeSummary(
-        bool Shown, int Width, int Height, double ComputedMs, ChangeCounts Counts);
+        bool Shown, int Width, int Height, double ComputedMs,
+        int ShownPixels, int TotalPixels);
 
-    /// <summary>How many pixels fell into each kind.</summary>
-    public sealed record ChangeCounts(int Unchanged, int Appeared, int Vanished, int Altered);
+    /// <summary>A rectangle of the map, in paper millimetres.</summary>
+    public sealed record PaperArea(double MinX, double MinY, double MaxX, double MaxY);
 
     /// <summary>
     /// Importing the module and building the workspace. Held as a task rather than
@@ -106,6 +115,18 @@
 
         return await workspace.InvokeAsync<ChangeSummary>(
             "showChanges", olderVersion, newerVersion, filters);
+    }
+
+    /// <summary>
+    /// Moves both panes to frame everything the overlay is currently showing.
+    /// </summary>
+    /// <returns>The framed rectangle, or null if nothing is shown.</returns>
+    public async Task<PaperArea> ZoomToChangesAsync()
+    {
+        if (workspace is null)
+            return null;
+
+        return await workspace.InvokeAsync<PaperArea>("zoomToChanges");
     }
 
     public async ValueTask DisposeAsync()

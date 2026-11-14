@@ -221,6 +221,19 @@ public sealed class OrthogonalityTests
             + "it would quietly colour deletions as additions.");
     }
 
+    [Test]
+    public void WhatEachKindOfChangeMeansIsDecidedInOnePlacePerLanguage()
+    {
+        IReadOnlyList<SourceFile> offenders = Matching(
+            all, @"\b(appeared|vanished|altered)\b", RegexOptions.IgnoreCase);
+
+        Assert.That(NamesOf(offenders), Is.EquivalentTo(new[] { "MapStore.cs", "changeMask.js" }),
+            "MapStore names the four kinds; changeMask.js decides which of them each filter "
+            + "shows. The page used to work that out again - that added covers appeared and "
+            + "altered - so it could write its percentage, which is a rule that has to agree "
+            + "with the picture stated twice in two languages.");
+    }
+
     /// <summary>Reads <c>Name = 0,</c> members out of an enum declaration.</summary>
     private static Dictionary<string, int> EnumValues(string code, string name)
     {
