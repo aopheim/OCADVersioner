@@ -30,9 +30,6 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
     private readonly IJSRuntime js = js;
     private IJSObjectReference module;
 
-    /// <summary>The version name the Angular app uses for the working file.</summary>
-    public const string CurrentVersionName = VersionNaming.WorkingFileName;
-
     public ProjectInfo Project { get; private set; }
 
     public bool IsOpen => Project is not null;

@@ -106,9 +106,9 @@
                 @if (IsHistory) {
                     <i class="bi bi-book fs-4 text-primary" title="Comparing two past versions"></i>
                 }
-                <span class="fw-medium">@Comparison.Newer</span>
+                <span class="fw-medium">@Label(Comparison.Newer)</span>
                 <i class="bi bi-arrows"></i>
-                <span class="fw-medium">@Comparison.Older</span>
+                <span class="fw-medium">@Label(Comparison.Older)</span>
             </div>
 
             <OcadMapPair @ref="mapPair" />
@@ -161,26 +161,36 @@
     /// <summary>True when looking at two past versions rather than the working file.</summary>
     private bool IsHistory => selectedNumber != 0;
 
+    /// <summary>
+    /// The released versions, newest first.
+    /// </summary>
+    /// <remarks>
+    /// The working file is not one of them. It is the map OCAD is writing, not a
+    /// version of anything, and listing it among the releases made the newest
+    /// release look like the second newest thing in the project.
+    /// </remarks>
     private IReadOnlyList<VersionList.Item> VersionItems()
-    {
-        var items = new List<VersionList.Item> {
-            new(0, ProjectService.CurrentVersionName,
-                Project.Project.CurrentFileName ?? "no file selected",
-                "The working file as it is on disk right now.",
-                null, 0, 0, 0)
-        };
+        => [.. Project.Project.Versions
+                .OrderByDescending(v => v.Number)
+                .Select(v => new VersionList.Item(
+                    v.Number, v.Name, v.Metadata.Title, v.Metadata.Description,
+                    v.Metadata.VersionCreatedAt,
+                    v.Metadata.NumberOfAddedSymbols,
+                    v.Metadata.NumberOfEditedSymbols,
+                    v.Metadata.NumberOfDeletedSymbols))];
 
-        items.AddRange(Project.Project.Versions
-            .OrderByDescending(v => v.Number)
-            .Select(v => new VersionList.Item(
-                v.Number, v.Name, v.Metadata.Title, v.Metadata.Description,
-                v.Metadata.VersionCreatedAt,
-                v.Metadata.NumberOfAddedSymbols,
-                v.Metadata.NumberOfEditedSymbols,
-                v.Metadata.NumberOfDeletedSymbols)));
-
-        return items;
-    }
+    /// <summary>
+    /// What one side of the comparison is called on screen.
+    /// </summary>
+    /// <remarks>
+    /// Releases answer to their own names. The working file has no name a mapper
+    /// would recognise - the folder format calls it "current" - so it says what
+    /// OCAD has open instead.
+    /// </remarks>
+    private string Label(string versionName)
+        => ProjectService.IsVolatile(versionName)
+            ? Project.Project.CurrentFileName ?? versionName
+            : versionName;
 
     /// <summary>
     /// The folder is open and a working file is settled.
@@ -218,9 +228,15 @@
     /// <summary>Reopens the start dialog, to point the app at a different folder.</summary>
     private async Task ChangeProject() => await selector.ShowAsync();
 
+    /// <summary>Looks at a version, or puts the working file back on screen.</summary>
+    /// <remarks>
+    /// Clicking the version already selected is the way back to the file OCAD is
+    /// writing. That file is not in the list - it is not a version - so the row
+    /// you left through has to be the way back, or there is none.
+    /// </remarks>
     private async Task SelectVersion(int number)
         => await Run("Loading…", async () => {
-            selectedNumber = number;
+            selectedNumber = number == selectedNumber ? 0 : number;
             await ShowComparison();
         });
 
