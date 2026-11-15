@@ -24,6 +24,35 @@
     height: 80vh;
 }
 
+/* The loading bar ------------------------------------------------------- */
+
+/* Pinned rather than placed. The bar used to be the first thing in the page,
+   which put it off screen exactly where the wait is longest: the create-version
+   form is far enough down that the top of the document is gone. Nothing here is
+   clickable, so it never takes a click meant for the page underneath. */
+.loadStrip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1090;
+    pointer-events: none;
+}
+
+.loadStrip .progress {
+    height: 2px;
+    border-radius: 0;
+}
+
+/* Only as wide as the words, so the page shows through either side of it. */
+.loadMessage {
+    display: inline-block;
+    padding: 0.1rem 0.6rem;
+    font-size: 0.875rem;
+    background: rgba(255, 255, 255, 0.9);
+    border-bottom-right-radius: 0.25rem;
+}
+
 /* From app-settings-modal.component.scss and about-page.component.scss --- */
 
 .pointer {

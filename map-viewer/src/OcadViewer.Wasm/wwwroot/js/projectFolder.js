@@ -115,12 +115,18 @@ export async function selectCurrentFile(fileName) {
  * @returns Uint8Array
  */
 export async function readMap(versionName) {
-    const handle = versionName === WORKING_FILE
-        ? currentFile
-        : folders.get(versionName)?.ocd;
+    return new Uint8Array(await (await fileFor(versionName)).arrayBuffer());
+}
 
-    if (!handle) throw new Error(`No map file for "${versionName}".`);
-    return new Uint8Array(await (await handle.getFile()).arrayBuffer());
+/**
+ * How many bytes a version's map file is, without reading any of them.
+ *
+ * The size is in the directory entry, so this costs nothing, and it is the only
+ * thing known about a load before it starts that says how long it will take.
+ * What that is worth is decided in C#; this reports what the folder says.
+ */
+export async function sizeOf(versionName) {
+    return (await fileFor(versionName)).size;
 }
 
 /**
@@ -148,6 +154,16 @@ export async function createVersion(versionName, metadataJson) {
 }
 
 /* ------------------------------------------------------------------ helpers */
+
+/** The File behind a version's map, named rather than numbered. */
+async function fileFor(versionName) {
+    const handle = versionName === WORKING_FILE
+        ? currentFile
+        : folders.get(versionName)?.ocd;
+
+    if (!handle) throw new Error(`No map file for "${versionName}".`);
+    return await handle.getFile();
+}
 
 async function getDirectory(parent, name, create) {
     try {

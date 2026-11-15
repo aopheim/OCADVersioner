@@ -103,7 +103,27 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
 
     const layers = { left: null, right: null };
     const overlays = { left: null, right: null };
+
+    /* Whoever is waiting for a pane to finish drawing. A show resolves when the
+     * tiles it asked for are all through the pump - or, if the pane is handed to
+     * another map first, when that happens, because the tiles it was waiting for
+     * are dropped from the queue and will never report back. */
+    const pending = { left: null, right: null };
+
     let fitted = false;
+
+    function paneFor(side) {
+        if (!SIDES.includes(side))
+            throw new Error(`Unknown side "${side}".`);
+
+        return maps[side];
+    }
+
+    function settle(side) {
+        const resolve = pending[side];
+        pending[side] = null;
+        if (resolve) resolve();
+    }
 
     /* ------------------------------------------------------------- rendering */
 
@@ -171,6 +191,13 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             L.GridLayer.prototype.initialize.call(this, options);
             this._ocadKey = mapKey;
             this._ocadBounds = null;
+
+            /* Counted here rather than asked of Leaflet afterwards. Leaflet's own
+             * loading flag says whether anything is outstanding, not how much,
+             * and a progress bar needs the second number. */
+            this._ocadAsked = 0;
+            this._ocadDone = 0;
+            this._ocadReport = null;
         },
 
         createTile(coords, done) {
@@ -178,7 +205,18 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             const tile = document.createElement('canvas');
             tile.width = size.x;
             tile.height = size.y;
-            pump.enqueue(() => drawTile({ tile, coords, size, done, layer: this }), this);
+
+            this._ocadAsked++;
+
+            // Every path through drawTile ends in done(), including the ones that
+            // discard the tile, so counting here counts them all.
+            const finished = (error, element) => {
+                this._ocadDone++;
+                this._ocadReport?.(this);
+                done(error, element);
+            };
+
+            pump.enqueue(() => drawTile({ tile, coords, size, done: finished, layer: this }), this);
             return tile;
         }
     });
@@ -187,22 +225,49 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
 
     const handle = {
         /**
-         * Shows the named map on one side.
+         * Roughly how many tiles a pane will ask for.
+         *
+         * Leaflet decides the real number when the layer is attached, which is
+         * too late to weigh a load that has not started. The grid covers the
+         * pane plus a tile of overhang, and that is close enough to say what
+         * share of the wait the drawing is.
+         */
+        expectedTiles(side) {
+            const element = paneFor(side).getContainer();
+            return (Math.ceil(element.clientWidth / TILE_SIZE) + 1)
+                 * (Math.ceil(element.clientHeight / TILE_SIZE) + 1);
+        },
+
+        /**
+         * Shows the named map on one side, and waits for it to be on screen.
+         *
+         * Attaching the layer is instant; the tiles behind it are rendered one
+         * per frame afterwards, which is most of the time a mapper waits and all
+         * of the time anything is visibly happening. So this resolves when the
+         * pane has drawn what it asked for, not when Leaflet has been told what
+         * to draw.
+         *
          * @param side 'left' or 'right'
          * @param mapKey the name the tile source holds it under
          * @param bounds {minX, minY, maxX, maxY} in paper millimetres
+         * @param onTile called as tiles land, with (done, asked for)
+         * @returns {Promise<void>} resolved when the pane is drawn, or when the
+         *          pane is handed to another map and these tiles are abandoned
          */
-        show(side, mapKey, bounds) {
-            if (!SIDES.includes(side))
-                throw new Error(`Unknown side "${side}".`);
+        show(side, mapKey, bounds, onTile) {
+            const map = paneFor(side);
 
             // Drop queued work for the layer being replaced, rather than letting
             // the pump grind through tiles for a map that is no longer shown.
             const outgoing = layers[side];
             if (outgoing) {
                 pump.remove(tag => tag === outgoing);
+                outgoing._ocadReport = null;
                 outgoing.remove();
             }
+
+            // Those dropped tiles are what somebody was waiting for.
+            settle(side);
 
             /* Always re-measure before adding a layer. The ResizeObserver catches
              * later changes, but the first show often happens before the browser
@@ -217,7 +282,7 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
              * forth, which prunes tiles mid-flight. The spike saw 113 stale
              * against 1 drawn before the view was allowed to settle. */
             if (!fitted) {
-                maps[side].fitBounds(latLngBounds(bounds), { animate: false });
+                map.fitBounds(latLngBounds(bounds), { animate: false });
                 fitted = true;
             }
 
@@ -234,8 +299,31 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
                 maxZoom: MAX_ZOOM
             });
             layer._ocadBounds = { ...bounds };
-            layer.addTo(maps[side]);
             layers[side] = layer;
+
+            return new Promise(resolve => {
+                pending[side] = resolve;
+
+                layer._ocadReport = () => {
+                    if (onTile) onTile(layer._ocadDone, layer._ocadAsked);
+
+                    if (layer._ocadDone >= layer._ocadAsked) {
+                        layer._ocadReport = null;
+                        settle(side);
+                    }
+                };
+
+                layer.addTo(map);
+
+                /* Leaflet creates the tiles for the current view inside addTo, so
+                 * the count is final by this line. A pane that asked for none -
+                 * laid out at zero height, or scrolled off the map entirely - has
+                 * nothing to wait for and must not be waited for. */
+                if (layer._ocadAsked === 0) {
+                    layer._ocadReport = null;
+                    settle(side);
+                }
+            });
         },
 
         /** Which map each side is showing, by name. */
@@ -255,15 +343,13 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
          * @param bounds {minX, minY, maxX, maxY} in paper millimetres
          */
         setOverlay(side, url, bounds) {
-            if (!SIDES.includes(side))
-                throw new Error(`Unknown side "${side}".`);
-
+            const map = paneFor(side);
             clearOverlay(side);
 
             overlays[side] = L.imageOverlay(
                 url, latLngBounds(bounds),
                 { interactive: false, className: 'changeMask' }
-            ).addTo(maps[side]);
+            ).addTo(map);
         },
 
         /**
@@ -286,6 +372,8 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             pump.dispose();
             resizeObserver.disconnect();
             for (const side of SIDES) {
+                // Anything still waiting for this pane never will be.
+                settle(side);
                 clearOverlay(side);
                 layers[side]?.remove();
                 maps[side].remove();

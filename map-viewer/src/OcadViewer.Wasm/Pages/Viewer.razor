@@ -1,4 +1,5 @@
 @page "/"
+@using OcadViewer.Loading
 @using OcadViewer.Versioning
 @using OcadViewer.Wasm.Components
 @using OcadViewer.Wasm.Services
@@ -14,13 +15,28 @@
 *@
 <div class="container-fluid">
 
-@* A 2 px bar, present only while something is happening, as in the Angular app. *@
-<div style="height:2px">
+@*
+    A 2 px bar, present only while something is happening, as in the Angular app -
+    but pinned to the window rather than sitting at the top of the page. The
+    slowest thing the app does is write a version, and that form is far enough
+    down that an in-flow bar had scrolled out of sight by the time it mattered.
+*@
+<div class="loadStrip">
     @if (busy) {
-        <div class="progress" style="height:2px">
-            <div class="progress-bar progress-bar-striped progress-bar-animated"
-                 style="width:100%"></div>
+        <div class="progress">
+            @if (plan is { HasWork: true }) {
+                <div class="progress-bar" style="width:@Percent(plan)%"></div>
+            } else {
+                @* Work whose size cannot be known in advance - the overlay, a
+                   rescan, writing a version - keeps the stripe that admits it. *@
+                <div class="progress-bar progress-bar-striped progress-bar-animated"
+                     style="width:100%"></div>
+            }
         </div>
+    }
+
+    @if (status is not null) {
+        <div class="loadMessage @(failed ? "text-danger" : "text-muted")">@status</div>
     }
 </div>
 
@@ -84,10 +100,6 @@
     </div>
 }
 
-@if (status is not null) {
-    <p class="@(failed ? "text-danger" : "text-muted")">@status</p>
-}
-
 @if (Project.IsOpen) {
     <div class="row">
         <div class="col-md-2 d-flex flex-column">
@@ -113,7 +125,7 @@
                 <span class="fw-medium">@Label(Comparison.Newer)</span>
             </div>
 
-            <OcadMapPair @ref="mapPair" />
+            <OcadMapPair @ref="mapPair" OnProgress="OnLoadProgress" />
 
             <DiffTable Diff="diff" Available="DiffSource.IsAvailable"
                        UnavailableReason="@DiffSource.UnavailableReason" />
@@ -135,6 +147,27 @@
     private bool busy;
     private string status;
     private bool failed;
+
+    /// <summary>
+    /// How much of the current load is done, or null when what is running has no
+    /// size anyone can know in advance.
+    /// </summary>
+    private LoadPlan plan;
+
+    /// <summary>The maps the current load is putting on screen, in load order.</summary>
+    private IReadOnlyList<OcadMapPair.MapRequest> loading;
+
+    /// <summary>
+    /// Which load is the current one.
+    /// </summary>
+    /// <remarks>
+    /// Picking a version means picking it, even if the last one is still coming:
+    /// a load lasts a few seconds now that it waits for the tiles, so a second
+    /// thought part-way through is ordinary rather than a corner case. Each run
+    /// takes a number, the newest number owns the screen, and an older run that
+    /// finishes afterwards says nothing and changes nothing.
+    /// </remarks>
+    private int generation;
 
     private MapDiff diff = MapDiff.Empty;
     private string georeference;
@@ -266,15 +299,30 @@
             throw new InvalidOperationException("The map pair is not on the page yet.");
 
         (string newer, string older) = Comparison;
+        int mine = generation;
 
         // Older on the left, newer on the right: time runs that way, and the
         // overlay - which is painted on the newer map - then sits where the eye
-        // ends up rather than where it starts.
-        OcadMapPair.MapInfo loaded = await mapPair.ShowAsync(
-            MapSide.Right, newer, ProjectService.IsVolatile(newer));
-        georeference = loaded.Georeference;
+        // ends up rather than where it starts. The newer map is loaded first,
+        // because it is the one being looked at.
+        loading = [
+            new(MapSide.Right, newer, ProjectService.IsVolatile(newer)),
+            new(MapSide.Left, older, ProjectService.IsVolatile(older))
+        ];
 
-        await mapPair.ShowAsync(MapSide.Left, older, ProjectService.IsVolatile(older));
+        // Weighed before anything is read, so the bar can say how much of the
+        // whole wait is left rather than which step it is on.
+        plan = LoadPlan.For(await mapPair.PlanAsync(loading));
+        StateHasChanged();
+
+        OcadMapPair.LoadResult loaded = await mapPair.ShowAsync(loading, mine);
+
+        // A newer load took the panes over. It owns what is on screen and what
+        // the page says about it; this one has nothing left to contribute.
+        if (loaded.Stale)
+            return;
+
+        georeference = loaded.Maps[0].Georeference;
 
         diff = await DiffSource.CompareAsync(older, newer);
 
@@ -340,26 +388,85 @@
         return $"{summary.ShownPixels * 100.0 / summary.TotalPixels:0.0}% of the map";
     }
 
+    /// <summary>
+    /// How far along the bar should be drawn.
+    /// </summary>
+    /// <remarks>
+    /// Rounded here and nowhere else: a width of "33.333333333%" in the markup
+    /// is a new string on every tile, and Blazor would rewrite the attribute
+    /// each time to no visible effect.
+    /// </remarks>
+    private static int Percent(LoadPlan plan) => (int)Math.Round(plan.Fraction * 100);
+
+    /// <summary>Takes in what the browser reports as a load goes on.</summary>
+    /// <remarks>
+    /// Reports from a load that has been superseded are dropped. They arrive: a
+    /// parse cannot be interrupted, so the run that was abandoned finishes the
+    /// map it was in the middle of and says so afterwards.
+    /// </remarks>
+    private void OnLoadProgress(OcadMapPair.LoadReport report)
+    {
+        if (plan is null || report.Generation != generation)
+            return;
+
+        plan.Report(report.Step, report.Parsed,
+                    report.TilesDrawn, report.TilesExpected, report.Finished);
+        status = LoadingMessage() ?? status;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// What the load is doing, in the names a mapper uses for these maps.
+    /// </summary>
+    /// <remarks>
+    /// Reading and parsing cannot be told apart from outside - the read is one
+    /// await and the parse one blocking call - so they are one word. Drawing is
+    /// worth naming separately because it is the half where the map appears.
+    /// </remarks>
+    private string LoadingMessage()
+    {
+        if (plan is null || loading is null || plan.Step >= loading.Count)
+            return null;
+
+        string name = Label(loading[plan.Step].VersionName);
+        return plan.IsDrawing ? $"Drawing {name}…" : $"Loading {name}…";
+    }
+
     /// <summary>Runs an action with the progress bar, busy flag and error reporting.</summary>
+    /// <remarks>
+    /// Only the newest run writes to the screen. An older one, abandoned when the
+    /// user asked for something else, would otherwise clear the busy flag out
+    /// from under its successor and leave a load running with no bar.
+    /// </remarks>
     private async Task Run(string message, Func<Task> action)
     {
+        int mine = ++generation;
+
         busy = true;
         failed = false;
         status = message;
+        plan = null;
         StateHasChanged();
         await Task.Yield();
 
         try {
             await action();
-            status = null;
+
+            if (mine == generation)
+                status = null;
         }
         catch (Exception ex) {
-            failed = true;
-            status = ex.Message;
+            if (mine == generation) {
+                failed = true;
+                status = ex.Message;
+            }
         }
         finally {
-            busy = false;
-            StateHasChanged();
+            if (mine == generation) {
+                busy = false;
+                plan = null;
+                StateHasChanged();
+            }
         }
     }
 }

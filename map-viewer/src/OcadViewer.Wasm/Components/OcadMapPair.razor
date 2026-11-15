@@ -1,3 +1,4 @@
+@using OcadViewer.Loading
 @using OcadViewer.Wasm.Services
 @implements IAsyncDisposable
 @inject IJSRuntime JS
@@ -28,6 +29,38 @@
     private ElementReference rightEl;
     private IJSObjectReference module;
     private IJSObjectReference workspace;
+    private DotNetObjectReference<OcadMapPair> self;
+
+    /// <summary>
+    /// Told how far a load has got, as the browser gets there.
+    /// </summary>
+    /// <remarks>
+    /// Facts, not a percentage: what a piece of work is worth against the rest is
+    /// <see cref="LoadPlan"/>'s judgement, and this component has no business
+    /// having a second opinion about it.
+    /// </remarks>
+    [Parameter] public EventCallback<LoadReport> OnProgress { get; set; }
+
+    /// <summary>One map to put on one side.</summary>
+    /// <param name="Reload">
+    /// Whether the file must be re-read even if that version is already parsed.
+    /// True for the working file, which changes on disk while the app is open.
+    /// A release never changes, so showing one that is already in memory costs
+    /// nothing - no read, no parse.
+    /// </param>
+    public sealed record MapRequest(MapSide Side, string VersionName, bool Reload);
+
+    /// <summary>How far a load has got.</summary>
+    /// <param name="Generation">
+    /// Which load this is about. A report can outlive the load it belongs to,
+    /// because a mapper who picks another version supersedes the one in flight.
+    /// </param>
+    public sealed record LoadReport(
+        int Generation, int Step, bool Parsed, int TilesDrawn, int TilesExpected, bool Finished);
+
+    /// <summary>What a load produced, in the order it was asked for.</summary>
+    /// <param name="Stale">Whether a later load took over before this one finished.</param>
+    public sealed record LoadResult(bool Stale, IReadOnlyList<MapInfo> Maps);
 
     /// <summary>What the parser reported about one version.</summary>
     public sealed record MapInfo(
@@ -63,21 +96,35 @@
 
     private async Task InitialiseAsync()
     {
+        self = DotNetObjectReference.Create(this);
         module = await JS.ImportAsync("./js/mapWorkspace.js");
         workspace = await module.InvokeAsync<IJSObjectReference>("createWorkspace", leftEl, rightEl);
     }
 
     /// <summary>
-    /// Shows a version on one side.
+    /// What a load will cost, before starting it.
     /// </summary>
-    /// <param name="versionName">"current" for the working file, otherwise "V3".</param>
-    /// <param name="reload">
-    /// Whether the file must be re-read even if that version is already parsed.
-    /// True for the working file, which changes on disk while the app is open.
-    /// A release never changes, so showing one that is already in memory costs
-    /// nothing - no read, no parse.
+    /// <returns>One step per map, in the order given.</returns>
+    public async Task<IReadOnlyList<LoadStep>> PlanAsync(IReadOnlyList<MapRequest> maps)
+    {
+        await (ready ??= InitialiseAsync());
+
+        return await workspace.InvokeAsync<IReadOnlyList<LoadStep>>("plan", OnTheWire(maps));
+    }
+
+    /// <summary>
+    /// Shows a comparison, and waits until it is on screen.
+    /// </summary>
+    /// <param name="generation">
+    /// Which load this is. Starting a later one abandons this at the first point
+    /// it can be abandoned, so the version picked last is the one that wins.
     /// </param>
-    public async Task<MapInfo> ShowAsync(MapSide side, string versionName, bool reload)
+    /// <remarks>
+    /// Both maps in one call, because putting a comparison on screen is one wait
+    /// and the page should not have to know how many maps that is. It also means
+    /// the two sides can be weighed against each other before either starts.
+    /// </remarks>
+    public async Task<LoadResult> ShowAsync(IReadOnlyList<MapRequest> maps, int generation)
     {
         // The parent can get here before this component's own first render has
         // finished setting up - the renderer does not wait for a child's
@@ -87,9 +134,39 @@
         // caller doing nothing wrong used to see.
         await (ready ??= InitialiseAsync());
 
-        return await workspace.InvokeAsync<MapInfo>(
-            "show", side.JsName(), versionName, reload);
+        return await workspace.InvokeAsync<LoadResult>(
+            "show", OnTheWire(maps), self, generation);
     }
+
+    /// <summary>Called from JavaScript as a load gets on with it.</summary>
+    [JSInvokable]
+    public Task Progress(
+        int generation, int step, bool parsed, int tilesDrawn, int tilesExpected, bool finished)
+        => OnProgress.InvokeAsync(
+            new LoadReport(generation, step, parsed, tilesDrawn, tilesExpected, finished));
+
+    /// <summary>
+    /// One map, in the shape JavaScript reads it.
+    /// </summary>
+    /// <remarks>
+    /// The side is a spelled-out name rather than <see cref="MapSide"/> itself,
+    /// because Blazor serialises an enum as its ordinal - which would put a bare
+    /// 0 and 1 back on the wire and undo the point of the enum having names.
+    /// </remarks>
+    private sealed record JsRequest(string Side, string VersionName, bool Reload);
+
+    /// <summary>
+    /// The requests as one argument.
+    /// </summary>
+    /// <remarks>
+    /// A list and not an array on purpose. Interop takes <c>params object[]</c>,
+    /// and C# arrays are covariant, so any array of references is read as the
+    /// argument list itself - the two maps then arrive in JavaScript as two
+    /// arguments rather than as one array, and the method is handed a request
+    /// where it expects a sequence of them.
+    /// </remarks>
+    private static List<JsRequest> OnTheWire(IReadOnlyList<MapRequest> maps)
+        => [.. maps.Select(map => new JsRequest(map.Side.JsName(), map.VersionName, map.Reload))];
 
     /// <summary>
     /// Shows where two versions differ, as a tinted overlay on the newer one.
@@ -124,5 +201,6 @@
     {
         await workspace.ReleaseAsync("dispose");
         await module.ReleaseAsync();
+        self?.Dispose();
     }
 }

@@ -13,7 +13,7 @@
  * which version it wants to see.
  */
 
-import { readMap } from './projectFolder.js';
+import { readMap, sizeOf } from './projectFolder.js';
 import { createTileSource } from './mapTiles.js';
 import { createSyncedMaps } from './leafletViewport.js';
 import { paint, coverage, boundsOf } from './changeMask.js';
@@ -36,6 +36,17 @@ export async function createWorkspace(leftEl, rightEl) {
      * rendering both whole maps - seconds of work - while changing which kinds
      * of change are shown is only a repaint of these same bytes. */
     let changes = null;
+
+    /* Which load is the current one. A mapper who picks another version while one
+     * is still going means the new one, so the old is abandoned at its next await
+     * rather than raced. It cannot be stopped sooner than that: a parse already
+     * running is one blocking call with nowhere to check a flag. */
+    const current = { generation: 0 };
+
+    /** Whether this map has to be read off disk before it can be shown. */
+    function needsParse(request) {
+        return request.reload || !tiles.isLoaded(request.versionName);
+    }
 
     function forgetChanges() {
         if (changes?.url) URL.revokeObjectURL(changes.url);
@@ -64,35 +75,93 @@ export async function createWorkspace(leftEl, rightEl) {
 
     return {
         /**
-         * Shows a version on one side, parsing it only if it is not already held.
+         * What a load is about to cost, before any of it is done.
          *
-         * @param side 'left' or 'right'
-         * @param versionName 'current', 'V3', ...
-         * @param reload true for the working file, which changes on disk while the
-         *               app is open; false for a release, which never does.
-         * @returns the parse summary
+         * Facts only: how many bytes have to be parsed, and how many tiles each
+         * pane will ask for. What they are worth against each other is decided
+         * in C#, where it can be tested.
+         *
+         * @param requests [{side, versionName, reload}], in the order they will
+         *                 be loaded
+         * @returns [{bytesToParse, tilesToDraw}] in the same order; bytesToParse
+         *          is zero for a map already in memory
          */
-        async show(side, versionName, reload) {
-            if (reload || !tiles.isLoaded(versionName)) {
-                const bytes = await readMap(versionName);
-                const info = tiles.load(versionName, `${versionName}.ocd`, bytes);
+        async plan(requests) {
+            const steps = [];
 
-                if (!info.ok)
-                    throw new Error(info.error ?? `Could not read ${versionName}.`);
-
-                parsed.set(versionName, info);
-
-                // The file on disk has just been read again, so any mask built
-                // against the old contents is describing a map that is gone.
-                invalidate(versionName);
+            for (const request of requests) {
+                steps.push({
+                    bytesToParse: needsParse(request) ? await sizeOf(request.versionName) : 0,
+                    tilesToDraw: view.expectedTiles(request.side)
+                });
             }
 
-            const info = parsed.get(versionName);
-            if (!info)
-                throw new Error(`No parse result for "${versionName}".`);
+            return steps;
+        },
 
-            view.show(side, versionName, info);
-            return info;
+        /**
+         * Shows a whole comparison, reporting how far along it is.
+         *
+         * Loading two maps is one thing a mapper waits for, not two, so it is one
+         * call - and this is the only place that knows a comparison has more than
+         * one side. Each map is parsed only if it is not already held, and then
+         * waited for until its pane has actually drawn it.
+         *
+         * @param requests [{side, versionName, reload}]; reload is true for the
+         *                 working file, which changes on disk while the app is
+         *                 open, and false for a release, which never does
+         * @param report a .NET object with a Progress method, or null
+         * @param generation which load this is; a later one abandons this
+         * @returns {{stale: boolean, maps: object[]}} the parse summaries, in the
+         *          order asked for, and whether this load was superseded
+         */
+        async show(requests, report, generation) {
+            current.generation = generation;
+
+            const mine = () => current.generation === generation;
+            const tell = (step, done, asked, finished) =>
+                report?.invokeMethodAsync('Progress', generation, step, true, done, asked, finished)
+                      ?.catch(() => { });
+
+            const maps = [];
+
+            for (const [step, request] of requests.entries()) {
+                if (!mine())
+                    return { stale: true, maps };
+
+                if (needsParse(request)) {
+                    const bytes = await readMap(request.versionName);
+
+                    if (!mine())
+                        return { stale: true, maps };
+
+                    const summary = tiles.load(
+                        request.versionName, `${request.versionName}.ocd`, bytes);
+
+                    if (!summary.ok)
+                        throw new Error(summary.error ?? `Could not read ${request.versionName}.`);
+
+                    parsed.set(request.versionName, summary);
+
+                    // The file on disk has just been read again, so any mask built
+                    // against the old contents is describing a map that is gone.
+                    invalidate(request.versionName);
+                }
+
+                const info = parsed.get(request.versionName);
+                if (!info)
+                    throw new Error(`No parse result for "${request.versionName}".`);
+
+                tell(step, 0, 0, false);
+
+                await view.show(request.side, request.versionName, info,
+                                (done, asked) => tell(step, done, asked, false));
+
+                tell(step, 0, 0, true);
+                maps.push(info);
+            }
+
+            return { stale: !mine(), maps };
         },
 
         /**
