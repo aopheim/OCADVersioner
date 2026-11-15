@@ -1,9 +1,11 @@
 name: OCADVersioner DEV Deploy
 
+# Angular no longer deploys to DEV on push: thankful-coast now serves the Blazor
+# app, deployed by azure-static-web-apps-mapviewer.yml. Two workflows uploading
+# to the same Static Web App on the same push would overwrite each other, last
+# one wins. Kept as a manual trigger so Angular can be put back on DEV by hand.
 on:
-    push:
-        branches:
-            - develop
+    workflow_dispatch:
 
 jobs:
     run-tests:
