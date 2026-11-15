@@ -93,6 +93,19 @@ Made from those in OCAD 2020.8, which still saves the 2018 format:
 | `blank` | File, New, symbols loaded from `point_line_area` | no index entries at all |
 | `point_line_area_imported` | `point_line_area` imported into `blank`, offset 0 | entries 1-3 instead of 3-5, same coordinates and creation dates, new modification dates |
 | `point_line_area_pasted` | its objects copied and pasted into `blank` | as imported, but every object shifted by (-1.27, +1.18) mm |
+| `point_line_area_app_exchange` | File › OCAD App Data Exchange opened, nothing exported | OCAD saved first: entries 1-3, undo entries gone, every date -1 h (to UTC) |
+| `point_line_area_optimized` | Map › Optimize / Repair | entries 1-3, undo entries gone, dates kept |
+| `point_line_area_cut` | contour cut in two (Cut Line) | entry 3 one half; new entry 6 the other, **with the contour's creation date** |
+| `point_line_area_duplicated` | knoll duplicated | new entry 6, **with the original's creation date** |
+| `point_line_area_text` | text "Knoll" (901.0) added | entry 6: anchor point plus four box corners |
+| `point_line_area_text_edited` | the text changed to "Knolls" | same entry and creation date; the box widened |
+| `point_line_area_symbol_hidden` | Symbol › Hide Objects on 403.0 | symbol 403.0's status 0 → 2; no object changed |
+
+`OcadCommandTests` checks the diff of each against `point_line_area`. A cut or a
+duplicate shows that a creation date is shared by different objects, not only
+in imports; the same-entry and identical-content passes keep them apart. An
+edited text is reported as a text **and** a geometry change, because its box is
+stored as coordinates.
 
 The imported copy is the Bymarkabasen rebuild made by OCAD itself: renumbered,
 creation dates kept, modification dates restamped. It must diff as empty; the
@@ -255,9 +268,19 @@ show up in the overlay at all.
 Bymarkabasen (three releases and a working file, OCAD 2018, about 23 000
 objects each) is what showed that the index entry is not enough. Between V1
 and V2, and again between V2 and V3, nearly every object moved to a new index
-entry. Between V1 and V2 every date also moved by exactly two hours. Both look
-like a map rebuilt by copying its objects into another file. All checks below
-were run on read-only copies, and the maps are never committed.
+entry. Between V1 and V2 every date also moved by exactly two hours. All checks
+below were run on read-only copies, and the maps are never committed.
+
+**The cause is the OCAD App.** Opening File › OCAD App Data Exchange makes
+OCAD save the map first, and that save renumbers every object, drops the undo
+entries and moves every date from local time to UTC. OCAD's exchange folder
+(`%APPDATA%\OCAD\OCAD 2018\Tmp\_OcadAppExchangeData`) still holds Bymarkabasen's
+export from 4 June, twelve minutes after V1 was released. Against V1 its
+22 447 objects are all unchanged in content, 21 044 are under another entry,
+and every date is two hours earlier (summer time, UTC+2). V2 then has the
+export's dates, but renumbered once more by the import back.
+`point_line_area_app_exchange` is the same save made in November: one hour
+(UTC+1). Map › Optimize / Repair renumbers too, without touching dates.
 
 | Comparison | Matched by entry alone | Now |
 |---|---|---|

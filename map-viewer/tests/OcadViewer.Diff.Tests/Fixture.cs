@@ -46,6 +46,37 @@ internal static class Fixture
     /// </summary>
     public const string PointLineAreaPasted = "point_line_area_pasted";
 
+    /// <summary>
+    /// <see cref="PointLineArea"/> as OCAD saved it on opening File, OCAD App Data
+    /// Exchange: renumbered 1-3, undo entries dropped, every date one hour earlier
+    /// (local winter time to UTC). Nothing was exported.
+    /// </summary>
+    public const string PointLineAreaAppExchange = "point_line_area_app_exchange";
+
+    /// <summary><see cref="PointLineArea"/> after Map, Optimize / Repair: renumbered 1-3, dates kept.</summary>
+    public const string PointLineAreaOptimized = "point_line_area_optimized";
+
+    /// <summary>
+    /// <see cref="PointLineArea"/> with the contour cut in two: entry 3 keeps one half,
+    /// the other is a new entry 6 with the contour's creation date.
+    /// </summary>
+    public const string PointLineAreaCut = "point_line_area_cut";
+
+    /// <summary><see cref="PointLineArea"/> with the knoll duplicated: entry 6, the original's creation date.</summary>
+    public const string PointLineAreaDuplicated = "point_line_area_duplicated";
+
+    /// <summary><see cref="PointLineArea"/> with a text object "Knoll" (901.0) in entry 6.</summary>
+    public const string PointLineAreaText = "point_line_area_text";
+
+    /// <summary><see cref="PointLineAreaText"/> with the text changed to "Knolls".</summary>
+    public const string PointLineAreaTextEdited = "point_line_area_text_edited";
+
+    /// <summary>
+    /// <see cref="PointLineArea"/> with symbol 403.0 hidden (Symbol, Hide Objects): the
+    /// symbol's status went from 0 to 2, and not one object changed.
+    /// </summary>
+    public const string PointLineAreaSymbolHidden = "point_line_area_symbol_hidden";
+
     public static string PathOf(string name)
         => Path.Combine(TestContext.CurrentContext.TestDirectory, "Fixtures", name + ".ocd");
 
