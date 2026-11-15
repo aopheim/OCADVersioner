@@ -14,9 +14,13 @@ namespace OcadViewer.ArchitectureTests;
 ///
 /// <code>
 ///   Graphics2D ← MapModel ← Map_SkiaStd ← OcadViewer.Core ← RenderCli
-///                                              ↑
+///                   ↑                          ↑    ↑
+///                   └──── OcadViewer.Diff ─────┘    │
 ///                      OcadViewer.Versioning ← OcadViewer.Wasm
 /// </code>
+///
+/// OcadViewer.Diff sits beside the renderer rather than on top of it: it needs
+/// the parsed Map, never the pixels.
 ///
 /// That was true when these tests were written, and the only thing keeping it
 /// true was a comment in a .csproj saying it should be. One <c>using</c> of
@@ -35,11 +39,16 @@ public sealed class ProjectDependencyTests
         ["DotSpatial.Projections"] = [],
         ["MapModel"] = ["Graphics2D", "DotSpatial.Projections"],
         ["Map_SkiaStd"] = ["Graphics2D", "MapModel"],
-        ["OcadViewer.Core"] = ["Map_SkiaStd"],
+        // The diff reads the parsed Map and nothing above it: no renderer, no host.
+        ["OcadViewer.Diff"] = ["MapModel"],
+        // Core keeps a diff snapshot beside every parsed map, because Core is where
+        // the file bytes and the Map are both in hand, once.
+        ["OcadViewer.Core"] = ["Map_SkiaStd", "OcadViewer.Diff"],
         ["OcadViewer.Versioning"] = [],
         ["OcadViewer.RenderCli"] = ["OcadViewer.Core"],
-        ["OcadViewer.Wasm"] = ["OcadViewer.Core", "OcadViewer.Versioning"],
+        ["OcadViewer.Wasm"] = ["OcadViewer.Core", "OcadViewer.Diff", "OcadViewer.Versioning"],
         ["OcadViewer.ArchitectureTests"] = ["OcadViewer.Versioning"],
+        ["OcadViewer.Diff.Tests"] = ["OcadViewer.Core", "OcadViewer.Diff"],
     };
 
     /// <summary>Packages that only a UI host has any business referencing.</summary>

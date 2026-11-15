@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Compares two versions of an OCAD map: which objects were added, edited and
+    deleted. See DIFF.md for the design.
+
+    It reads two things per version. The object index comes straight from the
+    file bytes, through OcadObjectIndexReader, because PurplePen's importer reads
+    each object's index slot, status and timestamps and then discards them - and
+    those are exactly what pairs an object with itself across versions. The rest
+    (symbol names, map scale) comes from the already-parsed Map, which is why the
+    only reference is MapModel: no renderer, no Skia, no host.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MapModel\MapModel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The measuring code is tested on shapes with known answers. -->
+    <InternalsVisibleTo Include="OcadViewer.Diff.Tests" />
+  </ItemGroup>
+
+</Project>
