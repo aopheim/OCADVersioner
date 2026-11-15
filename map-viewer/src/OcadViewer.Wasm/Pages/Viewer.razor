@@ -168,8 +168,8 @@
     /// </summary>
     /// <remarks>
     /// The working file is not one of them. It is the map OCAD is writing, not a
-    /// version of anything, and listing it among the releases made the newest
-    /// release look like the second newest thing in the project.
+    /// version of anything, and listing it among the releases would make the
+    /// newest release look like the second newest thing in the project.
     /// </remarks>
     private IReadOnlyList<VersionList.Item> VersionItems()
         => [.. Project.Project.Versions
@@ -278,11 +278,10 @@
         // Older on the left, newer on the right: time runs that way, and the
         // overlay - which is painted on the newer map - then sits where the eye
         // ends up rather than where it starts.
-        OcadMapPair.MapInfo loaded = await mapPair.ShowAsync(
-            MapSide.Right, newer, ProjectService.IsVolatile(newer));
+        MapSummary loaded = await mapPair.ShowAsync(MapSide.Right, Project.SourceFor(newer));
         georeference = loaded.Georeference;
 
-        await mapPair.ShowAsync(MapSide.Left, older, ProjectService.IsVolatile(older));
+        await mapPair.ShowAsync(MapSide.Left, Project.SourceFor(older));
 
         diff = await DiffSource.CompareAsync(older, newer);
 
@@ -335,10 +334,8 @@
     /// How much of the map the overlay is lighting up, or null.
     /// </summary>
     /// <remarks>
-    /// Both numbers come from the mask. Working out which kinds of change a
-    /// filter covers - that added means appeared <em>and</em> altered - is the
-    /// mask's rule, and this page restating it to write a percentage was a
-    /// second copy of a rule that has to agree with the picture.
+    /// Both numbers are counted from the mask, where the overlay is drawn from,
+    /// so the percentage cannot disagree with the picture.
     /// </remarks>
     private string ChangedShare()
     {

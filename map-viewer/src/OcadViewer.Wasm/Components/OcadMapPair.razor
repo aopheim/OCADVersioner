@@ -1,3 +1,4 @@
+@using OcadViewer.Versioning
 @using OcadViewer.Wasm.Services
 @implements IAsyncDisposable
 @inject IJSRuntime JS
@@ -5,14 +6,14 @@
 @*
     Two synced Leaflet maps. Blazor owns the page and the state; JavaScript owns
     the viewport, the file reading and the renderer behind them. This component
-    says which version belongs on which side and learns what the parser found;
-    map bytes never pass through .NET at all.
+    says which version belongs on which side, and where its file is, and learns
+    what the parser found; map bytes never pass through .NET at all.
 *@
 
 @*
     The same grid as Angular's ocad-map-viewer: two columns with a hair of gutter,
-    each map 80vh on white. The captions the spike used are gone - the comparison
-    header above already names both sides, which is where Angular says it.
+    each map 80vh on white. The comparison header above names both sides, which
+    is where Angular says it.
 *@
 <div class="row g-1">
     <div class="col-sm-6">
@@ -29,18 +30,11 @@
     private IJSObjectReference module;
     private IJSObjectReference workspace;
 
-    /// <summary>What the parser reported about one version.</summary>
-    public sealed record MapInfo(
-        string Key, int Version, double MinX, double MinY, double MaxX, double MaxY,
-        double ParseMs, string Georeference);
-
     /// <summary>
     /// What the change overlay drew, for reporting.
     /// </summary>
     /// <param name="ShownPixels">
-    /// How many pixels changed. Counted on the other side of the boundary,
-    /// where the mask is, rather than handed over as a tally for the page to
-    /// add up.
+    /// How many pixels changed, counted in JavaScript where the mask is.
     /// </param>
     public sealed record ChangeSummary(
         bool Shown, int Width, int Height, double ComputedMs,
@@ -70,25 +64,21 @@
     /// <summary>
     /// Shows a version on one side.
     /// </summary>
-    /// <param name="versionName">"current" for the working file, otherwise "V3".</param>
-    /// <param name="reload">
-    /// Whether the file must be re-read even if that version is already parsed.
-    /// True for the working file, which changes on disk while the app is open.
-    /// A release never changes, so showing one that is already in memory costs
-    /// nothing - no read, no parse.
+    /// <param name="source">
+    /// Which version, where its file is, and whether it must be read again even
+    /// if it is already parsed. A release never changes, so showing one that is
+    /// already in memory costs no read and no parse.
     /// </param>
-    public async Task<MapInfo> ShowAsync(MapSide side, string versionName, bool reload)
+    public async Task<MapSummary> ShowAsync(MapSide side, MapSource source)
     {
         // The parent can get here before this component's own first render has
         // finished setting up - the renderer does not wait for a child's
         // OnAfterRenderAsync before running the parent's. Starting the work here
-        // if it has not started, and awaiting it either way, removes the race
-        // rather than reporting it as "not initialised yet", which is what a
-        // caller doing nothing wrong used to see.
+        // if it has not started, and awaiting it either way, removes the race.
         await (ready ??= InitialiseAsync());
 
-        return await workspace.InvokeAsync<MapInfo>(
-            "show", side.JsName(), versionName, reload);
+        return await workspace.InvokeAsync<MapSummary>(
+            "show", side.JsName(), source.Name, source.Path, source.Reload);
     }
 
     /// <summary>
@@ -125,9 +115,7 @@
     /// folder is about to be shown.
     /// </summary>
     /// <remarks>
-    /// Maps are held by version name, and every project has a "V1". A release
-    /// parsed for the previous project would otherwise be shown in place of the
-    /// new project's release of the same name.
+    /// Maps are held by version name, and every project has a "V1".
     /// </remarks>
     public async Task ResetAsync()
     {

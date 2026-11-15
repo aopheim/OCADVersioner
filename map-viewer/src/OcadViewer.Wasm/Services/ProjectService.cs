@@ -7,40 +7,42 @@ using OcadViewer.Versioning;
 namespace OcadViewer.Wasm.Services;
 
 /// <summary>
-/// Opens a project folder and creates versions in it.
+/// Opens a project folder, reads what is in it and creates versions in it.
 /// </summary>
 /// <remarks>
-/// A client for <c>projectFolder.js</c>, and nothing more. What a release is
-/// called, which folders count as releases and which version compares against
-/// which all live in <see cref="OcadViewer.Versioning"/>, where they can be tested
-/// without a browser. This type used to carry those rules, the on-disk metadata
-/// shape and the JavaScript plumbing at once - three reasons to change in one
-/// file, two of which could not be exercised by a test.
+/// <c>projectFolder.js</c> does the disk access, and only that: it lists
+/// folders, reads and writes files at the paths it is given. What those paths
+/// are is <see cref="FolderLayout"/>; which file is the working file, which
+/// folders are releases and what the next one is called is
+/// <see cref="ProjectFolder"/>. Both are tested without a browser.
 ///
-/// Note what is absent: a method to read map bytes. Map data goes straight from
-/// the file to the renderer inside JavaScript and never passes through here. See
-/// <c>mapWorkspace.js</c>.
+/// Map bytes do not pass through here. The workspace reads them in JavaScript
+/// and hands them straight to the renderer; this only says where they are, via
+/// <see cref="SourceFor"/>.
 ///
-/// Scoped rather than transient: the underlying directory handle lives in the JS
-/// module for as long as the page does, and a component being disposed must not
-/// take the user's folder permission with it.
+/// Scoped rather than transient: the directory handle lives in the JS module for
+/// as long as the page does, and a component being disposed must not take the
+/// user's folder permission with it.
 /// </remarks>
 public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
 {
     private readonly IJSRuntime js = js;
     private IJSObjectReference module;
 
-    public ProjectInfo Project { get; private set; }
-
-    public bool IsOpen => Project is not null;
-
-    private IReadOnlyList<ProjectVersion> Versions => Project?.Versions ?? [];
+    /// <summary>The working file the user picked when the root holds several.</summary>
+    private string chosenFileName;
 
     /// <summary>
     /// Every folder the last scan found under <c>Releases/</c>, release or not,
     /// because an incomplete <c>V&lt;n&gt;</c> folder still takes its name.
     /// </summary>
     private IReadOnlyList<ReleaseFolder> releaseFolders = [];
+
+    public ProjectInfo Project { get; private set; }
+
+    public bool IsOpen => Project is not null;
+
+    private IReadOnlyList<ProjectVersion> Versions => Project?.Versions ?? [];
 
     private async Task<IJSObjectReference> ModuleAsync()
         => module ??= await js.ImportAsync("./js/projectFolder.js");
@@ -52,15 +54,26 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
     /// <summary>
     /// Prompts for a project folder. Must be called from a user gesture.
     /// </summary>
-    public async Task<ProjectInfo> OpenAsync() => await ScanAsync("openProject");
+    public async Task<ProjectInfo> OpenAsync()
+    {
+        string projectName = await (await ModuleAsync()).InvokeAsync<string>("openProject");
+        chosenFileName = null;
+        return await ScanAsync(projectName);
+    }
 
     /// <summary>Re-reads the folder, picking up changes made outside the app.</summary>
-    public async Task<ProjectInfo> RefreshAsync() => await ScanAsync("rescan");
+    public async Task<ProjectInfo> RefreshAsync()
+    {
+        if (!IsOpen)
+            throw new InvalidOperationException("No project folder is open.");
+
+        return await ScanAsync(Project.ProjectName);
+    }
 
     /// <summary>Chooses the working file when the root holds several <c>.ocd</c> files.</summary>
     public async Task SelectCurrentFileAsync(string fileName)
     {
-        await (await ModuleAsync()).InvokeVoidAsync("selectCurrentFile", fileName);
+        chosenFileName = fileName;
         await RefreshAsync();
     }
 
@@ -73,6 +86,10 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
     /// <param name="selectedNumber">0 for the working file.</param>
     public (string Newer, string Older) ComparisonFor(int selectedNumber)
         => ProjectFolder.Comparison(selectedNumber, Versions);
+
+    /// <summary>Where a version's map is, and whether to read it again each time.</summary>
+    public MapSource SourceFor(string versionName)
+        => FolderLayout.SourceFor(versionName, Project?.CurrentFileName);
 
     /// <summary>
     /// Whether this version has to be re-read every time it is shown.
@@ -88,14 +105,12 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
     /// zeros in both apps' version lists until that is ported.
     ///
     /// The folder is re-read first. The Angular app writes to the same folders,
-    /// so a name worked out from the last scan may already be taken, and
-    /// <c>projectFolder.js</c> refuses to write into a folder that exists.
+    /// so a name worked out from the last scan may already be taken - and
+    /// creating the release folder fails if it exists, rather than writing into
+    /// somebody else's.
     /// </remarks>
     public async Task<ProjectInfo> CreateVersionAsync(string title, string description)
     {
-        if (!IsOpen)
-            throw new InvalidOperationException("No project folder is open.");
-
         await RefreshAsync();
 
         if (string.IsNullOrEmpty(Project.CurrentFileName))
@@ -114,36 +129,48 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
             NumberOfDeletedSymbols = 0
         };
 
-        return await ScanAsync("createVersion", name,
-                               JsonSerializer.Serialize(metadata, AngularJson.Options));
+        NewVersionPlan plan = FolderLayout.PlanNewVersion(name);
+        var files = await ModuleAsync();
+
+        await files.InvokeVoidAsync("createFolder", plan.Folder);
+        await files.InvokeVoidAsync("copyFile", Project.CurrentFileName, plan.MapFile);
+        await files.InvokeVoidAsync("writeText", plan.MetadataFile,
+                                    JsonSerializer.Serialize(metadata, AngularJson.Options));
+
+        return await RefreshAsync();
     }
 
-    /// <summary>
-    /// Runs a JS call that answers with a folder listing, and interprets it.
-    /// </summary>
-    private async Task<ProjectInfo> ScanAsync(string method, params object[] arguments)
+    /// <summary>Lists the folder and interprets what is there.</summary>
+    private async Task<ProjectInfo> ScanAsync(string projectName)
     {
-        var module = await ModuleAsync();
-        RawProject raw = await module.InvokeAsync<RawProject>(method, arguments);
+        var files = await ModuleAsync();
 
-        releaseFolders = raw.ReleaseFolders ?? [];
+        Listing root = await files.InvokeAsync<Listing>("listFolder", "", false);
+        Listing releases = await files.InvokeAsync<Listing>("listFolder", VersionNaming.ReleasesFolder, true);
+
+        IReadOnlyList<string> candidates = ProjectFolder.WorkingFileCandidates(root?.Files ?? []);
+
+        FolderListing[] folders = [.. (releases?.Folders ?? [])
+            .Select(folder => new FolderListing(folder.Name, folder.Files ?? []))];
+
+        string[] metadataPaths = [.. folders.Select(ProjectFolder.MetadataPathIn)];
+        string[] metadata = await files.InvokeAsync<string[]>("readTexts", [metadataPaths]);
+
+        releaseFolders = [.. folders.Select((folder, i) => ProjectFolder.ReleaseFolderFrom(folder, metadata[i]))];
+
         Project = new ProjectInfo(
-            raw.ProjectName,
-            raw.CurrentFileName,
-            raw.OcdCandidates ?? [],
-            ProjectFolder.ReleasesIn(raw.ReleaseFolders ?? []));
+            projectName,
+            ProjectFolder.ChooseWorkingFile(candidates, chosenFileName),
+            candidates,
+            ProjectFolder.ReleasesIn(releaseFolders));
 
         return Project;
     }
 
-    /// <summary>
-    /// What the JS module reports: names and bytes-on-disk facts, no judgements.
-    /// </summary>
-    private sealed record RawProject(
-        string ProjectName,
-        string CurrentFileName,
-        List<string> OcdCandidates,
-        List<ReleaseFolder> ReleaseFolders);
+    /// <summary>What <c>listFolder</c> answers with: names only, no judgements.</summary>
+    private sealed record Listing(List<string> Files, List<ListedFolder> Folders);
+
+    private sealed record ListedFolder(string Name, List<string> Files);
 
     public async ValueTask DisposeAsync() => await module.ReleaseAsync();
 }

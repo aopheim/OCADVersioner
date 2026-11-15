@@ -3,17 +3,61 @@ using System.Text.Json;
 namespace OcadViewer.Versioning;
 
 /// <summary>
-/// The rules of a project folder: which folders count, what the next release is
-/// called, and which version is compared against which.
+/// The rules of a project folder: which file is the working file, which folders
+/// count as releases, what the next release is called, and which version is
+/// compared against which.
 /// </summary>
 /// <remarks>
-/// Pure functions over what somebody else read off the disk. This used to be
-/// spread between a Razor page (the comparison rule), a service (the next name)
-/// and a JavaScript module (which folders count) - three places, none of which
-/// could be tested without the other two.
+/// Pure functions over what somebody else read off the disk, so every rule can
+/// be tested without a browser. Where the files are is <see cref="FolderLayout"/>.
 /// </remarks>
 public static class ProjectFolder
 {
+    /// <summary>The files in the project root that could be the working file.</summary>
+    public static IReadOnlyList<string> WorkingFileCandidates(IEnumerable<string> rootFiles)
+        => [.. (rootFiles ?? []).Where(FolderLayout.IsMapFile).Order(StringComparer.OrdinalIgnoreCase)];
+
+    /// <summary>
+    /// Which candidate is the working file: the one the user chose, or the only
+    /// one there is. <c>null</c> when that is ambiguous and nobody has chosen.
+    /// </summary>
+    /// <remarks>
+    /// A choice that no longer exists on disk is ignored rather than trusted, so
+    /// a rescan after the file was renamed falls back to asking again.
+    /// </remarks>
+    public static string ChooseWorkingFile(IReadOnlyList<string> candidates, string chosen)
+    {
+        candidates ??= [];
+
+        if (chosen is not null && candidates.Contains(chosen, StringComparer.Ordinal))
+            return chosen;
+
+        return candidates.Count == 1 ? candidates[0] : null;
+    }
+
+    /// <summary>
+    /// The metadata file to read for a folder under <c>Releases/</c>, or
+    /// <c>null</c> when it has none.
+    /// </summary>
+    public static string MetadataPathIn(FolderListing folder)
+        => folder is not null && Holds(folder, FolderLayout.MetadataFileName(folder.Name))
+            ? FolderLayout.ReleaseMetadataPath(folder.Name)
+            : null;
+
+    /// <summary>
+    /// What a folder under <c>Releases/</c> holds, before anything has decided
+    /// whether it is a release.
+    /// </summary>
+    /// <param name="metadataJson">The text of its metadata file, if it has one.</param>
+    public static ReleaseFolder ReleaseFolderFrom(FolderListing folder, string metadataJson)
+    {
+        ArgumentNullException.ThrowIfNull(folder);
+        return new ReleaseFolder(folder.Name, Holds(folder, FolderLayout.MapFileName(folder.Name)), metadataJson);
+    }
+
+    private static bool Holds(FolderListing folder, string fileName)
+        => folder.Files?.Contains(fileName, StringComparer.Ordinal) == true;
+
     /// <summary>
     /// Turns a raw directory listing into the releases the app will show.
     /// </summary>

@@ -30,10 +30,8 @@ public sealed record ProjectVersion(string Name, int Number, VersionMetadata Met
 /// is a release at all.
 /// </summary>
 /// <remarks>
-/// This is deliberately raw. The JavaScript that walks the directory reports what
-/// it saw - a name, whether the two files are there, and the metadata text if any
-/// - and <see cref="ProjectFolder"/> applies the naming rule. Reversing that put
-/// the <c>V&lt;n&gt;</c> rule in two languages at once.
+/// Deliberately raw: a name, whether its map file is there, and the metadata
+/// text if any. <see cref="ProjectFolder.ReleasesIn"/> applies the naming rule.
 /// </remarks>
 public sealed record ReleaseFolder(string Name, bool HasMapFile, string MetadataJson);
 

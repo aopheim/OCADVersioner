@@ -47,9 +47,8 @@ function latLngBounds(area) {
 export function createSyncedMaps(leftEl, rightEl, renderTile) {
     const pump = createTilePump();
 
-    /* One shared counter set per viewport. Per-layer counters looked tidier but
-     * reset every time a side was reloaded, and orphaned layers swallowed their
-     * own numbers - which hid a bug where every tile took the detached path. */
+    /* One shared counter set per viewport rather than per layer: a layer is
+     * replaced every time a side is reloaded, and its numbers would go with it. */
     const stats = freshStats();
 
     const makeMap = el => L.map(el, {
@@ -112,8 +111,8 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
         const map = layer._map;
 
         // The layer was detached while this job sat in the queue - which happens
-        // every time a side is reloaded. Counted, because silently returning here
-        // once hid a bug where every single tile took this path.
+        // every time a side is reloaded. Counted rather than silent, so that
+        // every tile taking this path shows up in the stats as a bug.
         if (!map || !layer._ocadBounds) { stats.detached++; job.done(null, tile); return; }
 
         /* Leaflet prunes tiles as soon as the view moves past them, but a job
@@ -142,11 +141,8 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             return;
         }
 
-        /* Measured here rather than asked of .NET afterwards. The renderer used to
-         * expose the stopwatch it kept inside the render call, which excluded
-         * marshalling and left the number sitting in a static that only meant
-         * anything until the next call. Wall time around the boundary is both
-         * honest and stateless. */
+        /* Measured here rather than asked of .NET afterwards: wall time around the
+         * boundary includes marshalling, and needs no state on the other side. */
         const started = performance.now();
         const bytes = renderTile(layer._ocadKey, minX, minY, maxX - minX, maxY - minY, size.x);
         const ms = performance.now() - started;
@@ -214,8 +210,8 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             /* Fit only on the first show, and only on one map - leaflet.sync
              * mirrors it to the other. Re-fitting on every show fights the user's
              * own zoom, and fitting both maps makes sync bounce the view back and
-             * forth, which prunes tiles mid-flight. The spike saw 113 stale
-             * against 1 drawn before the view was allowed to settle. */
+             * forth, which prunes tiles mid-flight - measured at 113 stale tiles
+             * for every one drawn. */
             if (!fitted) {
                 maps[side].fitBounds(latLngBounds(bounds), { animate: false });
                 fitted = true;

@@ -13,9 +13,9 @@
 
 /* Crimson, and the hue is not a matter of taste. An orienteering map already
  * spends most of the spectrum: brown contours, blue water, yellow and orange
- * open land, green vegetation, black rock and paths, and - the one that caught
- * the first attempt out - purple for overprint and boundaries, which a magenta
- * tint is nearly indistinguishable from. Crimson is the gap. */
+ * open land, green vegetation, black rock and paths, and purple for overprint
+ * and boundaries, which a magenta tint is nearly indistinguishable from.
+ * Crimson is the gap. */
 const TINT = { r: 232, g: 0, b: 60, a: 165 };
 
 /**

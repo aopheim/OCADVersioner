@@ -10,10 +10,10 @@ namespace OcadViewer.ArchitectureTests;
 /// The project-folder rules, which are a contract with the Angular app.
 /// </summary>
 /// <remarks>
-/// These could not be written before: the naming rule lived in a JavaScript
-/// module, the next-version rule in a service that needed a browser, and the
-/// comparison rule inside a Razor page. Moving all three into
-/// <c>OcadViewer.Versioning</c> was most of the point of extracting it.
+/// Every rule about the folder - the names, the layout, which file is the working
+/// file, what the next release is called and what compares to what - lives in
+/// <c>OcadViewer.Versioning</c>, with no browser in it, so all of it can be
+/// tested here by behaviour.
 /// </remarks>
 [TestFixture]
 public sealed class VersioningTests
@@ -130,6 +130,88 @@ public sealed class VersioningTests
             Assert.That(metadata.NumberOfAddedSymbols, Is.EqualTo(12));
             Assert.That(metadata.VersionCreatedAt,
                 Is.EqualTo(new DateTimeOffset(2026, 9, 9, 8, 30, 0, TimeSpan.Zero)));
+        });
+    }
+
+    /* ------------------------------------------------------- where things are */
+
+    [Test]
+    public void AReleaseWrittenWhereThePlanSaysIsFoundByTheScan()
+    {
+        // The contract end to end: create a release where FolderLayout says, list
+        // the folder the way projectFolder.js reports it, and read it back.
+        NewVersionPlan plan = FolderLayout.PlanNewVersion("V4");
+
+        string[] folderPath = plan.Folder.Split('/');
+        var listing = new FolderListing(
+            folderPath[^1],
+            [Path.GetFileName(plan.MapFile), Path.GetFileName(plan.MetadataFile)]);
+
+        Assert.Multiple(() => {
+            Assert.That(folderPath, Is.EqualTo(new[] { VersionNaming.ReleasesFolder, "V4" }),
+                "Releases sit one level under the releases folder, named for themselves.");
+            Assert.That(ProjectFolder.MetadataPathIn(listing), Is.EqualTo(plan.MetadataFile),
+                "The scan must read the metadata from where creating the release wrote it.");
+
+            ProjectVersion release = ProjectFolder
+                .ReleasesIn([ProjectFolder.ReleaseFolderFrom(listing, """{"versionNumber":4}""")])
+                .Single();
+            Assert.That(release.Name, Is.EqualTo("V4"));
+
+            Assert.That(FolderLayout.SourceFor("V4", "map.ocd").Path, Is.EqualTo(plan.MapFile),
+                "Showing the release must read the map from where creating it wrote it.");
+        });
+    }
+
+    [Test]
+    public void TheWorkingFileIsReadFromTheRootAndReadAgainEveryTime()
+    {
+        MapSource source = FolderLayout.SourceFor(VersionNaming.WorkingFileName, "Storigarden.ocd");
+
+        Assert.That(source, Is.EqualTo(new MapSource("current", "Storigarden.ocd", Reload: true)));
+    }
+
+    [Test]
+    public void AReleaseIsReadOnce()
+        => Assert.That(FolderLayout.SourceFor("V3", "map.ocd").Reload, Is.False,
+            "A release never changes once written, so showing it again must not re-read it.");
+
+    [Test]
+    public void TheWorkingFileCannotBeShownBeforeOneIsChosen()
+        => Assert.Throws<InvalidOperationException>(() => FolderLayout.SourceFor("current", null));
+
+    [Test]
+    public void AFolderWithoutMetadataHasNoMetadataToRead()
+        => Assert.That(ProjectFolder.MetadataPathIn(new FolderListing("V2", ["V2.ocd"])), Is.Null);
+
+    [Test]
+    public void AFolderMissingItsMapIsNotARelease()
+    {
+        ReleaseFolder folder = ProjectFolder.ReleaseFolderFrom(new FolderListing("V2", ["V2.json", "other.ocd"]), null);
+
+        Assert.That(folder.HasMapFile, Is.False,
+            "Only V2.ocd makes V2 a release; some other map in the folder is not it.");
+    }
+
+    [Test]
+    public void OnlyMapsInTheRootCanBeTheWorkingFile()
+    {
+        IReadOnlyList<string> candidates = ProjectFolder.WorkingFileCandidates(
+            ["notes.txt", "Map.OCD", "map.ocd.bak", "contours.ocd"]);
+
+        Assert.That(candidates, Is.EqualTo(new[] { "contours.ocd", "Map.OCD" }));
+    }
+
+    [Test]
+    public void TheWorkingFileIsTheOnlyMapOrTheOneChosen()
+    {
+        Assert.Multiple(() => {
+            Assert.That(ProjectFolder.ChooseWorkingFile(["a.ocd"], null), Is.EqualTo("a.ocd"));
+            Assert.That(ProjectFolder.ChooseWorkingFile(["a.ocd", "b.ocd"], null), Is.Null,
+                "Two maps and no choice is a question for the user, not a guess.");
+            Assert.That(ProjectFolder.ChooseWorkingFile(["a.ocd", "b.ocd"], "b.ocd"), Is.EqualTo("b.ocd"));
+            Assert.That(ProjectFolder.ChooseWorkingFile(["a.ocd", "c.ocd"], "b.ocd"), Is.Null,
+                "A choice that is no longer on disk is asked again, not trusted.");
         });
     }
 

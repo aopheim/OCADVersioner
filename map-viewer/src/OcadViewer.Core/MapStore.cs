@@ -12,10 +12,11 @@ namespace OcadViewer.Core
     /// <summary>A parsed map held by <see cref="MapStore"/>, and what parsing found.</summary>
     public sealed class StoredMap : IDisposable
     {
-        internal StoredMap(string key, Map map, RectangleF bounds, int formatVersion,
+        internal StoredMap(string key, int loadId, Map map, RectangleF bounds, int formatVersion,
                            TimeSpan parseTime, string georeference)
         {
             Key = key;
+            LoadId = loadId;
             Bounds = bounds;
             FormatVersion = formatVersion;
             ParseTime = parseTime;
@@ -25,6 +26,13 @@ namespace OcadViewer.Core
 
         /// <summary>What the caller knows this map as - a version name, not a position.</summary>
         public string Key { get; }
+
+        /// <summary>
+        /// Which load this is, unique within its store. Reading a key again gives
+        /// it a new one, so anything computed from a map - a change mask - can
+        /// tell whether it still describes the parse that is held now.
+        /// </summary>
+        public int LoadId { get; }
 
         /// <summary>Bounding rectangle of all symbols, in paper millimetres.</summary>
         public RectangleF Bounds { get; }
@@ -79,17 +87,13 @@ namespace OcadViewer.Core
     /// </summary>
     /// <remarks>
     /// Maps are addressed <em>by name</em> - "V3", "current" - and never by which
-    /// pane they happen to be showing in. The previous design handed out slot 0 and
-    /// slot 1, and that integer then had to mean the same thing in four layers
-    /// across two languages: the page, the component, the Leaflet module and the
-    /// interop. Worse, it tied a parsed map to a screen position, so selecting a
-    /// different version re-read and re-parsed <em>both</em> sides even when one of
-    /// them was already in memory and unchanged.
+    /// pane they are showing in, so showing V3 beside V2 and then V2 beside V1
+    /// parses V1 only. A parse is 175-290 ms per map with AOT and several seconds
+    /// without it, on top of a multi-megabyte read.
     ///
-    /// Naming them instead means showing V3 beside V2, and then V2 beside V1,
-    /// parses V1 only. The cost of being wrong about this is not small: a parse is
-    /// 175-290 ms per map with AOT and several seconds without it, on top of a
-    /// multi-megabyte read.
+    /// <para>A name means something only within one project: every project has a
+    /// "V1". Use one store per project and <see cref="Clear"/> it when the
+    /// project changes.</para>
     ///
     /// <para>Capacity is a cache bound, not a pane count. Exceeding it evicts the
     /// map that has gone longest without being touched.</para>
@@ -103,17 +107,24 @@ namespace OcadViewer.Core
         /// Both sides of a comparison, plus the one being swapped in.
         /// </summary>
         /// <remarks>
-        /// Two is not enough, and the third is not slack. Changing the comparison
-        /// shows one side at a time, so there is a moment when the incoming map has
-        /// been parsed and the outgoing one is still on screen. At a capacity of
-        /// two, loading the first new side evicted a map the other side was still
-        /// drawing, and those tiles came back empty - 8 of them in a four-step
-        /// walk through the versions. The number to keep is "everything on screen,
-        /// plus what is arriving".
+        /// Changing the comparison shows one side at a time, so there is a moment
+        /// when the incoming map has been parsed and the outgoing one is still on
+        /// screen. At a capacity of two, loading the first new side evicts a map
+        /// the other side is still drawing, and those tiles come back empty. The
+        /// number to keep is "everything on screen, plus what is arriving".
         /// </remarks>
         public const int DefaultCapacity = 3;
 
+        /// <summary>
+        /// The longest edge a change mask may have. The cap is about memory: two
+        /// bitmaps of this size exist at once while a mask is built.
+        /// </summary>
+        public const int MaxMaskEdge = 4096;
+
         private readonly Dictionary<string, StoredMap> maps = new(StringComparer.Ordinal);
+
+        /// <summary>The last <see cref="StoredMap.LoadId"/> handed out.</summary>
+        private int loads;
 
         /// <summary>Keys in touch order, least recently used first.</summary>
         private readonly List<string> recent = [];
@@ -184,7 +195,7 @@ namespace OcadViewer.Core
                     $"{fileName} parsed but its bounds are empty, so there is nothing to show.");
             }
 
-            var stored = new StoredMap(key, loaded.Map, bounds, loaded.Format.version,
+            var stored = new StoredMap(key, ++loads, loaded.Map, bounds, loaded.Format.version,
                                        loaded.ParseTime, GeoreferenceOf(loaded.Map));
 
             Unload(key);
@@ -239,11 +250,17 @@ namespace OcadViewer.Core
         }
 
         /// <summary>
-        /// Where the two versions differ, pixel by pixel.
+        /// Where the two versions differ, pixel by pixel, over the rectangle and
+        /// at the size <paramref name="plan"/> gives.
         /// </summary>
+        /// <param name="plan">
+        /// Normally what <see cref="PlanChangeMask"/> answered for the same two
+        /// versions. The render does what the plan says rather than working the
+        /// plan out again, so the caller's layout and the mask cannot disagree.
+        /// </param>
         /// <returns>
-        /// One <see cref="PixelChange"/> per pixel, row by row, sized by
-        /// <see cref="PlanChangeMask"/>. <c>null</c> if either version is missing.
+        /// One <see cref="PixelChange"/> per pixel, row by row.
+        /// <c>null</c> if either version is missing.
         /// </returns>
         /// <remarks>
         /// Both versions are drawn over the same rectangle at the same size and
@@ -259,15 +276,19 @@ namespace OcadViewer.Core
         /// filter out, and anything lit really is different. The corollary is
         /// that redefining a symbol lights up every object using it.
         /// </remarks>
-        public byte[] RenderChangeMask(string olderKey, string newerKey)
+        public byte[] RenderChangeMask(string olderKey, string newerKey, ChangeMaskPlan plan)
         {
+            ArgumentNullException.ThrowIfNull(plan);
+            ArgumentOutOfRangeException.ThrowIfLessThan(plan.Width, 1);
+            ArgumentOutOfRangeException.ThrowIfLessThan(plan.Height, 1);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(plan.Width, MaxMaskEdge);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(plan.Height, MaxMaskEdge);
+
             StoredMap older = Get(olderKey);
             StoredMap newer = Get(newerKey);
 
             if (older is null || newer is null)
                 return null;
-
-            ChangeMaskPlan plan = PlanFor(older, newer);
 
             MapRenderResult before = MapRenderer.Render(
                 older.Map, plan.Area, plan.Width, plan.Height, Settings);
@@ -283,15 +304,13 @@ namespace OcadViewer.Core
         }
 
         /// <summary>
-        /// The size and extent <see cref="RenderChangeMask"/> will use for the
-        /// same two versions.
+        /// The size and extent to compare two versions at, for
+        /// <see cref="RenderChangeMask"/>.
         /// </summary>
         /// <returns><c>null</c> if either version is not loaded.</returns>
         /// <remarks>
         /// Separate from the render so a caller can lay out the overlay, and show
-        /// how big the job is, before paying for it. It is a pure function of the
-        /// maps' bounds, so both calls agree without anything being remembered
-        /// between them.
+        /// how big the job is, before paying for it.
         /// </remarks>
         public ChangeMaskPlan PlanChangeMask(string olderKey, string newerKey)
         {
@@ -307,8 +326,8 @@ namespace OcadViewer.Core
         /// <remarks>
         /// Resolution is close to free here: the same area at 128, 256 and 512
         /// pixels measured 389, 389 and 435 ms, because the cost is managed
-        /// geometry work rather than rasterising. The cap is about memory, not
-        /// time - two bitmaps of this size exist at once while the mask is built.
+        /// geometry work rather than rasterising, so the cap is
+        /// <see cref="MaxMaskEdge"/>, which is about memory.
         ///
         /// The area covers both versions, not just the newer one. Deleting the
         /// outermost object shrinks the newer map's bounds, and a mask clipped to
@@ -317,17 +336,16 @@ namespace OcadViewer.Core
         private static ChangeMaskPlan PlanFor(StoredMap older, StoredMap newer)
         {
             const float PixelsPerMillimetre = 4f;
-            const int MaxEdge = 4096;
 
             RectangleF area = RectangleF.Union(older.Bounds, newer.Bounds);
 
             float scale = PixelsPerMillimetre;
             float longest = Math.Max(area.Width, area.Height) * scale;
-            if (longest > MaxEdge)
-                scale *= MaxEdge / longest;
+            if (longest > MaxMaskEdge)
+                scale *= MaxMaskEdge / longest;
 
-            int width = Math.Max(1, (int)Math.Round(area.Width * scale));
-            int height = Math.Max(1, (int)Math.Round(area.Height * scale));
+            int width = Math.Clamp((int)Math.Round(area.Width * scale), 1, MaxMaskEdge);
+            int height = Math.Clamp((int)Math.Round(area.Height * scale), 1, MaxMaskEdge);
 
             return new ChangeMaskPlan(width, height, area);
         }
@@ -408,7 +426,8 @@ namespace OcadViewer.Core
                 Unload(recent[0]);
         }
 
-        public void Dispose()
+        /// <summary>Forgets every map, for instance because a different project was opened.</summary>
+        public void Clear()
         {
             foreach (StoredMap stored in maps.Values)
                 stored.Dispose();
@@ -416,5 +435,7 @@ namespace OcadViewer.Core
             maps.Clear();
             recent.Clear();
         }
+
+        public void Dispose() => Clear();
     }
 }
