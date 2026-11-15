@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Thin wrapper over vendored DotSpatial.Projections sources (LGPL 2.1).
+    See vendor/UPSTREAM.md and THIRD-PARTY-NOTICES.md.
+
+    Required by MapModel: OcadImport.cs:272 calls ProjectionUtil.CalcGridScaleFactor
+    for pseudo-Mercator maps (RealWorldGridAndZone 64000/65000). That is a
+    compile-time reference, so this cannot simply be dropped.
+
+    Differences from upstream DotSpatial.Projections.csproj, all deliberate:
+      - OutputPath / DocumentationFile overrides dropped; they wrote to ..\bin\,
+        outside the project directory.
+      - AssemblyOriginatorKeyFile dropped; SignAssembly was never set, so it was
+        inert, and the .snk is not present upstream.
+      - Legacy ClickOnce / BootstrapperPackage / CodeContracts properties dropped.
+      - IsTrimmable=false keeps the shipped assembly an unmodified copy, which
+        matters for the LGPL relinking obligation.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>DotSpatial.Projections</AssemblyName>
+    <RootNamespace>DotSpatial.Projections</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
+    <IsTrimmable>false</IsTrimmable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(VendorDir)DotSpatial.Projections\*.cs" />
+    <Compile Include="$(VendorDir)DotSpatial.Projections\Transforms\*.cs" />
+    <Compile Include="$(VendorDir)DotSpatial.Projections\Reflection\*.cs" />
+    <Compile Include="$(VendorDir)DotSpatial.Projections\Nad\*.cs" />
+    <Compile Include="$(VendorDir)DotSpatial.Projections\Properties\*.cs" />
+    <!-- Upstream marks this None, not Compile; it would otherwise double-define. -->
+    <Compile Remove="$(VendorDir)DotSpatial.Projections\DeflateStreamUtility.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- LogicalName is explicit because the sources live outside the project
+         directory, so SDK-derived resource names would be wrong. -->
+    <EmbeddedResource Include="$(VendorDir)DotSpatial.Projections\Nad\null.lla"
+                      LogicalName="DotSpatial.Projections.Nad.null.lla" />
+    <EmbeddedResource Include="$(VendorDir)DotSpatial.Projections\XML\gcs.csv"
+                      LogicalName="DotSpatial.Projections.XML.gcs.csv" />
+    <EmbeddedResource Include="$(VendorDir)DotSpatial.Projections\XML\pcs.csv"
+                      LogicalName="DotSpatial.Projections.XML.pcs.csv" />
+    <EmbeddedResource Include="$(VendorDir)DotSpatial.Projections\XML\datums.xml"
+                      LogicalName="DotSpatial.Projections.XML.datums.xml" />
+    <EmbeddedResource Include="$(VendorDir)DotSpatial.Projections\ProjectionMessages.resx"
+                      LogicalName="DotSpatial.Projections.ProjectionMessages.resources" />
+    <EmbeddedResource Include="$(VendorDir)DotSpatial.Projections\ProjectionNames.resx"
+                      LogicalName="DotSpatial.Projections.ProjectionNames.resources" />
+  </ItemGroup>
+
+</Project>

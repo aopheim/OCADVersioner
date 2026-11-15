@@ -1,0 +1,219 @@
+@using OcadViewer.Wasm.Services
+@inject AppSettingsService SettingsService
+@inject Localiser L
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@*
+    Settings, as the Angular app's app-settings-modal: a real Bootstrap modal,
+    opened and closed by data-bs-* attributes against Bootstrap's own JS, so it
+    gets the backdrop, the fade, the focus trap and the escape key for free.
+
+    The element is always rendered. Bootstrap mutates its class and style while it
+    shows and hides, and Blazor only patches attributes it has itself re-rendered,
+    so the two do not fight over it - but that only holds while this markup stays
+    static. Do not make the class or style attributes dynamic.
+
+    Edits are drafts until Save, matching Angular: the flags and the EPSG field
+    change local state, and nothing is persisted or applied until the button.
+*@
+
+<div class="modal fade" id="appSettingsModal" tabindex="-1"
+     aria-labelledby="appSettings" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header d-flex">
+                <div class="w-100 d-flex align-items-center">
+                    <i class="bi bi-sliders mx-2"></i>
+                    <h1 class="modal-title fs-3">@L["#_settings"]</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                </div>
+            </div>
+
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">@L["#_language"]</label>
+                    <div class="row">
+                        @foreach (var language in Localiser.Languages) {
+                            <div class="col-1 pointer" @onclick="() => draftLanguage = language.Code"
+                                 title="@language.Name">
+                                <div class="border @(draftLanguage == language.Code ? "border-4 border-success" : "")">
+                                    <span>@((MarkupString)Flag(language.Code))</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="mt-2">
+                        <label class="form-label" for="epsgNumber">@L["#_georeferencing"]</label>
+                        <a tabindex="0" role="button" data-bs-container="body"
+                           data-bs-toggle="popover" data-bs-trigger="focus hover"
+                           data-bs-placement="top"
+                           data-bs-content="@L["#_georeferencingExplanation"]">
+                            <i class="bi bi-question-circle mx-2 pointer"></i>
+                        </a>
+
+                        <div class="input-group">
+                            <div class="d-flex col-6">
+                                <span class="input-group-text">@L["#_epsgColon"]</span>
+                                <input id="epsgNumber" type="text"
+                                       class="form-control @(EpsgInvalid ? "is-invalid" : "")"
+                                       placeholder="@L["#_epsgNumberPlaceholder"]"
+                                       value="@draftEpsgText" @oninput="OnEpsgInput" />
+                            </div>
+                            <div class="col-6 d-flex align-items-center">
+                                @*
+                                    Angular shows the code's name here, and a list of
+                                    suggestions underneath, out of the 8 MB epsg-index
+                                    it bundles. Not reproduced: the code is stored and
+                                    shared with the Angular app, but nothing in this
+                                    app reads it yet, so a name lookup would be 300 KB
+                                    spent on decorating a value nothing acts on.
+                                *@
+                                <div class="mx-2">
+                                    @if (draftEpsg is int epsgCode) {
+                                        <div class="d-flex justify-content-between w-100">
+                                            <span class="mx-1"><strong>@epsgCode</strong></span>
+                                            <div class="pointer" @onclick="RemoveEpsg">
+                                                <i class="bi bi-x-circle"></i>
+                                            </div>
+                                        </div>
+                                    }
+                                    else {
+                                        <span><em>@L["#_noGeoReferencingSet"]</em></span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        @* What the parser read out of the open map, which Angular
+                           never offered and is the one georeferencing fact this app
+                           can actually show today. *@
+                        @if (!string.IsNullOrWhiteSpace(Georeference)) {
+                            <p class="text-muted small mt-2 mb-0">
+                                This map declares <code>@Georeference</code>
+                            </p>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    @L["#_cancel"]
+                </button>
+                <button type="button" class="btn btn-primary @(EpsgInvalid ? "disabled" : "")"
+                        disabled="@EpsgInvalid" data-bs-dismiss="modal" @onclick="Save">
+                    @L["#_save"]
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    /// <summary>The projection the parser read from the currently loaded map.</summary>
+    [Parameter] public string Georeference { get; set; }
+
+    private string draftLanguage;
+    private string draftEpsgText = "";
+    private int? draftEpsg;
+
+    /// <summary>Matches Angular's <c>Validators.min(1)</c> on the EPSG field.</summary>
+    private bool EpsgInvalid =>
+        !string.IsNullOrWhiteSpace(draftEpsgText)
+        && (!int.TryParse(draftEpsgText, out int typed) || typed < 1);
+
+    private IJSObjectReference ui;
+    private DotNetObjectReference<SettingsDialog> self;
+
+    protected override void OnInitialized() => Revert();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        ui = await JS.ImportAsync("./js/bootstrapComponents.js");
+
+        // The help popover is the one Bootstrap component that needs constructing.
+        await ui.InvokeVoidAsync("initPopovers");
+
+        self = DotNetObjectReference.Create(this);
+        await ui.InvokeVoidAsync("onModalHidden", "appSettingsModal", self);
+    }
+
+    /// <summary>
+    /// Called by Bootstrap once the modal has finished hiding, however it was
+    /// closed. Discarding the draft here rather than on the Cancel button means
+    /// Escape and a backdrop click cannot leave an uncommitted value waiting to be
+    /// saved by the next person who opens it.
+    /// </summary>
+    [JSInvokable]
+    public void OnHidden()
+    {
+        Revert();
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await ui.ReleaseAsync();
+        self?.Dispose();
+    }
+
+    private void OnEpsgInput(ChangeEventArgs e)
+    {
+        draftEpsgText = e.Value?.ToString() ?? "";
+        draftEpsg = int.TryParse(draftEpsgText, out int typed) && typed >= 1 ? typed : null;
+    }
+
+    private void RemoveEpsg()
+    {
+        draftEpsg = null;
+        draftEpsgText = "";
+    }
+
+    /// <summary>Throws the draft away, so reopening shows what is actually saved.</summary>
+    private void Revert()
+    {
+        draftLanguage = L.Language;
+        draftEpsg = SettingsService.Settings.Georeferencing?.EpsgNumber;
+        draftEpsgText = draftEpsg?.ToString() ?? "";
+    }
+
+    private async Task Save()
+    {
+        if (EpsgInvalid)
+            return;
+
+        await SettingsService.SaveAsync(draftLanguage, draftEpsg);
+    }
+
+    /// <summary>
+    /// The two flags, verbatim from the Angular modal so the picker is the same
+    /// picture. Inline rather than files because that is how Angular ships them.
+    /// </summary>
+    private static string Flag(string languageCode) => languageCode switch {
+        "no" => """
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480">
+              <path fill="#ed2939" d="M0 0h640v480H0z"/>
+              <path fill="#fff" d="M180 0h120v480H180z"/>
+              <path fill="#fff" d="M0 180h640v120H0z"/>
+              <path fill="#002664" d="M210 0h60v480h-60z"/>
+              <path fill="#002664" d="M0 210h640v60H0z"/>
+            </svg>
+            """,
+        "en" => """
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480">
+              <path fill="#012169" d="M0 0h640v480H0z"/>
+              <path fill="#FFF" d="m75 0 244 181L562 0h78v62L400 241l240 178v61h-80L320 301 81 480H0v-60l239-178L0 64V0z"/>
+              <path fill="#C8102E" d="m424 281 216 159v40L369 281zm-184 20 6 35L54 480H0zM640 0v3L391 191l2-44L590 0zM0 0l239 176h-60L0 42z"/>
+              <path fill="#FFF" d="M241 0v480h160V0zM0 160v160h640V160z"/>
+              <path fill="#C8102E" d="M0 193v96h640v-96zM273 0v480h96V0z"/>
+            </svg>
+            """,
+        _ => ""
+    };
+}

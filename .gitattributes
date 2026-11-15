@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Vendored PurplePen sources must stay byte-identical to upstream: tools/sync-purplepen.ps1
+# verifies them by SHA-256, and any end-of-line translation would break that check.
+map-viewer/vendor/** -text

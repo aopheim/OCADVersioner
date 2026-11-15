@@ -1,0 +1,53 @@
+/* The app's own styling, and deliberately almost nothing.
+ *
+ * The Angular app loads Bootstrap and Bootstrap Icons and adds about fifteen
+ * lines of its own, spread across component stylesheets. Everything here is
+ * either one of those rules or something Blazor itself needs; there is no theme
+ * of our own, because any rule here is a way for the two apps to look different.
+ */
+
+/* From ocad-versioner.component.scss ------------------------------------- */
+
+.cursorPointer {
+    cursor: pointer;
+}
+
+/* Keeps the About link the colour of the surrounding icons rather than link blue. */
+.noColor {
+    color: black;
+}
+
+/* From ocad-map-viewer.component.scss ----------------------------------- */
+
+.mapDiv {
+    background: white;
+    height: 80vh;
+}
+
+/* From app-settings-modal.component.scss and about-page.component.scss --- */
+
+.pointer {
+    cursor: pointer;
+}
+
+.w-10 {
+    width: 10%;
+}
+
+/* Blazor's own two pieces ----------------------------------------------- */
+
+/* Blazor reveals this with an inline display when an exception escapes a
+   component, so it has to start hidden by a rule an inline style can beat. */
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1100;
+}
+
+/* The runtime reports download progress through this custom property. */
+#app-loading-text:after {
+    content: var(--blazor-load-percentage-text, "Loading");
+}

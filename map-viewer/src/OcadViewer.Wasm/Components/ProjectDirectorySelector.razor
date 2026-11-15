@@ -1,0 +1,189 @@
+@using OcadViewer.Wasm.Services
+@inherits LocalisedComponent
+@inject ProjectService Project
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@*
+    The start page, as the Angular app's project-directory-selector: a modal that
+    opens by itself and cannot be dismissed until a folder is chosen.
+
+    data-bs-backdrop="static" and data-bs-keyboard="false" are what make it
+    undismissable, and there is deliberately no close button in the header. The app
+    can do nothing at all without a project folder, so an escapable dialog would
+    only ever lead to an empty page with no way back.
+*@
+
+<div class="modal" id="staticBackdrop" data-bs-backdrop="static"
+     data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="staticBackdropLabel">@L["#_OCADVersioner"]</h5>
+            </div>
+
+            <div class="modal-body">
+                <p>@L["#_projectDirectorySelectorText"]</p>
+
+                <div class="d-flex justify-content-start">
+                    <a href="about" class="btn btn-outline d-flex align-items-end">
+                        <i class="bi bi-book h2"></i>
+                        <p class="m-3">@L["#_aboutPageLinkPt1"]</p>
+                    </a>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                @if (candidates.Count <= 1) {
+                    <div class="w-100">
+                        <button type="button" class="btn btn-primary w-100"
+                                @onclick="ChooseDirectory" disabled="@(!supported || busy)">
+                            @L["#_chooseOcadDirectory"]
+                        </button>
+                    </div>
+                }
+                else {
+                    @* More than one .ocd in the root, so the working file is
+                       ambiguous and the user has to say which it is. *@
+                    <div class="dropdown w-100">
+                        <button id="selectCorrectOcadFileButton" type="button"
+                                class="btn btn-warning dropdown-toggle w-100 text-wrap"
+                                data-bs-toggle="dropdown" aria-expanded="false">
+                            @L["#_foundMultipleOcdFilesInDirectory"]
+                        </button>
+                        <ul class="dropdown-menu">
+                            @foreach (string fileName in candidates) {
+                                <li @onclick="() => ChooseFile(fileName)">
+                                    <a class="dropdown-item pointer">@fileName</a>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </div>
+
+            @foreach (var error in errors) {
+                <p class="text-danger">@error.Message</p>
+                @if (error.Type == ErrorType.UnsupportedBrowser) {
+                    <a href="about#supportedBrowsers">@L["#_supportedBrowsers"]</a>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    /// <summary>Raised once a project folder and a working file are settled.</summary>
+    [Parameter] public EventCallback OnProjectLoaded { get; set; }
+
+    private IJSObjectReference ui;
+    private bool supported = true;
+    private bool busy;
+
+    private IReadOnlyList<string> candidates = [];
+    private readonly List<(ErrorType Type, string Message)> errors = [];
+
+    private enum ErrorType
+    {
+        UnsupportedBrowser,
+        NoOcdFileInDirectory,
+        CouldNotRead
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try {
+            supported = await Project.IsSupportedAsync();
+        }
+        catch {
+            supported = false;
+        }
+
+        if (!supported)
+            errors.Add((ErrorType.UnsupportedBrowser, L["#_errorTypeUnsupportedBrowser"]));
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        ui = await JS.ImportAsync("./js/bootstrapComponents.js");
+
+        // Opens itself, as in the Angular app: there is nothing else to do on this
+        // page, so making the user click something first would be ceremony.
+        if (!Project.IsOpen)
+            await ui.InvokeVoidAsync("showModal", "staticBackdrop");
+    }
+
+    /// <summary>Reopens the dialog, for the header's change-project control.</summary>
+    public async Task ShowAsync()
+    {
+        errors.Clear();
+        candidates = [];
+        StateHasChanged();
+
+        if (ui is not null)
+            await ui.InvokeVoidAsync("showModal", "staticBackdrop");
+    }
+
+    private async Task ChooseDirectory()
+    {
+        busy = true;
+        errors.Clear();
+
+        try {
+            var project = await Project.OpenAsync();
+            candidates = project.OcdCandidates;
+
+            if (candidates.Count == 0) {
+                // Angular writes this message in English regardless of language,
+                // with a TODO about it. Ours uses the folder name the same way but
+                // at least goes through the translation table when a key exists.
+                errors.Add((ErrorType.NoOcdFileInDirectory,
+                            $"Found no .ocd file in the {project.ProjectName} folder"));
+                return;
+            }
+
+            if (candidates.Count == 1)
+                await Done();
+        }
+        catch (Exception ex) when (IsCancellation(ex)) {
+            // The picker throws when the user closes it, which is not an error.
+        }
+        catch (Exception ex) {
+            errors.Add((ErrorType.CouldNotRead, ex.Message));
+        }
+        finally {
+            busy = false;
+        }
+    }
+
+    private async Task ChooseFile(string fileName)
+    {
+        busy = true;
+
+        try {
+            await Project.SelectCurrentFileAsync(fileName);
+            await Done();
+        }
+        catch (Exception ex) {
+            errors.Add((ErrorType.CouldNotRead, ex.Message));
+        }
+        finally {
+            busy = false;
+        }
+    }
+
+    /// <summary>Closes the dialog and lets the page load the maps.</summary>
+    private async Task Done()
+    {
+        await ui.InvokeVoidAsync("hideModal", "staticBackdrop");
+        await OnProjectLoaded.InvokeAsync();
+    }
+
+    private static bool IsCancellation(Exception ex)
+        => ex.Message.Contains("abort", StringComparison.OrdinalIgnoreCase);
+
+    public async ValueTask DisposeAsync() => await ui.ReleaseAsync();
+}

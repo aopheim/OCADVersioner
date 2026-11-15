@@ -1,0 +1,380 @@
+@page "/"
+@using OcadViewer.Versioning
+@using OcadViewer.Wasm.Components
+@using OcadViewer.Wasm.Services
+@inherits LocalisedComponent
+@inject ProjectService Project
+@inject IDiffSource DiffSource
+
+<PageTitle>@L["#_OCADVersioner"]</PageTitle>
+
+@*
+    container-fluid lives here rather than in the layout because that is where the
+    Angular app puts it: there is no shell, every page is its own container.
+*@
+<div class="container-fluid">
+
+@* A 2 px bar, present only while something is happening, as in the Angular app. *@
+<div style="height:2px">
+    @if (busy) {
+        <div class="progress" style="height:2px">
+            <div class="progress-bar progress-bar-striped progress-bar-animated"
+                 style="width:100%"></div>
+        </div>
+    }
+</div>
+
+<div class="d-flex justify-content-between align-items-center">
+    <h3 class="my-2">@L["#_OCADVersioner"]</h3>
+    <div>
+        <a href="about" target="_blank" title="@L["#_about"]">
+            <i class="bi bi-book cursorPointer mx-3 h4 noColor"></i>
+        </a>
+        @* Opened by Bootstrap itself, as in the Angular app, rather than by a
+           Blazor flag - that is what gets the backdrop and the escape key. *@
+        <i class="bi bi-sliders cursorPointer mx-3 h4" title="@L["#_settings"]"
+           data-bs-toggle="modal" data-bs-target="#appSettingsModal"></i>
+    </div>
+</div>
+
+@* The start page. It opens itself and owns choosing the folder, the working file
+   and reporting why either failed - so none of that is duplicated here. *@
+<ProjectDirectorySelector @ref="selector" OnProjectLoaded="OnProjectLoaded" />
+
+@if (Project.IsOpen) {
+    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+        <span class="text-muted small">
+            @Project.Project.ProjectName
+            @if (!string.IsNullOrEmpty(Project.Project.CurrentFileName)) {
+                <text> / @Project.Project.CurrentFileName</text>
+            }
+        </span>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="Refresh" disabled="@busy"
+                title="Re-read the folder">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="ChangeProject" disabled="@busy"
+                title="@L["#_chooseOcadDirectory"]">
+            <i class="bi bi-folder2-open"></i>
+        </button>
+
+        @* The change overlay, off on arrival because building it means rendering
+           both maps in full. *@
+        <div class="vr mx-1"></div>
+        <button class="btn btn-sm @(showChanges ? "btn-primary" : "btn-outline-secondary")"
+                @onclick="ToggleChanges" disabled="@busy"
+                title="Show what changed since @Comparison.Older (@OverlayKey.ToUpperInvariant())">
+            <i class="bi bi-layers"></i>
+        </button>
+
+        @* The same switch from the keyboard, because comparing two versions is
+           looking from one map to the other and back, and reaching for this
+           button each time takes the eye off the place being looked at. *@
+        <KeyboardShortcut Key="@OverlayKey" OnPressed="ToggleChanges" />
+
+        <button class="btn btn-outline-secondary btn-sm" @onclick="ZoomToChanges"
+                disabled="@(busy || changeSummary is not { Shown: true, ShownPixels: > 0 })"
+                title="Zoom to what the overlay is showing">
+            <i class="bi bi-crosshair"></i>
+        </button>
+
+        @if (ChangedShare() is { } share) {
+            <span class="text-muted small">@share</span>
+        }
+    </div>
+}
+
+@if (status is not null) {
+    <p class="@(failed ? "text-danger" : "text-muted")">@status</p>
+}
+
+@if (Project.IsOpen) {
+    <div class="row">
+        <div class="col-md-2 d-flex flex-column">
+            <VersionList Items="VersionItems()" SelectedNumber="selectedNumber"
+                         Disabled="busy" OnSelected="SelectVersion" />
+
+            <CreateVersionForm @ref="versionForm"
+                               FileName="@Project.Project.CurrentFileName"
+                               NextVersionName="@Project.NextVersionName()"
+                               Busy="busy"
+                               OnCreate="CreateVersion" />
+        </div>
+
+        <div class="col-md-10">
+            <div class="d-flex justify-content-center align-items-center gap-3 mb-1">
+                @if (IsHistory) {
+                    <i class="bi bi-book fs-4 text-primary" title="Comparing two past versions"></i>
+                }
+                @* In the order the maps are in, so a glance at the heading and a
+                   glance at the panes agree. *@
+                <span class="fw-medium">@Label(Comparison.Older)</span>
+                <i class="bi bi-arrows"></i>
+                <span class="fw-medium">@Label(Comparison.Newer)</span>
+            </div>
+
+            <OcadMapPair @ref="mapPair" />
+
+            <DiffTable Diff="diff" Available="DiffSource.IsAvailable"
+                       UnavailableReason="@DiffSource.UnavailableReason" />
+        </div>
+    </div>
+}
+
+<SettingsDialog Georeference="@georeference" />
+
+</div>
+
+@code {
+    private OcadMapPair mapPair;
+    private ProjectDirectorySelector selector;
+    private CreateVersionForm versionForm;
+
+    /// <summary>Set when a project has just opened and the maps still need loading.</summary>
+    private bool comparisonPending;
+    private bool busy;
+    private string status;
+    private bool failed;
+
+    private MapDiff diff = MapDiff.Empty;
+    private string georeference;
+
+    /// <summary>Which version is being compared, 0 meaning the working file.</summary>
+    private int selectedNumber;
+
+    /// <summary>
+    /// The key that turns the change overlay on and off. Named here once, so the
+    /// shortcut and the hint on the button cannot come to disagree.
+    /// </summary>
+    private const string OverlayKey = "c";
+
+    /// <summary>Whether the change overlay is on.</summary>
+    private bool showChanges;
+
+    private OcadMapPair.ChangeSummary changeSummary;
+
+    /// <summary>
+    /// The two sides of the current comparison. Which version sits opposite which
+    /// is a rule about project folders, not about this page, so it is answered by
+    /// <see cref="ProjectService"/> - and tested without a browser.
+    /// </summary>
+    private (string Newer, string Older) Comparison => Project.ComparisonFor(selectedNumber);
+
+    /// <summary>True when looking at two past versions rather than the working file.</summary>
+    private bool IsHistory => selectedNumber != 0;
+
+    /// <summary>
+    /// The released versions, newest first.
+    /// </summary>
+    /// <remarks>
+    /// The working file is not one of them. It is the map OCAD is writing, not a
+    /// version of anything, and listing it among the releases would make the
+    /// newest release look like the second newest thing in the project.
+    /// </remarks>
+    private IReadOnlyList<VersionList.Item> VersionItems()
+        => [.. Project.Project.Versions
+                .OrderByDescending(v => v.Number)
+                .Select(v => new VersionList.Item(
+                    v.Number, v.Name, v.Metadata.Title, v.Metadata.Description,
+                    v.Metadata.VersionCreatedAt,
+                    v.Metadata.NumberOfAddedSymbols,
+                    v.Metadata.NumberOfEditedSymbols,
+                    v.Metadata.NumberOfDeletedSymbols))];
+
+    /// <summary>
+    /// What one side of the comparison is called on screen.
+    /// </summary>
+    /// <remarks>
+    /// Releases answer to their own names. The working file has no name a mapper
+    /// would recognise - the folder format calls it "current" - so it says what
+    /// OCAD has open instead.
+    /// </remarks>
+    private string Label(string versionName)
+        => ProjectService.IsVolatile(versionName)
+            ? Project.Project.CurrentFileName ?? versionName
+            : versionName;
+
+    /// <summary>
+    /// The folder is open and a working file is settled.
+    /// </summary>
+    /// <remarks>
+    /// The maps cannot be loaded here. Until this moment the workspace was not on
+    /// the page at all - it renders only once a project is open - so OcadMapPair
+    /// does not exist yet and its <c>@@ref</c> is still null. Asking for a render
+    /// and picking the work up afterwards is what makes the component available.
+    /// </remarks>
+    private void OnProjectLoaded()
+    {
+        selectedNumber = 0;
+        showChanges = false;
+        changeSummary = null;
+        comparisonPending = true;
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Children render before their parent's OnAfterRenderAsync runs, so by now
+        // the map pair exists and has started its own JS module.
+        if (!comparisonPending || mapPair is null || busy)
+            return;
+
+        comparisonPending = false;
+
+        // A different folder may have been opened, and its releases share their
+        // names with the last one's, so nothing parsed before can be trusted.
+        await Run("Loading…", async () => {
+            await mapPair.ResetAsync();
+            await ShowComparison();
+        });
+    }
+
+    private async Task Refresh()
+        => await Run("Re-reading folder…", async () => {
+            await Project.RefreshAsync();
+            await ShowComparison();
+        });
+
+    /// <summary>Reopens the start dialog, to point the app at a different folder.</summary>
+    private async Task ChangeProject() => await selector.ShowAsync();
+
+    /// <summary>Looks at a version, or puts the working file back on screen.</summary>
+    /// <remarks>
+    /// Clicking the version already selected is the way back to the file OCAD is
+    /// writing. That file is not in the list - it is not a version - so the row
+    /// you left through has to be the way back, or there is none.
+    /// </remarks>
+    private async Task SelectVersion(int number)
+        => await Run("Loading…", async () => {
+            selectedNumber = number == selectedNumber ? 0 : number;
+            await ShowComparison();
+        });
+
+    private async Task CreateVersion((string Title, string Description) entry)
+        => await Run("Creating version…", async () => {
+            await Project.CreateVersionAsync(entry.Title, entry.Description);
+            versionForm?.Reset();
+            selectedNumber = 0;
+            await ShowComparison();
+        });
+
+    /// <summary>Puts both sides of the comparison on screen.</summary>
+    /// <remarks>
+    /// Each side is named, not numbered, and a release is only re-read when it is
+    /// not already parsed - so moving from "V4 against V3" to "V3 against V2"
+    /// parses V2 alone. Only the working file is reloaded every time, because only
+    /// the working file can have changed on disk.
+    /// </remarks>
+    private async Task ShowComparison()
+    {
+        // Not a guard against ordinary timing - the caller is responsible for
+        // waiting until the workspace has rendered. Silently returning here is how
+        // "the folder opened but no maps appeared" would look.
+        if (mapPair is null)
+            throw new InvalidOperationException("The map pair is not on the page yet.");
+
+        (string newer, string older) = Comparison;
+
+        // Older on the left, newer on the right: time runs that way, and the
+        // overlay - which is painted on the newer map - then sits where the eye
+        // ends up rather than where it starts.
+        MapSummary loaded = await mapPair.ShowAsync(MapSide.Right, Project.SourceFor(newer));
+        georeference = loaded.Georeference;
+
+        await mapPair.ShowAsync(MapSide.Left, Project.SourceFor(older));
+
+        diff = await DiffSource.CompareAsync(older, newer);
+
+        // The overlay belongs to a pair of versions, so a new comparison needs a
+        // new mask. Only paid for if the user has asked to see one.
+        await ApplyChangeOverlay();
+    }
+
+    /// <summary>Turns the overlay on or off, from the button or from the keyboard.</summary>
+    private async Task ToggleChanges()
+        => await Run("Finding changes…", async () => {
+            showChanges = !showChanges;
+            await ApplyChangeOverlay();
+        });
+
+    /// <summary>
+    /// Brings the overlay in line with the switch and the current comparison.
+    /// </summary>
+    /// <remarks>
+    /// Free when the overlay is off, and free again when it is switched back on
+    /// for a comparison already measured - the mask and its image are kept per
+    /// pair of versions. Only a new comparison costs a render.
+    ///
+    /// A failure turns the switch off. Left on, the button would claim an
+    /// overlay that is not there, and the next comparison would quietly build
+    /// one the user never saw appear.
+    /// </remarks>
+    private async Task ApplyChangeOverlay()
+    {
+        if (mapPair is null)
+            return;
+
+        (string newer, string older) = Comparison;
+
+        try {
+            changeSummary = await mapPair.ShowChangesAsync(older, newer, showChanges);
+        }
+        catch {
+            showChanges = false;
+            changeSummary = null;
+            throw;
+        }
+    }
+
+    /// <summary>Frames whatever the overlay is showing, however small it is.</summary>
+    private async Task ZoomToChanges()
+        => await Run("Zooming…", async () => await mapPair.ZoomToChangesAsync());
+
+    /// <summary>
+    /// How much of the map the overlay is lighting up, or null.
+    /// </summary>
+    /// <remarks>
+    /// Both numbers are counted from the mask, where the overlay is drawn from,
+    /// so the percentage cannot disagree with the picture.
+    /// </remarks>
+    private string ChangedShare()
+    {
+        if (changeSummary is not { Shown: true, TotalPixels: > 0 } summary)
+            return null;
+
+        return $"{summary.ShownPixels * 100.0 / summary.TotalPixels:0.0}% of the map";
+    }
+
+    /// <summary>Runs an action with the progress bar, busy flag and error reporting.</summary>
+    /// <remarks>
+    /// Ignores the request while another action is running. Buttons are
+    /// disabled while busy, but a key press and a click on a version are not
+    /// stopped by markup, and a second comparison started on top of the first
+    /// interleaves with it: each sets one side, and the two panes end up from
+    /// different comparisons under a heading that names neither.
+    /// </remarks>
+    private async Task Run(string message, Func<Task> action)
+    {
+        if (busy)
+            return;
+
+        busy = true;
+        failed = false;
+        status = message;
+        StateHasChanged();
+        await Task.Yield();
+
+        try {
+            await action();
+            status = null;
+        }
+        catch (Exception ex) {
+            failed = true;
+            status = ex.Message;
+        }
+        finally {
+            busy = false;
+            StateHasChanged();
+        }
+    }
+}

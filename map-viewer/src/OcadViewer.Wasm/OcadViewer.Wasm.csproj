@@ -1,0 +1,128 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
+
+    <!-- Saves roughly 1.4 MB of ICU data. Safe for this stack: the vendored code
+         formats with CultureInfo.InvariantCulture throughout, and the legacy OCAD
+         6-8 codepage support comes from CodePagesEncodingProvider, which carries
+         its own tables and does not depend on ICU. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Measured, not assumed. AOT makes parsing large_map.ocd 16x faster
+         (6200 ms -> 381 ms) and tiles 3.3-4.4x faster, because the cost is
+         managed work in SymDef/SymPath rather than Skia rasterisation. It costs
+         about 3 MB brotli and roughly an hour of publish time. Worth it.
+
+         This only applies to publish, so dev builds stay fast. -->
+    <RunAOTCompilation>true</RunAOTCompilation>
+    <WasmStripILAfterAOT>true</WasmStripILAfterAOT>
+
+    <BlazorEnableCompression>true</BlazorEnableCompression>
+
+    <!-- The tile layer needs JS to call .NET for pixels. [JSExport] marshals byte[]
+         as a real typed array; the DotNetObjectReference route would serialise it
+         as base64 inside JSON, which at 256 KB a tile is not viable. -->
+    <WasmEnableJSExports>true</WasmEnableJSExports>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!-- Without this, `dotnet publish` fails and the app cannot be shipped at all:
+
+         WasmApp.Common.targets(697,5): error :
+         ...\wasm\for-publish\tokens\Microsoft_Extensions_DependencyInjection_
+         Abstractions_dll_compiled_methods.txt doesn't exist.
+
+       WasmStripILAfterAOT makes MonoAOTCompiler write, per assembly, a token file
+       listing the methods that got native code and whose IL can therefore be
+       dropped; ILStrip then reads one file per AOT'd assembly. After trimming,
+       DependencyInjection.Abstractions is interfaces and attributes with no
+       compilable method bodies left, so the compiler writes no file for it - and
+       ILStrip errors on the missing file instead of taking it to mean "nothing to
+       strip". Verified on a clean publish with SDK 10.0.102 / WebAssembly.Sdk
+       10.0.12: 81 assemblies AOT'd, 79 token files, and the only real miss is this
+       one.
+
+       _AOT_InternalForceInterpretAssemblies is the knob the SDK's own targets
+       document for this ("Skip known-huge assemblies specified in csproj"). Listed
+       assemblies are held out of the AOT input set and added back after ILStrip has
+       run, so no token file is ever looked for. It costs nothing here, because the
+       assembly produced no native code to begin with.
+
+       The alternative is WasmStripILAfterAOT=false, which also builds but leaves
+       the now-dead IL in every assembly. Measured over the 52 assemblies ILStrip
+       rewrites, that is worth 0.55 MB brotli: 2.37 MB before, 1.81 MB after, out
+       of a 10.06 MB payload. Raw size is identical either way - stripping zeroes
+       method bodies in place, and the win is entirely that zeros compress.
+
+       Drop this once the SDK treats a missing token file as empty. -->
+  <ItemGroup>
+    <!-- The .dll matters: the SDK matches on %(Filename), and without an extension
+         to strip MSBuild reads ".Abstractions" as one. -->
+    <_AOT_InternalForceInterpretAssemblies Include="Microsoft.Extensions.DependencyInjection.Abstractions.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" PrivateAssets="all" />
+    <!-- The two native packages have to be named explicitly. Neither arrives with
+         SkiaSharp itself, and without them the app fails at runtime rather than at
+         build time: a missing Skia native shows up as a TypeInitializationException
+         in SkiaFontManager, a missing HarfBuzz as a DllNotFoundException. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.WebAssembly" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.WebAssembly" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OcadViewer.Core\OcadViewer.Core.csproj" />
+    <ProjectReference Include="..\OcadViewer.Versioning\OcadViewer.Versioning.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Neither assembly was written with IL trimming in mind: MapModel resolves
+         an embedded resource by hardcoded name and DotSpatial carries .resx data.
+         Root them until the Stage-1 map corpus has been run through the browser
+         with the roots removed, so trimming bugs surface as a deliberate test
+         rather than as a runtime failure on someone's map. -->
+    <TrimmerRootAssembly Include="MapModel" />
+    <TrimmerRootAssembly Include="DotSpatial.Projections" />
+  </ItemGroup>
+
+
+  <!-- The translations live in the Angular app and are maintained there. Copying
+       them in at build time keeps one source of truth while both apps exist,
+       rather than a .resx copy that drifts. wwwroot/i18n is generated. -->
+  <Target Name="StageTranslations" BeforeTargets="ResolveStaticWebAssetsInputs">
+    <ItemGroup>
+      <TranslationFile Include="$(MSBuildThisFileDirectory)..\..\..\ocad-versioner\src\assets\i18n\*.json" />
+    </ItemGroup>
+    <Copy SourceFiles="@(TranslationFile)"
+          DestinationFolder="$(MSBuildProjectDirectory)\wwwroot\i18n"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- The BSD-3 licence on the vendored renderer requires the notice to travel
+       with what is served to a browser, so the About page links to it. -->
+  <Target Name="StageNotices" BeforeTargets="ResolveStaticWebAssetsInputs">
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\..\THIRD-PARTY-NOTICES.md"
+          DestinationFiles="$(MSBuildProjectDirectory)\wwwroot\third-party-notices.txt"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Stage the vendored fonts into wwwroot so the static web asset pipeline
+       serves them. A Content item with Link metadata is NOT enough: the file
+       lands in the output directory but is never registered as a static web
+       asset, so requests for it return an empty 200 and the app silently ends
+       up with zero-byte fonts. wwwroot/fonts is generated and git-ignored. -->
+  <Target Name="StageVendorFonts" BeforeTargets="ResolveStaticWebAssetsInputs">
+    <ItemGroup>
+      <VendorFont Include="$(VendorDir)fonts\*.ttf" />
+    </ItemGroup>
+    <Copy SourceFiles="@(VendorFont)"
+          DestinationFolder="$(MSBuildProjectDirectory)\wwwroot\fonts"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

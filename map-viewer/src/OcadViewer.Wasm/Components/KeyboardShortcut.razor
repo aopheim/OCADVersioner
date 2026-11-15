@@ -1,0 +1,52 @@
+@using OcadViewer.Wasm.Services
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@*
+    A page-wide keyboard shortcut.
+
+    It renders nothing on purpose. The key belongs to the page rather than to any
+    one element, and the thing it does is already a button somebody can click -
+    this only offers a second way to press it, so it owns no state and no markup
+    of its own.
+*@
+
+@code {
+    /// <summary>The key to answer to, as the browser names it, e.g. "c".</summary>
+    [Parameter, EditorRequired] public string Key { get; set; }
+
+    /// <summary>Raised when that key is pressed outside a field and without modifiers.</summary>
+    [Parameter] public EventCallback OnPressed { get; set; }
+
+    private IJSObjectReference module;
+    private IJSObjectReference listener;
+    private DotNetObjectReference<KeyboardShortcut> self;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        module = await JS.ImportAsync("./js/hotkeys.js");
+        self = DotNetObjectReference.Create(this);
+        listener = await module.InvokeAsync<IJSObjectReference>("listen", Key, self);
+    }
+
+    /// <summary>
+    /// Called from the listener when the press is one the page should act on.
+    /// </summary>
+    /// <remarks>
+    /// Which presses those are is decided in JavaScript, where the focused
+    /// element and the modifier keys are. By the time it arrives here it is the
+    /// same event as a click on the button.
+    /// </remarks>
+    [JSInvokable]
+    public Task Pressed() => OnPressed.InvokeAsync();
+
+    public async ValueTask DisposeAsync()
+    {
+        await listener.ReleaseAsync("dispose");
+        await module.ReleaseAsync();
+        self?.Dispose();
+    }
+}

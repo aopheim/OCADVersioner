@@ -1,0 +1,60 @@
+@page "/about"
+@using OcadViewer.Wasm.Components
+@using OcadViewer.Wasm.Services
+@inherits LocalisedComponent
+
+@*
+    Uses the Angular translations where keys exist. The sections below have no key
+    because the Angular About page never said these things - they are about how
+    this app renders maps, which is new. They stay English until someone who
+    speaks Norwegian writes the translations; inventing them here would put bad
+    Norwegian into a file the Angular app also reads.
+
+    Also the home of the third-party notices, which the BSD-3 licence on the
+    vendored renderer requires to travel with what is served to a browser.
+*@
+
+<PageTitle>@L["#_about"] @L["#_OCADVersioner"]</PageTitle>
+
+<div class="container py-4">
+
+<h1>@L["#_OCADVersioner"]</h1>
+
+<p class="lead">@L["#_jumbo1Title"]</p>
+
+<p>@L["#_projectDirectorySelectorText"]</p>
+
+<h2 class="h5 mt-4">How the map is drawn</h2>
+<p>
+    Maps are parsed and rendered by Purple Pen's map engine, compiled to
+    WebAssembly and running entirely in your browser. There is no server:
+    <strong>your map files never leave your machine</strong> and are never
+    uploaded anywhere.
+</p>
+
+@*
+    The paragraph above is about map files. This one says plainly that usage
+    data can leave the machine: usage data is not map data, but the distinction
+    belongs to the reader, not to us.
+*@
+<p class="text-muted small">
+    When this app is deployed with monitoring configured, anonymous usage and
+    error reports are sent to the maintainers so faults can be found and fixed.
+    That covers which pages were opened and what went wrong &mdash; never the
+    contents of your maps. Running it locally sends nothing at all.
+</p>
+
+<h2 class="h5 mt-4">Credits and licences</h2>
+<p>
+    The OCAD parser and renderer come from
+    <a href="https://github.com/petergolde/PurplePen" target="_blank" rel="noopener">Purple Pen</a>
+    by Peter Golde, used under the BSD 3-Clause licence. The map viewport is
+    Leaflet. Full notices for every third-party component are in
+    <a href="third-party-notices.txt" target="_blank">third-party notices</a>.
+</p>
+
+<p class="text-muted small">
+    This project is not affiliated with or endorsed by Purple Pen or Peter Golde.
+</p>
+
+</div>
