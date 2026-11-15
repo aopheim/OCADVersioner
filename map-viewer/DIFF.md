@@ -79,13 +79,18 @@ fixtures for these would be better, and are worth adding when someone has OCAD t
 hand: an area changed from 403 to 406, a rotated point, and a blank map with the
 same symbol set.
 
-**Run the suite in Debug on this machine.** The Windows application control policy
-described in `PLAN.md` blocks the Release build of `Graphics2D.dll`
-(`0x800711C7`), and this suite loads the vendored assemblies. The Debug build is
-not blocked. `OcadViewer.ArchitectureTests` never loads them and runs either way.
+**The Windows application control policy described in `PLAN.md` gets in the way
+here.** It blocks freshly built vendored assemblies (`0x800711C7`), and this suite
+loads them. Its verdicts are not stable: on the day this was written the Release
+build of `Graphics2D.dll` was blocked from the start, the Debug build ran all 37
+tests, and a few hours later the same Debug `MapModel.dll` was blocked too. The 15
+tests that never touch PurplePen (the reader and the measurements) keep running.
+When the rest are blocked, the browser is the way to check: WebAssembly is not
+subject to the policy (see below). `OcadViewer.ArchitectureTests` never loads the
+assemblies and runs either way.
 
 ```bash
-dotnet test map-viewer/tests/OcadViewer.Diff.Tests                       # Debug
+dotnet test map-viewer/tests/OcadViewer.Diff.Tests                       # Debug, when the policy allows
 dotnet test map-viewer/tests/OcadViewer.ArchitectureTests -c Release
 ```
 
@@ -143,3 +148,33 @@ V1 = `1knoll`, V2 = `point_line_area`:
 
 Symbol names come from the map ("Small knoll", "Rough open land"), and no
 console errors.
+
+### A real project: Storigarden
+
+The same check against the Storigarden project (six releases and a working file,
+OCAD 2018, about 6.6 MB and 2 900 objects each), from copies of its files:
+
+| Comparison | C# diff (added / edited / deleted) | Angular's counts in `V<n>.json` |
+|---|---|---|
+| V6 → working file | 0 / 0 / 0 (the files are byte-identical) | — |
+| V5 → V6 | 14 / 2 / 1 | 16 / 4 / 3 |
+| V4 → V5 | 29 / 5 / 2 | **696 / 284 / 669** |
+| V3 → V4 | 7 / 5 / 0 | 7 / 5 / 0 |
+| V2 → V3 | 8 / 3 / 1 | 13 / 2 / 6 |
+| V1 → V2 | 20 / 3 / 0 | 0 / 0 / 0 (nothing recorded) |
+| V1 alone | 2 882 added | — |
+
+Where the two disagree, Angular's extra additions equal its extra deletions (2, 5,
+667): untouched objects counted as deleted and re-added because their GeoJSON ids
+moved. That is the ocad2geojson id problem this diff exists to avoid, and V3 → V4,
+where nothing shifted, matches exactly.
+
+Every row was also checked against the release dates: no added object was
+created before the older release, every edited object was last changed after it,
+and no deleted object was created after the newer one. That covers 84 added, 18
+edited and 4 deleted objects. Switching versions took about 3.4 s each on the
+non-AOT build. That includes parsing a 6.6 MB map and redrawing; the diff's own
+share was not measured.
+
+What this does not show is that nothing was *missed*: an object OCAD touched that
+the diff did not report would not appear in any of these checks.
