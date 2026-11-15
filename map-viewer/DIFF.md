@@ -99,6 +99,47 @@ dotnet test map-viewer/tests/OcadViewer.ArchitectureTests -c Release
   needs the working file and the newest release both parsed when a version is
   created.
 - **Exact curve lengths**, see above.
-- **Checked in the browser by hand.** The folder picker cannot be automated, so the
-  table has only been verified through the tests and a start-up check of the
-  published app.
+
+## Checking the table in the browser, without the folder picker
+
+`PLAN.md` says anything behind "Open project folder" needs a human, because
+`showDirectoryPicker` opens a native dialog. It does not have to: Chromium's
+origin private file system hands out real `FileSystemDirectoryHandle`s. Write a
+project into it and have the picker return that handle, and everything after the
+picker runs the app's own code on real handles.
+
+Publish without AOT and serve it (see `PLAN.md`). Put a project's files under
+`wwwroot/testproject/` in the published output (`mymap.ocd`, `V1.ocd`, `V1.json`,
+`V2.ocd`, `V2.json`), open the page, and paste in the console:
+
+```js
+const root = await navigator.storage.getDirectory();
+try { await root.removeEntry('ocad-testproject', { recursive: true }); } catch {}
+const proj = await root.getDirectoryHandle('ocad-testproject', { create: true });
+async function put(dir, name, url) {
+  const fh = await dir.getFileHandle(name, { create: true });
+  const w = await fh.createWritable();
+  await w.write(await (await fetch(url)).arrayBuffer());
+  await w.close();
+}
+await put(proj, 'mymap.ocd', '/testproject/mymap.ocd');
+const rel = await proj.getDirectoryHandle('Releases', { create: true });
+for (const v of ['V1', 'V2']) {
+  const d = await rel.getDirectoryHandle(v, { create: true });
+  await put(d, `${v}.ocd`, `/testproject/${v}.ocd`);
+  await put(d, `${v}.json`, `/testproject/${v}.json`);
+}
+window.showDirectoryPicker = async () => proj;
+```
+
+Then press "Choose directory". Checked this way with `mymap` = `point_line_area_moved`,
+V1 = `1knoll`, V2 = `point_line_area`:
+
+| Comparison | Table |
+|---|---|
+| V2 → working file | Edited 3: contour +47.6 % length, knoll moved 78 m, area +20.9 %; all *Geometry* |
+| V1 → V2 | Added 3 (contour 250 m, knoll, area 8 386 m²), Deleted 1 (the V1 knoll) |
+| V1 alone | Added 1 (the knoll) |
+
+Symbol names come from the map ("Small knoll", "Rough open land"), and no
+console errors.
