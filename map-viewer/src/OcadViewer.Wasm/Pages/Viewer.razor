@@ -1,4 +1,5 @@
 @page "/"
+@using OcadViewer.Diff
 @using OcadViewer.Versioning
 @using OcadViewer.Wasm.Components
 @using OcadViewer.Wasm.Services
@@ -116,7 +117,8 @@
             <OcadMapPair @ref="mapPair" />
 
             <DiffTable Diff="diff" Available="DiffSource.IsAvailable"
-                       UnavailableReason="@DiffSource.UnavailableReason" />
+                       UnavailableReason="@DiffSource.UnavailableReason"
+                       OnZoom="ZoomToObject" />
         </div>
     </div>
 }
@@ -317,6 +319,19 @@
         (string newer, string older) = Comparison;
 
         changeSummary = await mapPair.ShowChangesAsync(older, newer, showChanges);
+    }
+
+    /// <summary>Frames one object from the diff table on both maps.</summary>
+    /// <remarks>
+    /// Not run through <see cref="Run"/>: it is a viewport move, with nothing to
+    /// wait for and nothing that can half-finish.
+    /// </remarks>
+    private async Task ZoomToObject(PaperBounds where)
+    {
+        if (where is null || mapPair is null)
+            return;
+
+        await mapPair.ZoomToAsync(new OcadMapPair.PaperArea(where.MinX, where.MinY, where.MaxX, where.MaxY));
     }
 
     /// <summary>Frames whatever the overlay is showing, however small it is.</summary>

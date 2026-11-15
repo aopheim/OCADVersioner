@@ -12,6 +12,7 @@ public enum DiffTableView
 
 /// <summary>A symbol as the diff table shows it.</summary>
 /// <param name="SymbolNumber">ISOM code, e.g. "109.0".</param>
+/// <param name="Bounds">Where the object is on the map, for zooming to it; null if it has no coordinates.</param>
 /// <param name="CreatedAtUtc">
 /// Null where OCAD held a date the parser could not make sense of, which happens
 /// often enough in real files to be worth tolerating rather than rejecting.
@@ -20,21 +21,22 @@ public abstract record DiffSymbol(
     string SymbolNumber,
     string SymbolName,
     DateTimeOffset? CreatedAtUtc,
-    DateTimeOffset? LastEditedAtUtc);
+    DateTimeOffset? LastEditedAtUtc,
+    PaperBounds Bounds);
 
 /// <summary>A symbol present in the newer version only.</summary>
 public sealed record AddedSymbol(
     string SymbolNumber, string SymbolName,
     DateTimeOffset? CreatedAtUtc, DateTimeOffset? LastEditedAtUtc,
-    double? LengthInMeters, double? AreaInSquareMeters)
-    : DiffSymbol(SymbolNumber, SymbolName, CreatedAtUtc, LastEditedAtUtc);
+    double? LengthInMeters, double? AreaInSquareMeters, PaperBounds Bounds)
+    : DiffSymbol(SymbolNumber, SymbolName, CreatedAtUtc, LastEditedAtUtc, Bounds);
 
 /// <summary>A symbol present in the older version only.</summary>
 public sealed record DeletedSymbol(
     string SymbolNumber, string SymbolName,
     DateTimeOffset? CreatedAtUtc, DateTimeOffset? LastEditedAtUtc,
-    double? LengthInMeters, double? AreaInSquareMeters)
-    : DiffSymbol(SymbolNumber, SymbolName, CreatedAtUtc, LastEditedAtUtc);
+    double? LengthInMeters, double? AreaInSquareMeters, PaperBounds Bounds)
+    : DiffSymbol(SymbolNumber, SymbolName, CreatedAtUtc, LastEditedAtUtc, Bounds);
 
 /// <summary>
 /// A symbol in both versions that differs between them.
@@ -49,8 +51,8 @@ public sealed record UpdatedSymbol(
     string SymbolNumber, string SymbolName,
     DateTimeOffset? CreatedAtUtc, DateTimeOffset? LastEditedAtUtc,
     double? MovementInMeters, double? LengthDiffInPercent, double? AreaDiffInPercent,
-    ObjectChanges Changes)
-    : DiffSymbol(SymbolNumber, SymbolName, CreatedAtUtc, LastEditedAtUtc);
+    ObjectChanges Changes, PaperBounds Bounds)
+    : DiffSymbol(SymbolNumber, SymbolName, CreatedAtUtc, LastEditedAtUtc, Bounds);
 
 /// <summary>The comparison between two versions.</summary>
 public sealed record MapDiff(

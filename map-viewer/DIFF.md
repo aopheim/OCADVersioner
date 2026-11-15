@@ -48,8 +48,16 @@ OcadViewer.Wasm
   LoadedMaps               the page's one MapStore, shared by the tile shim and
                            the diff, so a version is parsed once
   OcadDiffSource           IDiffSource: snapshots from the store -> table rows
-  DiffTable.razor          gains a "Changes" column on the Edited tab
+  DiffTable.razor          gains a "Changes" column on the Edited tab, and a zoom
+                           button per row that frames the object on both maps
 ```
+
+Every result carries `PaperBounds`: the box around the object's coordinates in
+paper millimetres (OCAD units ÷ 100, Y up, as PurplePen draws them). An edited
+object's box covers where it was and where it is now. The row's zoom button
+passes it to `mapWorkspace.zoomTo`, which pads it by 8 mm so a point gets a
+sensible frame. Each row also carries the box as `data-bounds`, which is how the
+table was checked against the change overlay (below).
 
 The snapshot is taken at load, not at comparison, because only the load sees the
 bytes. MapStore keeps maps by version name, so comparing V3 with V2 after V2 with
@@ -79,15 +87,24 @@ fixtures for these would be better, and are worth adding when someone has OCAD t
 hand: an area changed from 403 to 406, a rotated point, and a blank map with the
 same symbol set.
 
+The comparison tests build snapshots from the object index alone
+(`Fixture.Snapshot`, at the fixtures' 1:15 000), because that is all the
+comparison reads. Only `ParsedSnapshotTests` and `MapStoreSnapshotTests` load
+PurplePen, for symbol names, scale and the store.
+
 **The Windows application control policy described in `PLAN.md` gets in the way
-here.** It blocks freshly built vendored assemblies (`0x800711C7`), and this suite
-loads them. Its verdicts are not stable: on the day this was written the Release
-build of `Graphics2D.dll` was blocked from the start, the Debug build ran all 37
-tests, and a few hours later the same Debug `MapModel.dll` was blocked too. The 15
-tests that never touch PurplePen (the reader and the measurements) keep running.
-When the rest are blocked, the browser is the way to check: WebAssembly is not
-subject to the policy (see below). `OcadViewer.ArchitectureTests` never loads the
-assemblies and runs either way.
+here.** It blocks freshly built assemblies (`0x800711C7`), and its verdicts are
+not stable. On the day this was written:
+- the Release build of `Graphics2D.dll` was blocked from the start;
+- the Debug build ran all 37 tests, then a few hours later its `MapModel.dll` was
+  blocked;
+- later still, the freshly built `OcadViewer.Diff.dll` itself was blocked, which
+  stops every test in this suite.
+
+So the last changes here (object bounds, index-only snapshots) compile and were
+verified in the browser, where WebAssembly is not subject to the policy, but
+their unit tests have not been run. `OcadViewer.ArchitectureTests` reads
+assemblies without loading them and still ran (60/60).
 
 ```bash
 dotnet test map-viewer/tests/OcadViewer.Diff.Tests                       # Debug, when the policy allows
@@ -176,5 +193,33 @@ edited and 4 deleted objects. Switching versions took about 3.4 s each on the
 non-AOT build. That includes parsing a 6.6 MB map and redrawing; the diff's own
 share was not measured.
 
-What this does not show is that nothing was *missed*: an object OCAD touched that
-the diff did not report would not appear in any of these checks.
+### The table against the change overlay
+
+The overlay (`MapStore.RenderChangeMask`) knows nothing about objects: it renders
+both versions and marks every pixel that differs. That makes it an independent
+check on the table, in both directions:
+
+- **Nothing missed:** every red pixel should fall inside the box of some row in
+  the table, padded a little because a box bounds coordinates, not ink.
+- **Nothing invisible:** every row's box should hold at least one red pixel.
+
+Run in the browser from the mask (`PlanChangeMask` / `RenderChangeMask` through
+`dotnetExports.js`) and the rows' `data-bounds`:
+
+| Pair | Red pixels | Inside a row's box, padded 0.25 mm | padded 0.5 mm | Rows with no red pixels |
+|---|---|---|---|---|
+| fixtures V2 → working file | 328 | 99.4 % | 100 % | — |
+| Storigarden V1 → V2 | 804 | 100 % | 100 % | 0 of 23 |
+| V2 → V3 | 679 | 100 % | 100 % | 0 of 12 |
+| V3 → V4 | 3 520 | 100 % | 100 % | 0 of 12 |
+| V4 → V5 | 3 737 | 100 % | 100 % | 0 of 36 |
+| V5 → V6 | 4 018 | 96.1 % | 100 % | 0 of 17 |
+
+At 0.5 mm, the width of a thick line, the two agree completely on every pair.
+That answers the question the Storigarden check above left open: nothing
+visible changed that the table does not list.
+
+Its limit is what boxes are: a large area's box covers ground the area does not,
+so a missed object lying inside a big reported box would go unnoticed. And a
+change that draws nothing different (an edit undone, a hidden object) cannot
+show up in the overlay at all.

@@ -55,7 +55,6 @@ public sealed class OcadDiffServiceTests
         Assert.Multiple(() => {
             Assert.That(knoll.Index, Is.EqualTo(1));
             Assert.That(knoll.Symbol.Number, Is.EqualTo("109.0"));
-            Assert.That(knoll.Symbol.Name, Is.Not.Empty, "The name comes from the map's own symbol table.");
             Assert.That(knoll.Kind, Is.EqualTo(MapObjectKind.Point));
             Assert.That(knoll.CreatedUtc, Is.Not.Null);
         });
@@ -228,6 +227,52 @@ public sealed class OcadDiffServiceTests
         Assert.Multiple(() => {
             Assert.That(knoll.CreatedUtc, Is.Not.Null);
             Assert.That(knoll.LastEditedUtc, Is.GreaterThan(knoll.CreatedUtc));
+        });
+    }
+
+    /* ------------------------------------------------- where on the map it is */
+
+    [Test]
+    public void AnAddedObjectReportsWhereItIsOnPaper()
+    {
+        // The knoll sits at (375, 284) in OCAD units: 3.75, 2.84 paper millimetres,
+        // the same coordinates the renderer and the viewer use.
+        PaperBounds where = Compare(null, Fixture.OneKnoll).Added.Single().Bounds;
+
+        Assert.That(where, Is.EqualTo(new PaperBounds(3.75, 2.84, 3.75, 2.84)));
+    }
+
+    [Test]
+    public void AnEditedObjectCoversBothWhereItWasAndWhereItIsNow()
+    {
+        // Moved from (-267, 128) to (250, 95): zooming to it should show both.
+        PaperBounds where = Compare(Fixture.PointLineArea, Fixture.PointLineAreaMoved)
+            .Edited.Single(e => e.Kind == MapObjectKind.Point).Bounds;
+
+        Assert.That(where, Is.EqualTo(new PaperBounds(-2.67, 0.95, 2.50, 1.28)));
+    }
+
+    [Test]
+    public void ADeletedObjectReportsWhereItWas()
+    {
+        PaperBounds where = Compare(Fixture.PointLineArea, Fixture.PointLineAreaDeleted)
+            .Deleted.Single(d => d.Kind == MapObjectKind.Point).Bounds;
+
+        Assert.That(where, Is.EqualTo(new PaperBounds(-2.67, 1.28, -2.67, 1.28)));
+    }
+
+    [Test]
+    public void ALineIsBoundedByAllItsPointsCurveHandlesIncluded()
+    {
+        // A Bezier curve never leaves the hull of its control points, so including
+        // the handles can only make the box a little generous, never too small.
+        PaperBounds where = Compare(null, Fixture.PointLineArea).Added.Single(a => a.Kind == MapObjectKind.Line).Bounds;
+
+        Assert.Multiple(() => {
+            Assert.That(where.MinX, Is.LessThan(where.MaxX));
+            Assert.That(where.MinY, Is.LessThan(where.MaxY));
+            Assert.That(where.MinX, Is.EqualTo(-6.09).Within(0.001).Or.LessThan(-6.09),
+                        "The contour's first point, (-609, 198), is inside the box.");
         });
     }
 

@@ -45,13 +45,13 @@ public sealed class OcadDiffSource(IOcadDiffService diff) : IDiffSource
     private static MapDiff ToTable(ObjectDiff result) => new(
         [.. result.Added.Select(a => new AddedSymbol(
             a.Symbol.Number, a.Symbol.Name, Utc(a.CreatedUtc), Utc(a.LastEditedUtc),
-            a.LengthInMeters, a.AreaInSquareMeters))],
+            a.LengthInMeters, a.AreaInSquareMeters, a.Bounds))],
         [.. result.Edited.Select(e => new UpdatedSymbol(
             e.Symbol.Number, e.Symbol.Name, Utc(e.CreatedUtc), Utc(e.LastEditedUtc),
-            e.MovementInMeters, e.LengthChangeInPercent, e.AreaChangeInPercent, e.Changes))],
+            e.MovementInMeters, e.LengthChangeInPercent, e.AreaChangeInPercent, e.Changes, e.Bounds))],
         [.. result.Deleted.Select(d => new DeletedSymbol(
             d.Symbol.Number, d.Symbol.Name, Utc(d.CreatedUtc), Utc(d.LastEditedUtc),
-            d.LengthInMeters, d.AreaInSquareMeters))]);
+            d.LengthInMeters, d.AreaInSquareMeters, d.Bounds))]);
 
     private static DateTimeOffset? Utc(DateTime? value)
         => value is null ? null : new DateTimeOffset(value.Value, TimeSpan.Zero);

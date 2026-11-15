@@ -80,5 +80,6 @@
     "#_symbolNumber": "Symbol number",
     "#_title": "Title",
     "#_versionDescriptionHelper": "Description",
-    "#_versionTitleHelper": "{{newVersionName}} of {{fileName}}"
+    "#_versionTitleHelper": "{{newVersionName}} of {{fileName}}",
+    "#_zoomToObject": "Zoom to object"
 }

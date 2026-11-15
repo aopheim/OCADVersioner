@@ -80,11 +80,11 @@ public sealed class OcadDiffService : IOcadDiffService
 
     private static ObjectAdded Added(MapObject o, OcadMapSnapshot version)
         => new(o.Index, version.SymbolFor(o.SymbolNumber), o.Kind, o.CreatedUtc, LastEdited(o),
-               LengthInMeters(o, version), AreaInSquareMeters(o, version));
+               LengthInMeters(o, version), AreaInSquareMeters(o, version), Measure.Bounds(o.Points));
 
     private static ObjectDeleted Deleted(MapObject o, OcadMapSnapshot version)
         => new(o.Index, version.SymbolFor(o.SymbolNumber), o.Kind, o.CreatedUtc, LastEdited(o),
-               LengthInMeters(o, version), AreaInSquareMeters(o, version));
+               LengthInMeters(o, version), AreaInSquareMeters(o, version), Measure.Bounds(o.Points));
 
     private static ObjectEdited Edited(MapObject then, OcadMapSnapshot older,
                                        MapObject now, OcadMapSnapshot newer, ObjectChanges changes)
@@ -105,7 +105,9 @@ public sealed class OcadDiffService : IOcadDiffService
 
         return new ObjectEdited(now.Index, newer.SymbolFor(now.SymbolNumber), older.SymbolFor(then.SymbolNumber),
                                 now.Kind, changes, now.CreatedUtc, now.ModifiedUtc,
-                                movement, lengthChange, areaChange);
+                                movement, lengthChange, areaChange,
+                                Measure.Bounds(now.Points)?.Union(Measure.Bounds(then.Points))
+                                    ?? Measure.Bounds(then.Points));
     }
 
     /// <summary>A last-edited date equal to the creation date says nothing, so it is left out.</summary>

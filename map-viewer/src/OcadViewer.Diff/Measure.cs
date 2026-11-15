@@ -52,6 +52,26 @@ internal static class Measure
         }
     }
 
+    /// <summary>
+    /// The box around every point, curve handles included, in paper millimetres.
+    /// A Bezier curve stays inside its control points, so this is never too small.
+    /// </summary>
+    /// <returns><c>null</c> for an object with no points.</returns>
+    public static PaperBounds Bounds(IReadOnlyList<MapPoint> points)
+    {
+        if (points.Count == 0)
+            return null;
+
+        int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+        foreach (MapPoint p in points) {
+            minX = Math.Min(minX, p.X); maxX = Math.Max(maxX, p.X);
+            minY = Math.Min(minY, p.Y); maxY = Math.Max(maxY, p.Y);
+        }
+
+        // OCAD units are hundredths of a millimetre, as in PurplePen's importer.
+        return new PaperBounds(minX / 100.0, minY / 100.0, maxX / 100.0, maxY / 100.0);
+    }
+
     public static double Distance(MapPoint a, MapPoint b)
     {
         double dx = (double)b.X - a.X, dy = (double)b.Y - a.Y;

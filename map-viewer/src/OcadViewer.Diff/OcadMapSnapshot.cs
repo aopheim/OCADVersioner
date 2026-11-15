@@ -46,10 +46,6 @@ public sealed class OcadMapSnapshot
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(file);
 
-        Dictionary<int, MapObject> objects = OcadObjectIndexReader.Read(file)
-            .Where(o => o.Status == MapObjectStatus.Normal)
-            .ToDictionary(o => o.Index);
-
         Dictionary<string, string> names = new(StringComparer.Ordinal);
         double scale;
 
@@ -61,7 +57,26 @@ public sealed class OcadMapSnapshot
             }
         }
 
-        return new OcadMapSnapshot(objects, names, scale / 100_000.0);
+        return Create(file, scale, names);
+    }
+
+    /// <summary>
+    /// A snapshot from the file alone, given what would otherwise come from the
+    /// parsed map.
+    /// </summary>
+    /// <remarks>
+    /// The comparison itself needs only the object index and the scale, so tests of
+    /// it need not load PurplePen - which matters on a machine whose application
+    /// control policy refuses the freshly built vendored assemblies.
+    /// </remarks>
+    internal static OcadMapSnapshot Create(byte[] file, double mapScale,
+                                           IReadOnlyDictionary<string, string> symbolNames)
+    {
+        Dictionary<int, MapObject> objects = OcadObjectIndexReader.Read(file)
+            .Where(o => o.Status == MapObjectStatus.Normal)
+            .ToDictionary(o => o.Index);
+
+        return new OcadMapSnapshot(objects, symbolNames, mapScale / 100_000.0);
     }
 
     /// <summary>The symbol an OCAD symbol number stands for in this version.</summary>

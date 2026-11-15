@@ -193,6 +193,23 @@ export async function createWorkspace(leftEl, rightEl) {
             return area;
         },
 
+        /**
+         * Moves both panes to frame one rectangle of the map - an object from the
+         * diff table. A point is a rectangle with no size, so the padding is what
+         * gives it a sensible zoom.
+         *
+         * @param area paper millimetres, Y up
+         * @param paddingMm breathing room around it
+         */
+        zoomTo(area, paddingMm = 8) {
+            const framed = {
+                minX: area.minX - paddingMm, maxX: area.maxX + paddingMm,
+                minY: area.minY - paddingMm, maxY: area.maxY + paddingMm
+            };
+            view.fitTo(framed);
+            return framed;
+        },
+
         showing: () => view.showing(),
 
         stats: view.stats,

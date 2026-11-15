@@ -31,6 +31,7 @@
     <table class="table table-sm table-striped table-hover">
         <thead>
             <tr>
+                <th scope="col"><span class="visually-hidden">@L["#_zoomToObject"]</span></th>
                 <th scope="col">@L["#_symbolNumber"]</th>
                 <th scope="col">@L["#_symbolName"]</th>
                 @if (Current is DiffTableView.Added or DiffTableView.Deleted) {
@@ -50,13 +51,23 @@
         <tbody>
             @if (Rows().Count == 0) {
                 <tr>
-                    <td colspan="8" class="text-center text-muted py-3">
+                    <td colspan="9" class="text-center text-muted py-3">
                         @(Available ? "No symbols in this category." : "Nothing to show.")
                     </td>
                 </tr>
             }
             @foreach (var symbol in Rows()) {
-                <tr>
+                @* data-bounds is the same rectangle the button zooms to, readable from the
+                   console - which is how the table was checked against the change overlay. *@
+                <tr data-bounds="@BoundsAttribute(symbol.Bounds)">
+                    <td class="py-0 align-middle">
+                        <button type="button" class="btn btn-link btn-sm p-0"
+                                title="@L["#_zoomToObject"]" aria-label="@L["#_zoomToObject"]"
+                                disabled="@(symbol.Bounds is null)"
+                                @onclick="() => OnZoom.InvokeAsync(symbol.Bounds)">
+                            <i class="bi bi-zoom-in"></i>
+                        </button>
+                    </td>
                     <th scope="row">@symbol.SymbolNumber</th>
                     <td>@symbol.SymbolName</td>
 
@@ -91,6 +102,9 @@
     [Parameter] public bool Available { get; set; }
     [Parameter] public string UnavailableReason { get; set; }
 
+    /// <summary>Asks the page to frame one object on both maps.</summary>
+    [Parameter] public EventCallback<PaperBounds> OnZoom { get; set; }
+
     private DiffTableView Current { get; set; } = DiffTableView.Added;
 
     private void SetView(DiffTableView view) => Current = view;
@@ -124,6 +138,10 @@
 
     private string ChangeNames(ObjectChanges changes)
         => string.Join(", ", ChangeKeys.Where(c => changes.HasFlag(c.Change)).Select(c => L[c.Key]));
+
+    private static string BoundsAttribute(PaperBounds b)
+        => b is null ? null : FormattableString.Invariant($"{b.MinX},{b.MinY},{b.MaxX},{b.MaxY}");
+
     private static string Date(DateTimeOffset? value)
         => value is null ? "" : value.Value.ToLocalTime().ToString("g");
 }

@@ -120,6 +120,15 @@
         return await workspace.InvokeAsync<PaperArea>("zoomToChanges");
     }
 
+    /// <summary>Moves both panes to frame one rectangle of the map, such as an object.</summary>
+    public async Task ZoomToAsync(PaperArea area)
+    {
+        if (workspace is null || area is null)
+            return;
+
+        await workspace.InvokeVoidAsync("zoomTo", area);
+    }
+
     public async ValueTask DisposeAsync()
     {
         await workspace.ReleaseAsync("dispose");

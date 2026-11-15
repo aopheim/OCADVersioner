@@ -80,5 +80,6 @@
     "#_symbolNumber": "Symbolnummer",
     "#_title": "Tittel",
     "#_versionDescriptionHelper": "Beskrivelse",
-    "#_versionTitleHelper": "{{newVersionName}} av {{fileName}}"
+    "#_versionTitleHelper": "{{newVersionName}} av {{fileName}}",
+    "#_zoomToObject": "Zoom til objektet"
 }

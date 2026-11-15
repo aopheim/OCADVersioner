@@ -28,11 +28,26 @@ internal static class Fixture
 
     public static byte[] Bytes(string name) => File.ReadAllBytes(PathOf(name));
 
-    /// <summary>Parses a fixture the way the app does, into a snapshot the diff can read.</summary>
+    /// <summary>Every fixture is drawn at 1:15 000; <see cref="ParsedSnapshotTests"/> checks it.</summary>
+    public const double Scale = 15_000;
+
+    /// <summary>
+    /// A fixture's snapshot from its object index alone, without PurplePen: symbol
+    /// names come back empty, and the scale is <see cref="Scale"/>.
+    /// </summary>
+    /// <remarks>
+    /// What the comparison is tested with, because it is everything the comparison
+    /// reads, and because it keeps these tests running where the machine's
+    /// application control policy refuses the vendored assemblies.
+    /// </remarks>
     /// <param name="bytes">The file's contents, when a test has patched them; otherwise read from disk.</param>
     public static OcadMapSnapshot Snapshot(string name, byte[] bytes = null)
+        => OcadMapSnapshot.Create(bytes ?? Bytes(name), Scale, new Dictionary<string, string>());
+
+    /// <summary>Parses a fixture the way the app does, PurplePen and all.</summary>
+    public static OcadMapSnapshot ParsedSnapshot(string name)
     {
-        bytes ??= Bytes(name);
+        byte[] bytes = Bytes(name);
         OcadMapLoadResult loaded = OcadMapLoader.Load(bytes, PathOf(name));
 
         using (loaded.Map)
