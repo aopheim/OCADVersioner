@@ -111,4 +111,32 @@ public static class ProjectFolder
 
         return (newer, older ?? newer);
     }
+
+    /// <summary>
+    /// Any two versions as a comparison, newer first, whichever order they came in.
+    /// </summary>
+    /// <remarks>
+    /// The newer map always goes on the right, so a pair picked the wrong way round
+    /// is swapped rather than refused. Newer means a higher version number; the
+    /// working file is newer than every release. The same version twice is a
+    /// comparison with no changes, which is allowed.
+    /// </remarks>
+    /// <exception cref="ArgumentException">Either name is neither a release nor the working file.</exception>
+    public static (string Newer, string Older) Ordered(string first, string second)
+        => Age(first) >= Age(second) ? (first, second) : (second, first);
+
+    /// <summary>
+    /// Whether <paramref name="versionName"/> is still in the folder: the working
+    /// file always is, a release only while its folder is there.
+    /// </summary>
+    public static bool Contains(IReadOnlyList<ProjectVersion> versions, string versionName)
+        => VersionNaming.IsVolatile(versionName) ||
+           (versions ?? []).Any(v => string.Equals(v.Name, versionName, StringComparison.Ordinal));
+
+    /// <summary>How late a version comes: its number, or past every number for the working file.</summary>
+    private static int Age(string versionName)
+        => VersionNaming.IsVolatile(versionName) ? int.MaxValue
+         : VersionNaming.TryParse(versionName, out int number) ? number
+         : throw new ArgumentException($"\"{versionName}\" is neither a release nor the working file.",
+                                       nameof(versionName));
 }

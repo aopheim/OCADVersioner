@@ -192,6 +192,43 @@ public sealed class VersioningTests
             "V2 and V3 were deleted by hand; V4's predecessor is whatever is actually there.");
     }
 
+    /* ------------------------------------------------- any two, newest on the right */
+
+    [TestCase("V2", "V3")]
+    [TestCase("V3", "V2")]
+    public void APairComesOutNewerFirstWhicheverWayItWasPicked(string first, string second)
+        => Assert.That(ProjectFolder.Ordered(first, second), Is.EqualTo(("V3", "V2")));
+
+    [Test]
+    public void VersionsAreOrderedByNumberNotByName()
+        => Assert.That(ProjectFolder.Ordered("V9", "V10"), Is.EqualTo(("V10", "V9")),
+            "Compared as text, V9 would come after V10.");
+
+    [TestCase("V1", "current")]
+    [TestCase("current", "V7")]
+    public void TheWorkingFileIsAlwaysTheNewer(string first, string second)
+        => Assert.That(ProjectFolder.Ordered(first, second).Newer, Is.EqualTo("current"));
+
+    [Test]
+    public void TheSameVersionTwiceIsAllowed()
+        => Assert.That(ProjectFolder.Ordered("V2", "V2"), Is.EqualTo(("V2", "V2")));
+
+    [Test]
+    public void ANameThatIsNoVersionIsRefused()
+        => Assert.Throws<ArgumentException>(() => ProjectFolder.Ordered("V2", "Backup"));
+
+    [Test]
+    public void APairCanOnlyNameVersionsStillInTheFolder()
+    {
+        var versions = Releases(1, 3);
+
+        Assert.Multiple(() => {
+            Assert.That(ProjectFolder.Contains(versions, "V3"), Is.True);
+            Assert.That(ProjectFolder.Contains(versions, "V2"), Is.False, "Deleted by hand.");
+            Assert.That(ProjectFolder.Contains(versions, "current"), Is.True);
+        });
+    }
+
     /* ----------------------------------------------- what we write back to disk */
 
     [Test]

@@ -106,7 +106,8 @@
 @if (Project.IsOpen) {
     <div class="row">
         <div class="col-md-2 d-flex flex-column">
-            <VersionList Items="VersionItems()" SelectedNumber="selectedNumber"
+            <VersionList Items="VersionItems()" SelectedNumber="NumberOf(Comparison.Newer)"
+                         OtherNumber="@(Comparison.Older == Comparison.Newer ? 0 : NumberOf(Comparison.Older))"
                          OnSelected="SelectVersion" />
 
             <CreateVersionForm @ref="versionForm"
@@ -122,10 +123,17 @@
                     <i class="bi bi-book fs-4 text-primary" title="Comparing two past versions"></i>
                 }
                 @* In the order the maps are in, so a glance at the heading and a
-                   glance at the panes agree. *@
-                <span class="fw-medium">@Label(Comparison.Older)</span>
+                   glance at the panes agree. Each side can be picked; the working
+                   file is only offered on the right, because it is always newest. *@
+                <VersionPicker Options="PickerOptions(includeWorkingFile: false)"
+                               Value="@Comparison.Older" OnPicked="PickOlder"
+                               Disabled="busy" Generation="picks"
+                               Title="The older map, on the left" />
                 <i class="bi bi-arrows"></i>
-                <span class="fw-medium">@Label(Comparison.Newer)</span>
+                <VersionPicker Options="PickerOptions(includeWorkingFile: true)"
+                               Value="@Comparison.Newer" OnPicked="PickNewer"
+                               Disabled="busy" Generation="picks"
+                               Title="The newer map, on the right" />
             </div>
 
             <OcadMapPair @ref="mapPair" />
@@ -161,8 +169,15 @@
     private MapDiff diff = MapDiff.Empty;
     private string georeference;
 
-    /// <summary>Which version is being compared, 0 meaning the working file.</summary>
-    private int selectedNumber;
+    /// <summary>
+    /// The two versions on screen, newer first. Set by clicking the list (a version
+    /// and the one before it) or by either dropdown (any pair).
+    /// </summary>
+    private (string Newer, string Older) comparison =
+        (VersionNaming.WorkingFileName, VersionNaming.WorkingFileName);
+
+    /// <summary>Bumped on every pick from a dropdown, to redraw both; see VersionPicker.</summary>
+    private int picks;
 
     /// <summary>
     /// The key that turns the change overlay on and off. Named here once, so the
@@ -183,13 +198,44 @@
 
     /// <summary>
     /// The two sides of the current comparison. Which version sits opposite which
-    /// is a rule about project folders, not about this page, so it is answered by
-    /// <see cref="ProjectService"/> - and tested without a browser.
+    /// is a rule about project folders, not about this page, so the pairs come from
+    /// <see cref="ProjectService"/> - and are tested without a browser.
     /// </summary>
-    private (string Newer, string Older) Comparison => Project.ComparisonFor(selectedNumber);
+    private (string Newer, string Older) Comparison => comparison;
 
     /// <summary>True when looking at two past versions rather than the working file.</summary>
-    private bool IsHistory => selectedNumber != 0;
+    private bool IsHistory => !ProjectService.IsVolatile(Comparison.Newer);
+
+    /// <summary>A release's number, or 0 for the working file.</summary>
+    private static int NumberOf(string versionName)
+        => VersionNaming.TryParse(versionName, out int number) ? number : 0;
+
+    /// <summary>
+    /// What a dropdown offers, newest first: the releases, with the working file
+    /// above them on the right-hand side.
+    /// </summary>
+    private IReadOnlyList<VersionPicker.Option> PickerOptions(bool includeWorkingFile)
+    {
+        List<VersionPicker.Option> options = [];
+
+        if (includeWorkingFile)
+            options.Add(new(VersionNaming.WorkingFileName, Label(VersionNaming.WorkingFileName)));
+
+        foreach (ProjectVersion version in Project.Project.Versions.OrderByDescending(v => v.Number)) {
+            IEnumerable<string> parts = [
+                version.Name,
+                version.Metadata.Title,
+                // A version written by hand may carry no date, which reads back as
+                // the year 1. Saying nothing beats inventing one.
+                version.Metadata.VersionCreatedAt == default
+                    ? null
+                    : version.Metadata.VersionCreatedAt.ToLocalTime().ToString("d")
+            ];
+            options.Add(new(version.Name, string.Join(" – ", parts.Where(p => !string.IsNullOrWhiteSpace(p)))));
+        }
+
+        return options;
+    }
 
     /// <summary>
     /// The released versions, newest first.
@@ -204,7 +250,7 @@
                 .OrderByDescending(v => v.Number)
                 .Select(v => new VersionList.Item(
                     v.Number, v.Name, v.Metadata.Title, v.Metadata.Description,
-                    v.Metadata.VersionCreatedAt,
+                    v.Metadata.VersionCreatedAt == default ? null : v.Metadata.VersionCreatedAt,
                     v.Metadata.NumberOfAddedSymbols,
                     v.Metadata.NumberOfEditedSymbols,
                     v.Metadata.NumberOfDeletedSymbols))];
@@ -233,7 +279,7 @@
     /// </remarks>
     private void OnProjectLoaded()
     {
-        selectedNumber = 0;
+        comparison = Project.ComparisonFor(0);
         comparisonPending = true;
         StateHasChanged();
     }
@@ -252,21 +298,45 @@
     private async Task Refresh()
         => await Run("Re-reading folder…", async () => {
             await Project.RefreshAsync();
+
+            // Keep the pair being looked at, unless a release in it has been
+            // deleted from the folder meanwhile.
+            if (!Project.Contains(comparison.Newer) || !Project.Contains(comparison.Older))
+                comparison = Project.ComparisonFor(0);
+
             await ShowComparison();
         });
 
     /// <summary>Reopens the start dialog, to point the app at a different folder.</summary>
     private async Task ChangeProject() => await selector.ShowAsync();
 
-    /// <summary>Looks at a version, or puts the working file back on screen.</summary>
+    /// <summary>
+    /// Looks at a version against the one before it, or puts the working file back
+    /// on screen. Both dropdowns follow.
+    /// </summary>
     /// <remarks>
-    /// Clicking the version already selected is the way back to the file OCAD is
-    /// writing. That file is not in the list - it is not a version - so the row
+    /// Clicking the version already on the right is the way back to the file OCAD
+    /// is writing. That file is not in the list - it is not a version - so the row
     /// you left through has to be the way back, or there is none.
     /// </remarks>
     private async Task SelectVersion(int number)
         => await Run("Loading…", async () => {
-            selectedNumber = number == selectedNumber ? 0 : number;
+            comparison = Project.ComparisonFor(number == NumberOf(comparison.Newer) ? 0 : number);
+            await ShowComparison();
+        });
+
+    /// <summary>Puts any version on the left, swapping sides if it is the newer of the two.</summary>
+    private async Task PickOlder(string versionName)
+        => await Pick(versionName, comparison.Newer);
+
+    /// <summary>Puts any version on the right, swapping sides if it is the older of the two.</summary>
+    private async Task PickNewer(string versionName)
+        => await Pick(versionName, comparison.Older);
+
+    private async Task Pick(string picked, string otherSide)
+        => await Run("Loading…", async () => {
+            picks++;
+            comparison = ProjectService.Ordered(picked, otherSide);
             await ShowComparison();
         });
 
@@ -274,7 +344,7 @@
         => await Run("Creating version…", async () => {
             await Project.CreateVersionAsync(entry.Title, entry.Description);
             versionForm?.Reset();
-            selectedNumber = 0;
+            comparison = Project.ComparisonFor(0);
             await ShowComparison();
         });
 
@@ -304,7 +374,12 @@
 
         await mapPair.ShowAsync(MapSide.Left, older, ProjectService.IsVolatile(older));
 
-        diff = await DiffSource.CompareAsync(older, newer);
+        // A version shown against itself is either the oldest release, which has
+        // nothing before it and so is all new, or a pair picked by hand, which has
+        // no changes. The folder rule tells them apart: it pairs a version with
+        // itself only when nothing comes before it.
+        bool nothingBefore = older == newer && Project.ComparisonFor(NumberOf(newer)).Older == newer;
+        diff = await DiffSource.CompareAsync(nothingBefore ? null : older, newer);
 
         // The overlay belongs to a pair of versions, so a new comparison needs a
         // new mask. Only paid for if the user has asked to see one.

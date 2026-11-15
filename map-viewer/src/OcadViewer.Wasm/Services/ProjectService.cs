@@ -68,6 +68,13 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
     public (string Newer, string Older) ComparisonFor(int selectedNumber)
         => ProjectFolder.Comparison(selectedNumber, Versions);
 
+    /// <summary>Two versions picked in any order, as a comparison with the newer first.</summary>
+    public static (string Newer, string Older) Ordered(string first, string second)
+        => ProjectFolder.Ordered(first, second);
+
+    /// <summary>Whether a version is still in the folder.</summary>
+    public bool Contains(string versionName) => ProjectFolder.Contains(Versions, versionName);
+
     /// <summary>
     /// Whether this version has to be re-read every time it is shown.
     /// </summary>

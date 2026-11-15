@@ -24,9 +24,10 @@ public sealed class OcadDiffSource(IOcadDiffService diff) : IDiffSource
     {
         OcadMapSnapshot newer = LoadedMaps.Store.Get(newerVersion)?.Snapshot;
 
-        // A release with no predecessor is shown against itself. Its objects are
-        // all new, as they were in the Angular app, so compare it with nothing.
-        bool firstVersion = string.Equals(olderVersion, newerVersion, StringComparison.Ordinal);
+        // No older version: a release with nothing before it. Its objects are all
+        // new, as they were in the Angular app, so compare it with nothing. The
+        // same version on both sides is an ordinary comparison, with no changes.
+        bool firstVersion = olderVersion is null;
         OcadMapSnapshot older = firstVersion ? null : LoadedMaps.Store.Get(olderVersion)?.Snapshot;
 
         if (newer is null || (!firstVersion && older is null)) {
