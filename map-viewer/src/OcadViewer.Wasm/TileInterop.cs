@@ -103,16 +103,19 @@ public static partial class TileInterop
     /// <remarks>
     /// Asked before <see cref="RenderChangeMask"/> so the caller can lay the
     /// overlay out and say how much work it is about to start. Nothing is
-    /// remembered between the two calls; both derive from the map's bounds.
+    /// remembered between the two calls; both derive from the maps' bounds.
     /// </remarks>
     [JSExport]
-    internal static string PlanChangeMask(string newerKey)
+    internal static string PlanChangeMask(string olderKey, string newerKey)
     {
-        ChangeMaskPlan plan = Store.PlanChangeMask(newerKey);
+        ChangeMaskPlan plan = Store.PlanChangeMask(olderKey, newerKey);
 
         return plan is null
             ? JsonSerializer.Serialize(
-                new ChangeMaskInfo { Ok = false, Error = $"\"{newerKey}\" is not loaded." },
+                new ChangeMaskInfo {
+                    Ok = false,
+                    Error = $"\"{olderKey}\" or \"{newerKey}\" is not loaded."
+                },
                 TileInteropJson.Default.ChangeMaskInfo)
             : JsonSerializer.Serialize(
                 new ChangeMaskInfo {

@@ -36,6 +36,12 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
 
     private IReadOnlyList<ProjectVersion> Versions => Project?.Versions ?? [];
 
+    /// <summary>
+    /// Every folder the last scan found under <c>Releases/</c>, release or not,
+    /// because an incomplete <c>V&lt;n&gt;</c> folder still takes its name.
+    /// </summary>
+    private IReadOnlyList<ReleaseFolder> releaseFolders = [];
+
     private async Task<IJSObjectReference> ModuleAsync()
         => module ??= await js.ImportAsync("./js/projectFolder.js");
 
@@ -59,7 +65,7 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
     }
 
     /// <summary>The name the next version will get.</summary>
-    public string NextVersionName() => ProjectFolder.NextVersionName(Versions);
+    public string NextVersionName() => ProjectFolder.NextVersionName(releaseFolders);
 
     /// <summary>
     /// Which two versions a selection compares, newer first.
@@ -80,11 +86,18 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
     /// The symbol counts are written as zero until the C# diff exists. The Angular
     /// app fills them in from its GeoJSON diff; a version created here will show
     /// zeros in both apps' version lists until that is ported.
+    ///
+    /// The folder is re-read first. The Angular app writes to the same folders,
+    /// so a name worked out from the last scan may already be taken, and
+    /// <c>projectFolder.js</c> refuses to write into a folder that exists.
     /// </remarks>
     public async Task<ProjectInfo> CreateVersionAsync(string title, string description)
     {
         if (!IsOpen)
             throw new InvalidOperationException("No project folder is open.");
+
+        await RefreshAsync();
+
         if (string.IsNullOrEmpty(Project.CurrentFileName))
             throw new InvalidOperationException("No working .ocd file is selected.");
 
@@ -113,6 +126,7 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
         var module = await ModuleAsync();
         RawProject raw = await module.InvokeAsync<RawProject>(method, arguments);
 
+        releaseFolders = raw.ReleaseFolders ?? [];
         Project = new ProjectInfo(
             raw.ProjectName,
             raw.CurrentFileName,

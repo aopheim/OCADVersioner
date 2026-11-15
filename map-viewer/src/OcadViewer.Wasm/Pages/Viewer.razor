@@ -92,7 +92,7 @@
     <div class="row">
         <div class="col-md-2 d-flex flex-column">
             <VersionList Items="VersionItems()" SelectedNumber="selectedNumber"
-                         OnSelected="SelectVersion" />
+                         Disabled="busy" OnSelected="SelectVersion" />
 
             <CreateVersionForm @ref="versionForm"
                                FileName="@Project.Project.CurrentFileName"
@@ -206,6 +206,8 @@
     private void OnProjectLoaded()
     {
         selectedNumber = 0;
+        showChanges = false;
+        changeSummary = null;
         comparisonPending = true;
         StateHasChanged();
     }
@@ -214,11 +216,17 @@
     {
         // Children render before their parent's OnAfterRenderAsync runs, so by now
         // the map pair exists and has started its own JS module.
-        if (!comparisonPending || mapPair is null)
+        if (!comparisonPending || mapPair is null || busy)
             return;
 
         comparisonPending = false;
-        await Run("Loading…", ShowComparison);
+
+        // A different folder may have been opened, and its releases share their
+        // names with the last one's, so nothing parsed before can be trusted.
+        await Run("Loading…", async () => {
+            await mapPair.ResetAsync();
+            await ShowComparison();
+        });
     }
 
     private async Task Refresh()
@@ -284,22 +292,11 @@
     }
 
     /// <summary>Turns the overlay on or off, from the button or from the keyboard.</summary>
-    /// <remarks>
-    /// The button is disabled while something is running and a key press is not,
-    /// so the guard belongs here rather than on the markup: a second comparison
-    /// started on top of the first is how the two maps come to disagree about
-    /// what they are showing.
-    /// </remarks>
     private async Task ToggleChanges()
-    {
-        if (busy)
-            return;
-
-        await Run("Finding changes…", async () => {
+        => await Run("Finding changes…", async () => {
             showChanges = !showChanges;
             await ApplyChangeOverlay();
         });
-    }
 
     /// <summary>
     /// Brings the overlay in line with the switch and the current comparison.
@@ -308,6 +305,10 @@
     /// Free when the overlay is off, and free again when it is switched back on
     /// for a comparison already measured - the mask and its image are kept per
     /// pair of versions. Only a new comparison costs a render.
+    ///
+    /// A failure turns the switch off. Left on, the button would claim an
+    /// overlay that is not there, and the next comparison would quietly build
+    /// one the user never saw appear.
     /// </remarks>
     private async Task ApplyChangeOverlay()
     {
@@ -316,7 +317,14 @@
 
         (string newer, string older) = Comparison;
 
-        changeSummary = await mapPair.ShowChangesAsync(older, newer, showChanges);
+        try {
+            changeSummary = await mapPair.ShowChangesAsync(older, newer, showChanges);
+        }
+        catch {
+            showChanges = false;
+            changeSummary = null;
+            throw;
+        }
     }
 
     /// <summary>Frames whatever the overlay is showing, however small it is.</summary>
@@ -341,8 +349,18 @@
     }
 
     /// <summary>Runs an action with the progress bar, busy flag and error reporting.</summary>
+    /// <remarks>
+    /// Ignores the request while another action is running. Buttons are
+    /// disabled while busy, but a key press and a click on a version are not
+    /// stopped by markup, and a second comparison started on top of the first
+    /// interleaves with it: each sets one side, and the two panes end up from
+    /// different comparisons under a heading that names neither.
+    /// </remarks>
     private async Task Run(string message, Func<Task> action)
     {
+        if (busy)
+            return;
+
         busy = true;
         failed = false;
         status = message;

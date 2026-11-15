@@ -46,6 +46,12 @@ export async function paint(mask, width, height) {
     // A blob URL rather than a data URL: at four megapixels the base64 of this
     // image is tens of megabytes of string, built and parsed for nothing.
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+    // toBlob hands back null rather than throwing when the browser cannot
+    // encode the canvas, usually because it is too large.
+    if (!blob)
+        throw new Error(`The change overlay (${width} x ${height} px) is too large for this browser to draw.`);
+
     return URL.createObjectURL(blob);
 }
 

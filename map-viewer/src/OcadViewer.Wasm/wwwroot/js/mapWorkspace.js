@@ -119,9 +119,9 @@ export async function createWorkspace(leftEl, rightEl) {
             if (changes?.older !== olderName || changes?.newer !== newerName) {
                 forgetChanges();
 
-                const plan = tiles.planChangeMask(newerName);
+                const plan = tiles.planChangeMask(olderName, newerName);
                 if (!plan.ok)
-                    throw new Error(plan.error ?? `Cannot measure ${newerName}.`);
+                    throw new Error(plan.error ?? `Cannot measure ${olderName} against ${newerName}.`);
 
                 const started = performance.now();
                 const mask = tiles.renderChangeMask(olderName, newerName);
@@ -176,8 +176,8 @@ export async function createWorkspace(leftEl, rightEl) {
             const box = boundsOf(changes.mask, width, height);
             if (!box) return null;
 
-            // Mask pixels to paper millimetres. The mask covers the map's own
-            // rectangle exactly, and its rows run downwards while paper Y runs
+            // Mask pixels to paper millimetres. The mask covers the planned
+            // rectangle (both versions' bounds together) exactly, and its rows run downwards while paper Y runs
             // up, which is the only subtlety here.
             const x = px => minX + (px / width) * (maxX - minX);
             const y = py => maxY - (py / height) * (maxY - minY);
@@ -191,6 +191,24 @@ export async function createWorkspace(leftEl, rightEl) {
 
             view.fitTo(area);
             return area;
+        },
+
+        /**
+         * Forgets every parsed map and change mask, for when a different
+         * project folder is opened.
+         *
+         * Everything here is keyed by version name, and version names are only
+         * unique within one project: every project has a "V1". Without this, a
+         * release already parsed for the previous project would be shown in
+         * place of the new project's release of the same name.
+         */
+        reset() {
+            view.clearOverlays();
+            forgetChanges();
+            for (const name of parsed.keys())
+                tiles.unload(name);
+            parsed.clear();
+            view.refit();
         },
 
         showing: () => view.showing(),

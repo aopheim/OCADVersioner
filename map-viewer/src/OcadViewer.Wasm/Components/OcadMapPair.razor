@@ -120,6 +120,21 @@
         return await workspace.InvokeAsync<PaperArea>("zoomToChanges");
     }
 
+    /// <summary>
+    /// Forgets every parsed map and change mask, because a different project
+    /// folder is about to be shown.
+    /// </summary>
+    /// <remarks>
+    /// Maps are held by version name, and every project has a "V1". A release
+    /// parsed for the previous project would otherwise be shown in place of the
+    /// new project's release of the same name.
+    /// </remarks>
+    public async Task ResetAsync()
+    {
+        await (ready ??= InitialiseAsync());
+        await workspace.InvokeVoidAsync("reset");
+    }
+
     public async ValueTask DisposeAsync()
     {
         await workspace.ReleaseAsync("dispose");

@@ -126,12 +126,20 @@ export async function readMap(versionName) {
 /**
  * Copies the working file into Releases/<name>/ and writes its metadata, which is
  * exactly what the Angular app does so either app can read the result.
+ *
+ * Refuses if that folder already exists. Writing into it would replace somebody
+ * else's release - the Angular app shares these folders - and the files are
+ * truncated as they are opened, so there is no undo.
  */
 export async function createVersion(versionName, metadataJson) {
     if (!projectDir) throw new Error('No project folder is open.');
     if (!currentFile) throw new Error('No working .ocd file is selected.');
 
     const releases = await getDirectory(projectDir, RELEASES, true);
+
+    if (await getDirectory(releases, versionName, false))
+        throw new Error(`${RELEASES}/${versionName} already exists. Re-read the folder and try again.`);
+
     const dir = await releases.getDirectoryHandle(versionName, { create: true });
 
     const ocd = await dir.getFileHandle(`${versionName}.ocd`, { create: true });

@@ -171,8 +171,10 @@ namespace OcadViewer.Core
             ArgumentException.ThrowIfNullOrEmpty(fileName);
             ArgumentNullException.ThrowIfNull(data);
 
-            Unload(key);
-
+            // Parse before letting go of what is held under this name. The
+            // working file is re-read while OCAD may be half way through saving
+            // it, and a failed parse must leave the last good map in place - the
+            // pane showing it still draws its tiles from this key.
             OcadMapLoadResult loaded = OcadMapLoader.Load(data, fileName, templateDirectory);
             RectangleF bounds = loaded.Bounds;
 
@@ -185,6 +187,7 @@ namespace OcadViewer.Core
             var stored = new StoredMap(key, loaded.Map, bounds, loaded.Format.version,
                                        loaded.ParseTime, GeoreferenceOf(loaded.Map));
 
+            Unload(key);
             maps.Add(key, stored);
             Touch(key);
             EvictDownToCapacity();
@@ -264,7 +267,7 @@ namespace OcadViewer.Core
             if (older is null || newer is null)
                 return null;
 
-            ChangeMaskPlan plan = PlanFor(newer);
+            ChangeMaskPlan plan = PlanFor(older, newer);
 
             MapRenderResult before = MapRenderer.Render(
                 older.Map, plan.Area, plan.Width, plan.Height, Settings);
@@ -280,20 +283,21 @@ namespace OcadViewer.Core
         }
 
         /// <summary>
-        /// The size and extent <see cref="RenderChangeMask"/> will use for a
-        /// comparison whose newer side is <paramref name="newerKey"/>.
+        /// The size and extent <see cref="RenderChangeMask"/> will use for the
+        /// same two versions.
         /// </summary>
-        /// <returns><c>null</c> if that version is not loaded.</returns>
+        /// <returns><c>null</c> if either version is not loaded.</returns>
         /// <remarks>
         /// Separate from the render so a caller can lay out the overlay, and show
         /// how big the job is, before paying for it. It is a pure function of the
-        /// map's bounds, so both calls agree without anything being remembered
+        /// maps' bounds, so both calls agree without anything being remembered
         /// between them.
         /// </remarks>
-        public ChangeMaskPlan PlanChangeMask(string newerKey)
+        public ChangeMaskPlan PlanChangeMask(string olderKey, string newerKey)
         {
+            StoredMap older = Get(olderKey);
             StoredMap newer = Get(newerKey);
-            return newer is null ? null : PlanFor(newer);
+            return older is null || newer is null ? null : PlanFor(older, newer);
         }
 
         /// <summary>
@@ -305,13 +309,17 @@ namespace OcadViewer.Core
         /// pixels measured 389, 389 and 435 ms, because the cost is managed
         /// geometry work rather than rasterising. The cap is about memory, not
         /// time - two bitmaps of this size exist at once while the mask is built.
+        ///
+        /// The area covers both versions, not just the newer one. Deleting the
+        /// outermost object shrinks the newer map's bounds, and a mask clipped to
+        /// them would never see that the object went.
         /// </remarks>
-        private static ChangeMaskPlan PlanFor(StoredMap map)
+        private static ChangeMaskPlan PlanFor(StoredMap older, StoredMap newer)
         {
             const float PixelsPerMillimetre = 4f;
             const int MaxEdge = 4096;
 
-            RectangleF area = map.Bounds;
+            RectangleF area = RectangleF.Union(older.Bounds, newer.Bounds);
 
             float scale = PixelsPerMillimetre;
             float longest = Math.Max(area.Width, area.Height) * scale;

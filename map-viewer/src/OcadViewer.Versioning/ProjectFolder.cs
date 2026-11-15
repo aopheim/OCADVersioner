@@ -62,18 +62,26 @@ public static class ProjectFolder
     }
 
     /// <summary>
-    /// What the next release should be called.
+    /// What the next release should be called, judged by every folder under
+    /// <c>Releases/</c> rather than by the releases that are complete.
     /// </summary>
     /// <remarks>
     /// Highest existing number plus one. The Angular app counts folders instead,
     /// which gives the same answer until someone deletes a release by hand - after
     /// which counting reuses a number and overwrites an existing version.
+    ///
+    /// A <c>V&lt;n&gt;</c> folder without its map file is not a release, so
+    /// <see cref="ReleasesIn"/> leaves it out - but its name is still taken.
+    /// Naming from the releases alone picks that name again, and creating the
+    /// version then writes into a folder somebody else owns.
     /// </remarks>
-    public static string NextVersionName(IReadOnlyList<ProjectVersion> versions)
+    public static string NextVersionName(IEnumerable<ReleaseFolder> folders)
     {
         int highest = 0;
-        for (int i = 0; i < (versions?.Count ?? 0); i++)
-            highest = Math.Max(highest, versions[i].Number);
+        foreach (ReleaseFolder folder in folders ?? []) {
+            if (folder is not null && VersionNaming.TryParse(folder.Name, out int number))
+                highest = Math.Max(highest, number);
+        }
 
         return VersionNaming.NameFor(highest + 1);
     }

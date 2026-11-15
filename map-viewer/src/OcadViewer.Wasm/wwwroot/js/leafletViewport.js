@@ -280,6 +280,17 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             for (const side of SIDES) clearOverlay(side);
         },
 
+        /**
+         * Lets the next show fit the view again, as the very first one did.
+         *
+         * For a different project: its maps can sit anywhere on the paper, so
+         * keeping the last project's zoom and centre could leave both panes
+         * looking at empty paper.
+         */
+        refit() {
+            fitted = false;
+        },
+
         stats,
 
         dispose() {

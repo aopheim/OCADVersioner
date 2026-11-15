@@ -142,14 +142,28 @@ public sealed class VersioningTests
     [Test]
     public void TheNextVersionIsOneAboveTheHighestNotOneAboveTheCount()
     {
-        IReadOnlyList<ProjectVersion> versions = ProjectFolder.ReleasesIn([
+        ReleaseFolder[] folders = [
             new ReleaseFolder("V1", true, null),
             new ReleaseFolder("V5", true, null),
-        ]);
+        ];
 
-        Assert.That(ProjectFolder.NextVersionName(versions), Is.EqualTo("V6"),
+        Assert.That(ProjectFolder.NextVersionName(folders), Is.EqualTo("V6"),
             "Counting folders would answer V3 here, and writing V3 beside an existing V5 is how "
             + "a user loses a release they deleted the middle of.");
+    }
+
+    [Test]
+    public void AnIncompleteReleaseFolderStillTakesItsName()
+    {
+        ReleaseFolder[] folders = [
+            new ReleaseFolder("V1", true, null),
+            new ReleaseFolder("V2", false, "{\"title\":\"half written\"}"),
+            new ReleaseFolder("Backup", true, null),
+        ];
+
+        Assert.That(ProjectFolder.NextVersionName(folders), Is.EqualTo("V3"),
+            "V2 is not a release without its map file, but the folder exists. Naming the next "
+            + "version V2 would write into it and replace whatever is there.");
     }
 
     /* ------------------------------------------------------- what compares to what */
