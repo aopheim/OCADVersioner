@@ -5,6 +5,7 @@
     <Project Path="src/MapModel/MapModel.csproj" />
     <Project Path="src/Map_SkiaStd/Map_SkiaStd.csproj" />
     <Project Path="src/OcadViewer.Core/OcadViewer.Core.csproj" />
+    <Project Path="src/OcadViewer.Loading/OcadViewer.Loading.csproj" />
     <Project Path="src/OcadViewer.RenderCli/OcadViewer.RenderCli.csproj" />
     <Project Path="src/OcadViewer.Versioning/OcadViewer.Versioning.csproj" />
     <Project Path="src/OcadViewer.Wasm/OcadViewer.Wasm.csproj" />

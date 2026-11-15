@@ -235,6 +235,18 @@ public sealed class OrthogonalityTests
     }
 
     [Test]
+    public void WhatAPieceOfLoadingIsWorthIsJudgedInOnePlace()
+    {
+        IReadOnlyList<SourceFile> offenders = Matching(all, @"MillisecondsPer");
+
+        Assert.That(NamesOf(offenders), Is.EquivalentTo(new[] { "LoadPlan.cs" }),
+            "The browser knows how many bytes a map is and counts the tiles it draws; what "
+            + "that is worth against the rest of the wait is a judgement, and it belongs "
+            + "where a test can reach it. A second copy in JavaScript would be a progress bar "
+            + "that disagrees with itself about how far along it is.");
+    }
+
+    [Test]
     public void TheJsonShapeSharedWithAngularIsConfiguredOnce()
     {
         IReadOnlyList<SourceFile> offenders = Matching(csharp, @"JsonNamingPolicy\.CamelCase");

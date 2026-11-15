@@ -15,7 +15,7 @@ namespace OcadViewer.ArchitectureTests;
 /// <code>
 ///   Graphics2D ← MapModel ← Map_SkiaStd ← OcadViewer.Core ← RenderCli
 ///                                              ↑
-///                      OcadViewer.Versioning ← OcadViewer.Wasm
+///                      OcadViewer.Versioning ← OcadViewer.Wasm → OcadViewer.Loading
 /// </code>
 ///
 /// That was true when these tests were written, and the only thing keeping it
@@ -37,9 +37,10 @@ public sealed class ProjectDependencyTests
         ["Map_SkiaStd"] = ["Graphics2D", "MapModel"],
         ["OcadViewer.Core"] = ["Map_SkiaStd"],
         ["OcadViewer.Versioning"] = [],
+        ["OcadViewer.Loading"] = [],
         ["OcadViewer.RenderCli"] = ["OcadViewer.Core"],
-        ["OcadViewer.Wasm"] = ["OcadViewer.Core", "OcadViewer.Versioning"],
-        ["OcadViewer.ArchitectureTests"] = ["OcadViewer.Versioning"],
+        ["OcadViewer.Wasm"] = ["OcadViewer.Core", "OcadViewer.Loading", "OcadViewer.Versioning"],
+        ["OcadViewer.ArchitectureTests"] = ["OcadViewer.Loading", "OcadViewer.Versioning"],
     };
 
     /// <summary>Packages that only a UI host has any business referencing.</summary>
@@ -121,16 +122,19 @@ public sealed class ProjectDependencyTests
     }
 
     [Test]
-    public void TheDomainProjectDependsOnNothingAtAll()
+    public void TheProjectsWeTestDependOnNothingAtAll()
     {
-        Project versioning = Find("OcadViewer.Versioning");
-
         Assert.Multiple(() => {
-            Assert.That(versioning.ProjectReferences, Is.Empty,
-                "OcadViewer.Versioning states the contract this app shares with the Angular app. "
-                + "It has to stay testable without a browser, a renderer or a vendored assembly.");
-            Assert.That(versioning.PackageReferences, Is.Empty,
-                "Not even a package. Its only dependency is the framework.");
+            foreach (Project project in new[] { Find("OcadViewer.Versioning"), Find("OcadViewer.Loading") }) {
+                Assert.That(project.ProjectReferences, Is.Empty,
+                    $"{project.Name} is here to be testable without a browser, a renderer or a "
+                    + "vendored assembly. OcadViewer.Versioning states the contract this app "
+                    + "shares with the Angular app; OcadViewer.Loading decides what the pieces of "
+                    + "a load are worth. Both are reasoning, and reasoning that cannot be reached "
+                    + "from a test drifts.");
+                Assert.That(project.PackageReferences, Is.Empty,
+                    $"Not even a package in {project.Name}. Its only dependency is the framework.");
+            }
         });
     }
 

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    How long a load is expected to take, so that a progress bar can mean
+    something.
+
+    Like OcadViewer.Versioning, this depends on nothing. JavaScript is where the
+    file sizes and the tiles are, but weighing them is a judgement, and a
+    judgement that a test can reach is worth more than one buried in a module no
+    test runner here can load. The browser side reports what it saw; this decides
+    what it was worth.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>
