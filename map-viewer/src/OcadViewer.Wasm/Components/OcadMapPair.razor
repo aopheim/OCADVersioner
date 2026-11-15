@@ -129,6 +129,15 @@
         await workspace.InvokeVoidAsync("zoomTo", area);
     }
 
+    /// <summary>
+    /// Shows or hides the maps themselves, so the change overlay can be seen on its own.
+    /// </summary>
+    public async Task SetMapVisibleAsync(bool visible)
+    {
+        await (ready ??= InitialiseAsync());
+        await workspace.InvokeVoidAsync("setMapVisible", visible);
+    }
+
     public async ValueTask DisposeAsync()
     {
         await workspace.ReleaseAsync("dispose");

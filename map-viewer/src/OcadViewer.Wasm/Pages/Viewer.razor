@@ -73,6 +73,14 @@
            button each time takes the eye off the place being looked at. *@
         <KeyboardShortcut Key="@OverlayKey" OnPressed="ToggleChanges" />
 
+        @* The map under the overlay, off to see the changes alone. *@
+        <button class="btn btn-sm @(showMap ? "btn-outline-secondary" : "btn-primary")"
+                @onclick="ToggleMap"
+                title="@(showMap ? "Hide" : "Show") the map, leaving only the changes (@MapKey.ToUpperInvariant())">
+            <i class="bi @(showMap ? "bi-map" : "bi-map-fill")"></i>
+        </button>
+        <KeyboardShortcut Key="@MapKey" OnPressed="ToggleMap" />
+
         <button class="btn btn-outline-secondary btn-sm" @onclick="ZoomToChanges"
                 disabled="@(busy || changeSummary is not { Shown: true, ShownPixels: > 0 })"
                 title="Zoom to what the overlay is showing">
@@ -82,10 +90,16 @@
         @if (ChangedShare() is { } share) {
             <span class="text-muted small">@share</span>
         }
+
+        @* Progress goes in this row, not on a line of its own: a line that comes
+           and goes pushes the maps down and back up each time, under the mouse. *@
+        @if (StatusInToolbar) {
+            <span class="text-muted small">@status</span>
+        }
     </div>
 }
 
-@if (status is not null) {
+@if (status is not null && !StatusInToolbar) {
     <p class="@(failed ? "text-danger" : "text-muted")">@status</p>
 }
 
@@ -136,6 +150,12 @@
     private bool comparisonPending;
     private bool busy;
     private string status;
+
+    /// <summary>
+    /// Progress shows in the toolbar once a project is open. Failures keep their own
+    /// line, because they stay until dismissed by the next action and should be seen.
+    /// </summary>
+    private bool StatusInToolbar => status is not null && !failed && Project.IsOpen;
     private bool failed;
 
     private MapDiff diff = MapDiff.Empty;
@@ -152,6 +172,12 @@
 
     /// <summary>Whether the change overlay is on.</summary>
     private bool showChanges;
+
+    /// <summary>The key that shows and hides the map under the overlay.</summary>
+    private const string MapKey = "m";
+
+    /// <summary>Whether the maps are drawn. Off leaves only the change overlay.</summary>
+    private bool showMap = true;
 
     private OcadMapPair.ChangeSummary changeSummary;
 
@@ -301,6 +327,24 @@
             showChanges = !showChanges;
             await ApplyChangeOverlay();
         });
+    }
+
+    /// <summary>Shows or hides the maps, from the button or from the keyboard.</summary>
+    /// <remarks>
+    /// Not run through <see cref="Run"/>: hiding a pane is instant, and works
+    /// while the overlay is still being computed. Hiding the map with the
+    /// overlay off would leave nothing to look at, so it turns the overlay on.
+    /// </remarks>
+    private async Task ToggleMap()
+    {
+        if (mapPair is null)
+            return;
+
+        showMap = !showMap;
+        await mapPair.SetMapVisibleAsync(showMap);
+
+        if (!showMap && !showChanges)
+            await ToggleChanges();
     }
 
     /// <summary>

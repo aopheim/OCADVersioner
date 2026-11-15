@@ -210,6 +210,11 @@ export async function createWorkspace(leftEl, rightEl) {
             return framed;
         },
 
+        /** Shows or hides the maps under the change overlay, on both panes. */
+        setMapVisible(visible) {
+            view.setMapVisible(visible);
+        },
+
         showing: () => view.showing(),
 
         stats: view.stats,
