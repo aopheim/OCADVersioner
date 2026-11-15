@@ -16,9 +16,10 @@ change overlay; this document supersedes it for the diff.
 | Question | Decision | Why |
 |---|---|---|
 | Input | The `.ocd` bytes plus the parsed PurplePen `Map` | No `ocad2geojson`, no second parser, no AGPL dependency. |
-| Object identity | The object's **entry in OCAD's object index** | OCAD keeps an object in its index entry for as long as it exists. The Angular app matched GeoJSON ids that `ocad2geojson` regenerates on every read ([ocad2geojson#25](https://github.com/perliedman/ocad2geojson/issues/25)). |
-| Entry reused by OCAD | Same entry, different creation date → **deleted + added** | The creation date is what tells the old object from the new one. |
-| Symbol changed, same entry | **Edited**, with the old and new symbol | It is the same object. A new entry is a new object, and is deleted + added. |
+| Object identity | Matched in three passes, most certain first (`ObjectMatcher`): **identical content in the same entry**, then **identical content in any entry**, then **the same creation date** | Within one OCAD file an object keeps its index entry. But a map rebuilt by copying its objects into another file gets every object a new entry, and can have every date shifted by whole hours. Bymarkabasen did both (see below), so the entry is evidence, not identity. The Angular app matched GeoJSON ids that `ocad2geojson` regenerates on every read ([ocad2geojson#25](https://github.com/perliedman/ocad2geojson/issues/25)). |
+| Pairing by creation date | Same creation date to the millisecond, after any **whole-hour shift** shared by most identical objects. Then either the **same entry** (when most identical objects kept theirs), or **within 10 mm on paper and modified since** | An edit keeps the creation date. Imports stamp thousands of objects with one date, so the date alone is not enough. Among several candidates, the same symbol wins, then the same entry, then the nearest. |
+| Different creation date | **Deleted + added**, whatever the entry | Creation dates are copied with an object, not invented, so a different date means a different object. |
+| Symbol changed | **Edited**, with the old and new symbol | It is the same object, if the rules above pair it. |
 | Deleted / hidden objects | **Ignored**; only OCAD's *normal* status counts | OCAD keeps deleted objects in the file for undo. An object that turns from normal to deleted is reported deleted. |
 | What an edit carries | Point movement (m), line length change (%), area change (%), and **which properties changed**: symbol, geometry, angle, text | |
 | Curves | Control points skipped; the chord between on-curve points is measured | Good for gentle curves, short on tight ones. Proper flattening (the Angular app's [#23](https://github.com/aopheim/OCADVersioner/issues/23)) is not done. |
@@ -35,7 +36,9 @@ OcadViewer.Diff            references MapModel only - no renderer, no Skia, no h
   OcadMapSnapshot          one version: its normal objects by index entry, symbol
                            names from the Map, metres per OCAD unit from the scale
   IOcadDiffService         Compare(older?, newer) -> ObjectDiff
-  OcadDiffService          the rules in the table above
+  ObjectMatcher            which old object each new one is: content, entry,
+                           creation date (the table above)
+  OcadDiffService          pairs -> edits with measures; the rest added/deleted
   ObjectDiff               Added / Edited / Deleted, each with ObjectSymbol, dates
                            and measures
 
@@ -82,7 +85,11 @@ Angular app. What each contains, as read from its object index:
 | `point_line_area_deleted` | none; all five entries kept for undo |
 
 Cases no OCAD-saved fixture shows (a reused index entry, a symbol swap, a
-rotation) are made by patching a copy's bytes in the test (`OcadBytes`). OCAD-drawn
+rotation, objects renumbered, dates shifted) are made by patching a copy's bytes
+in the test (`OcadBytes`). `RenumberedObjectsTests` rebuilds the Bymarkabasen
+situations in miniature this way: entries swapped, an object moved to an unused
+entry, all dates two hours earlier, edits under a new number, a batch of objects
+sharing one creation date. OCAD-drawn
 fixtures for these would be better, and are worth adding when someone has OCAD to
 hand: an area changed from 403 to 406, a rotated point, and a blank map with the
 same symbol set.
@@ -92,30 +99,40 @@ The comparison tests build snapshots from the object index alone
 comparison reads. Only `ParsedSnapshotTests` and `MapStoreSnapshotTests` load
 PurplePen, for symbol names, scale and the store.
 
-**The Windows application control policy described in `PLAN.md` gets in the way
-here.** It blocks freshly built assemblies (`0x800711C7`), and its verdicts are
-not stable. On the day this was written:
-- the Release build of `Graphics2D.dll` was blocked from the start;
-- the Debug build ran all 37 tests, then a few hours later its `MapModel.dll` was
-  blocked;
-- later still, the freshly built `OcadViewer.Diff.dll` itself was blocked, which
-  stops every test in this suite.
+### Real maps, as a baseline that is never committed
 
-So the last changes here (object bounds, index-only snapshots) compile and were
-verified in the browser, where WebAssembly is not subject to the policy, but
-their unit tests have not been run. `OcadViewer.ArchitectureTests` reads
-assemblies without loading them and still ran (60/60).
+`RealMapTests` runs the diff on real projects, release by release: Bymarkabasen
+and Storigarden. The maps are copyrighted, so **they are never copied into this
+repository**. The tests read them in place and only read them. They look in the
+folder named by `OCAD_REAL_MAPS` (default `C:\repos`: `BIL-kart\Bymarkabasen`,
+`ocad-storigarden`), and are ignored on any machine without them, CI included.
+Each pair checks three things:
+
+- the **baseline counts**, each checked by hand when recorded (below). A rule
+  change that moves one has to explain why;
+- **the counts add up**: added − deleted equals the change in object count;
+- **nothing identical is reported as deleted and added**.
 
 ```bash
-dotnet test map-viewer/tests/OcadViewer.Diff.Tests                       # Debug, when the policy allows
+dotnet test map-viewer/tests/OcadViewer.Diff.Tests                       # Debug
+dotnet test map-viewer/tests/OcadViewer.Diff.Tests --filter TestCategory=RealMaps
 dotnet test map-viewer/tests/OcadViewer.ArchitectureTests -c Release
 ```
+
+**The Windows application control policy described in `PLAN.md` gets in the way
+here.** It blocks freshly built assemblies (`0x800711C7`), and its verdicts are
+not stable. Over one day it blocked the Release `Graphics2D.dll`, then the Debug
+`MapModel.dll`, then `OcadViewer.Diff.dll` itself. The next day it let the whole
+suite run again. When it blocks, check in the browser instead (below), where
+WebAssembly is not subject to the policy.
 
 ## Not yet done
 
 - **Symbols, colours, georeferencing and scale, templates and settings.** Next PRs.
   They come from the parsed `Map`, which already reads all of them. The interface
-  will grow a result per category rather than overloading `ObjectDiff`.
+  will grow a result per category rather than overloading `ObjectDiff`. The
+  symbol diff must include a symbol shown or hidden (its status): in Bymarkabasen
+  V1 → V2 that alone redrew a boundary line around the whole map.
 - **Version metadata counts.** `ProjectService.CreateVersionAsync` still writes
   zero added/edited/deleted counts into `V<n>.json`. Filling them from this diff
   needs the working file and the newest release both parsed when a version is
@@ -223,3 +240,52 @@ Its limit is what boxes are: a large area's box covers ground the area does not,
 so a missed object lying inside a big reported box would go unnoticed. And a
 change that draws nothing different (an edit undone, a hidden object) cannot
 show up in the overlay at all.
+
+### A rebuilt project: Bymarkabasen
+
+Bymarkabasen (three releases and a working file, OCAD 2018, about 23 000
+objects each) is what showed that the index entry is not enough. Between V1
+and V2, and again between V2 and V3, nearly every object moved to a new index
+entry. Between V1 and V2 every date also moved by exactly two hours. Both look
+like a map rebuilt by copying its objects into another file. All checks below
+were run on read-only copies, and the maps are never committed.
+
+| Comparison | Matched by entry alone | Now |
+|---|---|---|
+| V1 → V2 | 23 415 / 0 / 22 447 | **1 288 / 889 / 320** |
+| V2 → V3 | 19 465 / 4 119 / 19 096 | **472 / 364 / 103** |
+| V3 → working file | 0 / 0 / 1 | 0 / 0 / 1 (a 2.8 km² *Forbudt område*, 709.1) |
+
+How the new counts were checked:
+
+- **The counts add up, and nothing identical is listed as gone and back.**
+  `RealMapTests` checks both on every pair.
+- **Release dates.** Every added or edited object was last changed after the
+  older release, and no deleted object was created after the newer one. The
+  only exceptions are 6 imported objects in V2 → V3, from a batch dated 31
+  August that differs between the two files. They are listed as added, not as
+  edits. The first version of the matcher did pair them as edits, which is why
+  a creation-date pair now needs a later modification date.
+- **The change overlay, object by object.** Boxes are too coarse here: one new
+  forbidden area spans a third of the map. So every red pixel was tested against
+  the actual geometry instead, with curves flattened. Each pixel had to lie on
+  (within 1.5 mm) or inside an object that has no identical twin in the other
+  file, or on a symbol whose definition changed. This check reads the raw files
+  and the mask, and never asks the matcher:
+
+  | Pair | Red pixels | Explained | Left |
+  |---|---|---|---|
+  | V1 → V2 | 204 420 | 99.55 % | 923 px in specks, at most 20 per 5 mm square |
+  | V2 → V3 | 389 950 | 99.995 % | 19 px |
+
+  A missed object would leave a solid patch, and none is left.
+- **What the table rightly leaves out.** In V1 → V2, 19 % of the red pixels sit
+  outside every row's box. Almost all of them (37 816 of 38 432) lie on objects
+  whose symbol changed, not the object:
+  - symbol 708.0 (out-of-bounds boundary) had status *hidden* in V1 and *normal*
+    in V2, so an identical line appears;
+  - 508.10, 101.2 and 711 changed definition.
+
+  Those are symbol changes, the next slice of the diff. A symbol's status is
+  byte 11 of its record. Bytes 10 and 20–22 differ in every symbol and change
+  nothing drawn.

@@ -3,11 +3,11 @@ using System.Buffers.Binary;
 namespace OcadViewer.Diff.Tests;
 
 /// <summary>
-/// Edits a field of one object in an OCAD 2018 file, in place.
+/// Edits an OCAD 2018 file in place: a field of one object, or the index itself.
 /// </summary>
 /// <remarks>
 /// For the cases no fixture shows: an entry handed to a new object, a symbol swap,
-/// a rotation. Only the first index block is searched, which is all the fixtures
+/// a rotation, objects renumbered, dates shifted. Only the first index block is searched, which is all the fixtures
 /// have. Offsets as in <see cref="OcadObjectIndexReader"/>.
 /// </remarks>
 internal static class OcadBytes
@@ -24,6 +24,43 @@ internal static class OcadBytes
 
     public static void SetAngle(byte[] file, int entry, short tenthsOfADegree)
         => BinaryPrimitives.WriteInt16LittleEndian(file.AsSpan(ObjectAt(file, entry) + 6), tenthsOfADegree);
+
+    /// <summary>
+    /// Swaps two entries of the object index, so each object is found under the
+    /// other's number. The objects themselves stay where they are in the file.
+    /// Swapping with an empty entry moves an object to a number nobody had.
+    /// </summary>
+    /// <remarks>
+    /// What happens to a whole map when its objects are copied into another file:
+    /// every object survives, under a new index entry.
+    /// </remarks>
+    public static void SwapIndexEntries(byte[] file, int first, int second)
+    {
+        Span<byte> a = file.AsSpan(IndexEntryAt(file, first), 40);
+        Span<byte> b = file.AsSpan(IndexEntryAt(file, second), 40);
+        byte[] held = a.ToArray();
+        b.CopyTo(a);
+        held.CopyTo(b);
+    }
+
+    /// <summary>
+    /// Moves every object's creation and modification date by the same amount, the
+    /// way they moved in a real map saved again with its times read as local.
+    /// </summary>
+    public static void ShiftAllDates(byte[] file, TimeSpan by)
+    {
+        for (int entry = 1; entry <= 256; entry++) {
+            int at = ObjectAt(file, entry);
+            if (at == 0)
+                continue;
+
+            foreach (int offset in new[] { 24, 36 }) {
+                Span<byte> field = file.AsSpan(at + offset, 8);
+                DateTime when = DateTime.FromOADate(BinaryPrimitives.ReadDoubleLittleEndian(field));
+                BinaryPrimitives.WriteDoubleLittleEndian(field, (when + by).ToOADate());
+            }
+        }
+    }
 
     private static int IndexEntryAt(byte[] file, int entry)
     {

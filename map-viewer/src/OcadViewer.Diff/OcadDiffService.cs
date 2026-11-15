@@ -1,21 +1,15 @@
 namespace OcadViewer.Diff;
 
 /// <summary>
-/// Compares the objects of two versions, pairing each object with itself by its
-/// entry in OCAD's object index.
+/// Compares the objects of two versions: which were added, edited and deleted.
 /// </summary>
 /// <remarks>
-/// <para>
-/// OCAD keeps an object in its index entry for as long as the object exists, edits
-/// included, so the entry is the object's identity. Unlike the Angular app, which
-/// matched GeoJSON ids that its converter regenerated on every read, this survives
-/// any edit to the object itself, including a change of symbol.
-/// </para>
-/// <para>
-/// The one way an entry can mislead is being handed to a different object. The
-/// creation date guards against that: same entry, different creation date, and the
-/// old object is reported deleted and the new one added.
-/// </para>
+/// Which old object each new one is gets decided by <see cref="ObjectMatcher"/>:
+/// by content, by OCAD's object index entry and by creation date, in that order of
+/// certainty. Unlike the Angular app, which matched GeoJSON ids its converter
+/// regenerated on every read, this survives any edit to an object, a change of
+/// symbol included, and a map whose objects were all renumbered. Edits are reported
+/// under the index entry the object has now.
 /// </remarks>
 public sealed class OcadDiffService : IOcadDiffService
 {
@@ -23,44 +17,21 @@ public sealed class OcadDiffService : IOcadDiffService
     {
         ArgumentNullException.ThrowIfNull(newer);
 
-        IReadOnlyDictionary<int, MapObject> before = older?.Objects ?? new Dictionary<int, MapObject>();
+        ObjectMatcher.Result match = ObjectMatcher.Match(
+            older?.Objects ?? new Dictionary<int, MapObject>(), newer.Objects);
 
-        List<ObjectAdded> added = [];
         List<ObjectEdited> edited = [];
-        List<ObjectDeleted> deleted = [];
-
-        foreach (MapObject now in newer.Objects.Values.OrderBy(o => o.Index)) {
-            if (!before.TryGetValue(now.Index, out MapObject then)) {
-                added.Add(Added(now, newer));
-                continue;
-            }
-
-            if (!IsSameObject(then, now)) {
-                deleted.Add(Deleted(then, older));
-                added.Add(Added(now, newer));
-                continue;
-            }
-
+        foreach ((MapObject then, MapObject now) in match.Pairs) {
             ObjectChanges changes = ChangesBetween(then, now);
             if (changes != ObjectChanges.None)
                 edited.Add(Edited(then, older, now, newer, changes));
         }
+        edited.Sort((a, b) => a.Index.CompareTo(b.Index));
 
-        foreach (MapObject then in before.Values.OrderBy(o => o.Index)) {
-            if (!newer.Objects.ContainsKey(then.Index))
-                deleted.Add(Deleted(then, older));
-        }
-
-        deleted.Sort((a, b) => a.Index.CompareTo(b.Index));
-        return new ObjectDiff(added, edited, deleted);
+        return new ObjectDiff(match.Added.Select(o => Added(o, newer)).ToList(),
+                              edited,
+                              match.Deleted.Select(o => Deleted(o, older)).ToList());
     }
-
-    /// <summary>
-    /// Whether an entry still holds the object it held before. Without a creation
-    /// date on both sides (OCAD 9 has none) the entry is all there is to go on.
-    /// </summary>
-    private static bool IsSameObject(MapObject then, MapObject now)
-        => then.CreatedUtc is null || now.CreatedUtc is null || then.CreatedUtc == now.CreatedUtc;
 
     private static ObjectChanges ChangesBetween(MapObject then, MapObject now)
     {
