@@ -1,8 +1,11 @@
 name: PR build
 
+# No `types:` filter, so this runs on opened, reopened and every push to the
+# branch. With `types: [opened]` a required check could only ever report on the
+# first commit: push a fix for a failing build and nothing re-ran, leaving the
+# PR gated on a verdict about code that was no longer there.
 on:
     pull_request:
-        types: [opened]
         branches:
             - main
             - develop
@@ -25,3 +28,32 @@ jobs:
                   cd ocad-versioner
                   yarn install
                   yarn build:pr
+
+    # The Blazor app, which the job above does not touch: `yarn build:pr` builds
+    # the Angular app in ocad-versioner, so until this job existed a branch could
+    # break the map viewer outright and still merge green.
+    map-viewer:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repo
+              uses: actions/checkout@v4
+
+            - name: Use .NET
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: '10.0.x'
+
+            # SkiaSharp and HarfBuzz ship native WebAssembly assets, so even a
+            # non-AOT build goes through the wasm native toolchain.
+            - name: Install the wasm-tools workload
+              run: dotnet workload install wasm-tools
+
+            # AOT is a publish-only setting, so this stays a normal build.
+            - name: Build
+              run: dotnet build map-viewer/MapViewer.slnx -c Release
+
+            # The solution rather than the one test project, so a suite added
+            # later is picked up without touching this file.
+            - name: Test
+              run: dotnet test map-viewer/MapViewer.slnx -c Release --no-build
