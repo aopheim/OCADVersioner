@@ -34,8 +34,8 @@ public readonly record struct MapPoint(int X, int Y, bool IsCurveControl, bool S
 
 /// <summary>One object as OCAD's object index and object block describe it.</summary>
 /// <param name="Index">
-/// The object's slot in OCAD's index, counted from 1. OCAD keeps an object in its
-/// slot when it is edited, which is what lets the diff pair it with itself.
+/// The object's entry in OCAD's index, counted from 1. OCAD keeps an object in its
+/// entry when it is edited, which is what lets the diff pair it with itself.
 /// </param>
 /// <param name="SymbolNumber">OCAD's symbol number, e.g. 109000 for symbol 109.0.</param>
 /// <param name="AngleInDegrees">Rotation, for symbols that have one.</param>

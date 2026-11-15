@@ -6,7 +6,7 @@ namespace OcadViewer.Diff;
 /// The name in the map's own symbol table, in whatever language the map was made
 /// in. Empty when the map has no symbol with that number.
 /// </param>
-public sealed record DiffSymbol(string Number, string Name);
+public sealed record ObjectSymbol(string Number, string Name);
 
 /// <summary>Which properties of an object differ between two versions.</summary>
 [Flags]
@@ -25,7 +25,7 @@ public enum ObjectChanges
 /// <param name="AreaInSquareMeters">Areas only.</param>
 public sealed record ObjectAdded(
     int Index,
-    DiffSymbol Symbol,
+    ObjectSymbol Symbol,
     MapObjectKind Kind,
     DateTime? CreatedUtc,
     DateTime? LastEditedUtc,
@@ -38,7 +38,7 @@ public sealed record ObjectAdded(
 /// <param name="AreaInSquareMeters">Areas only.</param>
 public sealed record ObjectDeleted(
     int Index,
-    DiffSymbol Symbol,
+    ObjectSymbol Symbol,
     MapObjectKind Kind,
     DateTime? CreatedUtc,
     DateTime? LastEditedUtc,
@@ -53,8 +53,8 @@ public sealed record ObjectDeleted(
 /// <param name="AreaChangeInPercent">Areas only.</param>
 public sealed record ObjectEdited(
     int Index,
-    DiffSymbol Symbol,
-    DiffSymbol PreviousSymbol,
+    ObjectSymbol Symbol,
+    ObjectSymbol PreviousSymbol,
     MapObjectKind Kind,
     ObjectChanges Changes,
     DateTime? CreatedUtc,

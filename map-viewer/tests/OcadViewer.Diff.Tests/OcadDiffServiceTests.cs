@@ -6,13 +6,13 @@ namespace OcadViewer.Diff.Tests;
 /// <remarks>
 /// What the fixtures hold, as read from their object index:
 /// <list type="bullet">
-///   <item><c>1knoll</c>: slot 1 a knoll (109.0). Slot 2 is a second knoll OCAD
+///   <item><c>1knoll</c>: entry 1 a knoll (109.0). Entry 2 is a second knoll OCAD
 ///   keeps for undo, which does not count.</item>
-///   <item><c>point_line_area</c>: drawn from <c>1knoll</c>. Slot 1's knoll is now
-///   deleted (kept for undo); slot 3 a contour (101.0), slot 4 a knoll (109.0),
-///   slot 5 an area (403.0).</item>
-///   <item><c>_moved</c>: the same three slots and creation dates, each edited.</item>
-///   <item><c>_deleted</c>: all five slots kept for undo, none counting.</item>
+///   <item><c>point_line_area</c>: drawn from <c>1knoll</c>. Entry 1's knoll is now
+///   deleted (kept for undo); entry 3 a contour (101.0), entry 4 a knoll (109.0),
+///   entry 5 an area (403.0).</item>
+///   <item><c>_moved</c>: the same three entries and creation dates, each edited.</item>
+///   <item><c>_deleted</c>: all five entries kept for undo, none counting.</item>
 /// </list>
 /// </remarks>
 [TestFixture]
@@ -149,7 +149,7 @@ public sealed class OcadDiffServiceTests
     [Test]
     public void AnObjectOcadMarksDeletedCountsAsDeleted()
     {
-        // 1knoll -> point_line_area: the knoll in slot 1 stays in the file, marked
+        // 1knoll -> point_line_area: the knoll in entry 1 stays in the file, marked
         // deleted, while three new objects are drawn.
         ObjectDiff result = Compare(Fixture.OneKnoll, Fixture.PointLineArea);
 
@@ -231,15 +231,15 @@ public sealed class OcadDiffServiceTests
         });
     }
 
-    /* -------------------------------------------------- pairing by index slot */
+    /* -------------------------------------------------- pairing by index entry */
 
     [Test]
-    public void ASlotReusedForANewObjectIsADeletionAndAnAddition()
+    public void AnIndexEntryReusedForANewObjectIsADeletionAndAnAddition()
     {
-        // Same slot, different creation date: OCAD gave the slot to a different
+        // Same entry, different creation date: OCAD gave the entry to a different
         // object. No fixture shows OCAD doing that, so the newer file is patched.
         byte[] newer = Fixture.Bytes(Fixture.PointLineAreaMoved);
-        OcadBytes.SetCreationDate(newer, slot: 4, new DateTime(2024, 1, 1, 12, 0, 0, DateTimeKind.Utc));
+        OcadBytes.SetCreationDate(newer, entry: 4, new DateTime(2024, 1, 1, 12, 0, 0, DateTimeKind.Utc));
 
         ObjectDiff result = diff.Compare(Fixture.Snapshot(Fixture.PointLineArea),
                                          Fixture.Snapshot(Fixture.PointLineAreaMoved, newer));
@@ -252,12 +252,12 @@ public sealed class OcadDiffServiceTests
     }
 
     [Test]
-    public void ASymbolChangeInTheSameSlotIsAnEdit()
+    public void ASymbolChangeInTheSameIndexEntryIsAnEdit()
     {
         // 403.0 (rough open land) to 406.0 (forest, slow running): same object,
-        // same slot, new symbol. Patched until OCAD-drawn fixture exists.
+        // same entry, new symbol. Patched; an OCAD-drawn fixture would be better.
         byte[] newer = Fixture.Bytes(Fixture.PointLineArea);
-        OcadBytes.SetSymbol(newer, slot: 5, 406000);
+        OcadBytes.SetSymbol(newer, entry: 5, 406000);
 
         ObjectEdited area = diff.Compare(Fixture.Snapshot(Fixture.PointLineArea),
                                          Fixture.Snapshot(Fixture.PointLineArea, newer))
@@ -274,7 +274,7 @@ public sealed class OcadDiffServiceTests
     public void ARotatedObjectIsAnAngleChange()
     {
         byte[] newer = Fixture.Bytes(Fixture.OneKnoll);
-        OcadBytes.SetAngle(newer, slot: 1, tenthsOfADegree: 450);
+        OcadBytes.SetAngle(newer, entry: 1, tenthsOfADegree: 450);
 
         ObjectEdited knoll = diff.Compare(Fixture.Snapshot(Fixture.OneKnoll),
                                           Fixture.Snapshot(Fixture.OneKnoll, newer))

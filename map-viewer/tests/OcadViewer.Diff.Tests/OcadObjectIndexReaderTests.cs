@@ -22,7 +22,7 @@ public sealed class OcadObjectIndexReaderTests
     [Test]
     public void ObjectIndexesStartAtOne()
     {
-        // OCAD numbers index slots from 1, and the diff pairs objects by slot,
+        // OCAD numbers index entries from 1, and the diff pairs objects by entry,
         // so an off-by-one here would silently pair nothing with anything.
         Assert.That(NormalObjectsIn(Fixture.OneKnoll)[0].Index, Is.EqualTo(1));
     }
@@ -53,14 +53,14 @@ public sealed class OcadObjectIndexReaderTests
     }
 
     [Test]
-    public void MovedObjectsKeepTheirSlotAndCreationDate()
+    public void MovedObjectsKeepTheirIndexEntryAndCreationDate()
     {
         IReadOnlyList<MapObject> before = NormalObjectsIn(Fixture.PointLineArea);
         IReadOnlyList<MapObject> after = NormalObjectsIn(Fixture.PointLineAreaMoved);
 
         Assert.That(after.Select(o => (o.Index, o.CreatedUtc)),
                     Is.EquivalentTo(before.Select(o => (o.Index, o.CreatedUtc))),
-                    "The diff's whole pairing rule rests on OCAD keeping an object in its slot when it is edited.");
+                    "The diff's whole pairing rule rests on OCAD keeping an object in its entry when it is edited.");
     }
 
     [Test]

@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 
+using System.IO;
+
+using OcadViewer.Diff;
+
 using PurplePen.MapModel;
 
 using SkiaSharp;
@@ -13,15 +17,23 @@ namespace OcadViewer.Core
     public sealed class StoredMap : IDisposable
     {
         internal StoredMap(string key, Map map, RectangleF bounds, int formatVersion,
-                           TimeSpan parseTime, string georeference)
+                           TimeSpan parseTime, string georeference, OcadMapSnapshot snapshot)
         {
             Key = key;
             Bounds = bounds;
             FormatVersion = formatVersion;
             ParseTime = parseTime;
             Georeference = georeference;
+            Snapshot = snapshot;
             Map = map;
         }
+
+        /// <summary>
+        /// What the diff needs from this version, taken while the file's bytes were
+        /// still in hand. <c>null</c> for a map the diff cannot read - an
+        /// OpenOrienteering map, or OCAD 8 and older - which is shown but not compared.
+        /// </summary>
+        public OcadMapSnapshot Snapshot { get; }
 
         /// <summary>What the caller knows this map as - a version name, not a position.</summary>
         public string Key { get; }
@@ -183,13 +195,28 @@ namespace OcadViewer.Core
             }
 
             var stored = new StoredMap(key, loaded.Map, bounds, loaded.Format.version,
-                                       loaded.ParseTime, GeoreferenceOf(loaded.Map));
+                                       loaded.ParseTime, GeoreferenceOf(loaded.Map),
+                                       SnapshotOf(loaded.Map, data));
 
             maps.Add(key, stored);
             Touch(key);
             EvictDownToCapacity();
 
             return stored;
+        }
+
+        /// <summary>
+        /// The diff's view of a freshly parsed map. A map the diff cannot read is
+        /// still a map worth showing, so that is a missing snapshot, not a failed load.
+        /// </summary>
+        private static OcadMapSnapshot SnapshotOf(Map map, byte[] data)
+        {
+            try {
+                return OcadMapSnapshot.Create(map, data);
+            }
+            catch (InvalidDataException) {
+                return null;
+            }
         }
 
         /// <summary>The map held under <paramref name="key"/>, or <c>null</c>.</summary>

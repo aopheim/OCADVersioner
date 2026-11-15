@@ -55,6 +55,22 @@ public sealed class AssemblyDependencyTests
             + "directly. References found: " + string.Join(", ", references));
     }
 
+    [Test]
+    public void TheDiffKnowsNothingAboutRenderingOrTheBrowser()
+    {
+        IReadOnlyList<string> references = ReferencesOf("OcadViewer.Diff");
+
+        string[] offending = [.. references.Where(reference =>
+            reference.StartsWith("SkiaSharp", StringComparison.Ordinal)
+            || reference is "Map_SkiaStd" or "OcadViewer.Core"
+            || BrowserAndUi.Any(prefix => reference.StartsWith(prefix, StringComparison.Ordinal)))];
+
+        Assert.That(offending, Is.Empty,
+            "The diff compares what a map contains, not what it looks like. It reads the parsed "
+            + "Map and the file's object index, and nothing that draws. References found: "
+            + string.Join(", ", references));
+    }
+
     [TestCase("MapModel")]
     [TestCase("Graphics2D")]
     [TestCase("Map_SkiaStd")]

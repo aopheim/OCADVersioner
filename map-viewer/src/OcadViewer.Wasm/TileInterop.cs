@@ -4,8 +4,6 @@ using System.Text.Json.Serialization;
 
 using OcadViewer.Core;
 
-using PurplePen.MapModel;
-
 namespace OcadViewer.Wasm;
 
 /// <summary>
@@ -27,15 +25,8 @@ namespace OcadViewer.Wasm;
 /// </remarks>
 public static partial class TileInterop
 {
-    /// <summary>
-    /// Templates are off because nothing could satisfy them. A template is a
-    /// separate file beside the map on the user's disk, and the browser hands us
-    /// one file through a directory picker - there is no directory for the parser
-    /// to search. Asking for templates we cannot load only costs work.
-    /// </summary>
-    private static readonly MapStore Store = new(
-        MapStore.DefaultCapacity,
-        new MapRenderSettings { Templates = RenderTemplateOption.MapOnly });
+    /// <summary>Shared with the diff; see <see cref="LoadedMaps"/>.</summary>
+    private static MapStore Store => LoadedMaps.Store;
 
     /// <summary>Whether a map is already parsed under <paramref name="key"/>.</summary>
     /// <remarks>

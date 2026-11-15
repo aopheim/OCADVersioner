@@ -1,3 +1,5 @@
+using OcadViewer.Diff;
+
 namespace OcadViewer.Wasm.Services;
 
 /// <summary>Which slice of the diff a table is showing.</summary>
@@ -35,17 +37,19 @@ public sealed record DeletedSymbol(
     : DiffSymbol(SymbolNumber, SymbolName, CreatedAtUtc, LastEditedAtUtc);
 
 /// <summary>
-/// A symbol in both versions whose geometry or symbol number changed.
+/// A symbol in both versions that differs between them.
 /// </summary>
 /// <remarks>
 /// Only one of the three measures is normally meaningful, depending on whether the
 /// symbol is a point, a line or an area, which is why each is nullable rather than
 /// defaulted to zero.
 /// </remarks>
+/// <param name="Changes">Which properties differ: symbol, geometry, angle, text.</param>
 public sealed record UpdatedSymbol(
     string SymbolNumber, string SymbolName,
     DateTimeOffset? CreatedAtUtc, DateTimeOffset? LastEditedAtUtc,
-    double? MovementInMeters, double? LengthDiffInPercent, double? AreaDiffInPercent)
+    double? MovementInMeters, double? LengthDiffInPercent, double? AreaDiffInPercent,
+    ObjectChanges Changes)
     : DiffSymbol(SymbolNumber, SymbolName, CreatedAtUtc, LastEditedAtUtc);
 
 /// <summary>The comparison between two versions.</summary>
@@ -66,9 +70,8 @@ public sealed record MapDiff(
 
 /// <summary>Produces the comparison between two loaded versions.</summary>
 /// <remarks>
-/// An interface with one empty implementation, deliberately. Comparing two maps is
-/// deferred work, and the alternative - wiring the table straight to a diff that
-/// does not exist - would mean reshaping the UI later when one does.
+/// The table's view of the diff. <see cref="OcadDiffSource"/> is the real one; the
+/// interface stays so the table never learns where its rows come from.
 /// </remarks>
 public interface IDiffSource
 {
@@ -79,20 +82,4 @@ public interface IDiffSource
     string UnavailableReason { get; }
 
     Task<MapDiff> CompareAsync(string olderVersion, string newerVersion);
-}
-
-/// <summary>
-/// Stands in until a real comparison exists, so the table renders an honest empty
-/// state rather than plausible-looking rows that are not real.
-/// </summary>
-public sealed class NoDiffSource : IDiffSource
-{
-    public bool IsAvailable => false;
-
-    public string UnavailableReason =>
-        "Comparing versions is not implemented yet, so this table stays empty. "
-        + "The viewer and version management above are fully working.";
-
-    public Task<MapDiff> CompareAsync(string olderVersion, string newerVersion)
-        => Task.FromResult(MapDiff.Empty);
 }

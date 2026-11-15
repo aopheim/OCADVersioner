@@ -77,9 +77,9 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
     /// Copies the working file into a new release folder and writes its metadata.
     /// </summary>
     /// <remarks>
-    /// The symbol counts are written as zero until the C# diff exists. The Angular
-    /// app fills them in from its GeoJSON diff; a version created here will show
-    /// zeros in both apps' version lists until that is ported.
+    /// The symbol counts are still written as zero: the C# diff exists, but filling
+    /// them needs the working file and the newest release both parsed here (see
+    /// DIFF.md). The Angular app fills them in from its GeoJSON diff.
     /// </remarks>
     public async Task<ProjectInfo> CreateVersionAsync(string title, string description)
     {

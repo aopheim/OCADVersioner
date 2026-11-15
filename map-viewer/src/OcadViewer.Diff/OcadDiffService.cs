@@ -2,18 +2,18 @@ namespace OcadViewer.Diff;
 
 /// <summary>
 /// Compares the objects of two versions, pairing each object with itself by its
-/// slot in OCAD's object index.
+/// entry in OCAD's object index.
 /// </summary>
 /// <remarks>
 /// <para>
-/// OCAD keeps an object in its index slot for as long as the object exists, edits
-/// included, so the slot is the object's identity. Unlike the Angular app, which
+/// OCAD keeps an object in its index entry for as long as the object exists, edits
+/// included, so the entry is the object's identity. Unlike the Angular app, which
 /// matched GeoJSON ids that its converter regenerated on every read, this survives
 /// any edit to the object itself, including a change of symbol.
 /// </para>
 /// <para>
-/// The one way a slot can mislead is being handed to a different object. The
-/// creation date guards against that: same slot, different creation date, and the
+/// The one way an entry can mislead is being handed to a different object. The
+/// creation date guards against that: same entry, different creation date, and the
 /// old object is reported deleted and the new one added.
 /// </para>
 /// </remarks>
@@ -56,8 +56,8 @@ public sealed class OcadDiffService : IOcadDiffService
     }
 
     /// <summary>
-    /// Whether a slot still holds the object it held before. Without a creation
-    /// date on both sides (OCAD 9 has none) the slot is all there is to go on.
+    /// Whether an entry still holds the object it held before. Without a creation
+    /// date on both sides (OCAD 9 has none) the entry is all there is to go on.
     /// </summary>
     private static bool IsSameObject(MapObject then, MapObject now)
         => then.CreatedUtc is null || now.CreatedUtc is null || then.CreatedUtc == now.CreatedUtc;

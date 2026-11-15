@@ -1,19 +1,16 @@
 using OcadViewer.Core;
 
-using PurplePen.MapModel;
-
 namespace OcadViewer.Diff.Tests;
 
 /// <summary>The .ocd files in Fixtures/, by name.</summary>
 /// <remarks>
-/// Every fixture is a real file saved by OCAD 2018. What each one contains is
-/// written down here, once, because the expectations in the tests lean on it.
+/// Every fixture is a real file saved by OCAD 2018, copied from the Angular app's
+/// <c>src/assets/tests</c> so they outlive it. What each one contains is written
+/// down in <see cref="OcadDiffServiceTests"/>, because the expectations lean on it.
+/// Cases no fixture shows are made by patching a copy's bytes; see <see cref="OcadBytes"/>.
 /// </remarks>
 internal static class Fixture
 {
-    /// <summary>A blank map with the same symbol set as the others.</summary>
-    public const string Empty = "empty";
-
     /// <summary>One knoll (109).</summary>
     public const string OneKnoll = "1knoll";
 

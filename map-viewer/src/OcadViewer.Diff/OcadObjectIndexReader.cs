@@ -4,14 +4,14 @@ using System.Text;
 namespace OcadViewer.Diff;
 
 /// <summary>
-/// Reads every object in an OCAD file's object index, with its slot, status and
+/// Reads every object in an OCAD file's object index, with its entry, status and
 /// timestamps.
 /// </summary>
 /// <remarks>
 /// <para>
 /// PurplePen's importer reads exactly these fields and then drops them - it builds
 /// a map to draw, and a drawing has no use for when an object was created or which
-/// slot it lives in. The diff needs both, so this reads the index itself rather
+/// entry it lives in. The diff needs both, so this reads the index itself rather
 /// than patching the vendored importer. The layouts follow PurplePen's
 /// <c>OcadFileFormat.cs</c> (<c>OcadFileHeader</c>, <c>OcadIndex</c>,
 /// <c>OcadObject</c>), which is the specification this was checked against.
@@ -28,7 +28,7 @@ public static class OcadObjectIndexReader
     private const int IndexEntriesPerBlock = 256;
     private const int IndexEntrySize = 40;
 
-    /// <summary>Reads all objects with a symbol, whatever their status, in slot order.</summary>
+    /// <summary>Reads all objects with a symbol, whatever their status, in entry order.</summary>
     /// <exception cref="InvalidDataException">
     /// The bytes are not an OCAD file, are a version this cannot read, or are cut
     /// short - in which case nothing is returned rather than whatever was read so far.
@@ -50,7 +50,7 @@ public static class OcadObjectIndexReader
 
         List<MapObject> objects = [];
         HashSet<int> visitedBlocks = [];
-        int slot = 1;   // OCAD counts index slots from 1.
+        int number = 1;   // OCAD numbers index entries from 1.
 
         for (int block = firstIndexBlock; block != 0; ) {
             if (!visitedBlocks.Add(block))
@@ -58,7 +58,7 @@ public static class OcadObjectIndexReader
 
             int next = data.Int32(block);
 
-            for (int i = 0; i < IndexEntriesPerBlock; i++, slot++) {
+            for (int i = 0; i < IndexEntriesPerBlock; i++, number++) {
                 int entry = block + 4 + i * IndexEntrySize;
                 int position = data.Int32(entry + 16);
                 int symbol = data.Int32(entry + 24);
@@ -67,7 +67,7 @@ public static class OcadObjectIndexReader
                     continue;
 
                 var status = (MapObjectStatus)data.Byte(entry + 30);
-                objects.Add(ReadObject(data, version, slot, status, position));
+                objects.Add(ReadObject(data, version, number, status, position));
             }
 
             block = next;
@@ -76,7 +76,7 @@ public static class OcadObjectIndexReader
         return objects;
     }
 
-    private static MapObject ReadObject(Bytes data, int version, int slot, MapObjectStatus status, int at)
+    private static MapObject ReadObject(Bytes data, int version, int number, MapObjectStatus status, int at)
     {
         int symbol = data.Int32(at);
         byte objectType = data.Byte(at + 4);
@@ -101,7 +101,7 @@ public static class OcadObjectIndexReader
         }
 
         if (pointCount < 0 || textLength < 0)
-            throw new InvalidDataException($"Object {slot} has a negative length.");
+            throw new InvalidDataException($"Object {number} has a negative length.");
 
         var points = new MapPoint[pointCount];
         for (int i = 0; i < pointCount; i++) {
@@ -116,7 +116,7 @@ public static class OcadObjectIndexReader
 
         string text = ReadText(data, pointsAt + pointCount * 8, textLength);
 
-        return new MapObject(slot, status, symbol, KindOf(objectType), angle / 10.0,
+        return new MapObject(number, status, symbol, KindOf(objectType), angle / 10.0,
                              text, created, modified, points);
     }
 

@@ -22,7 +22,7 @@ public sealed class OcadMapSnapshot
     }
 
     /// <summary>
-    /// The objects that count, keyed by index slot: those OCAD has as normal.
+    /// The objects that count, keyed by index entry: those OCAD has as normal.
     /// Deleted ones kept for undo, and hidden ones, are not part of the map a
     /// person sees, so they are not part of what changed either.
     /// </summary>
@@ -65,12 +65,12 @@ public sealed class OcadMapSnapshot
     }
 
     /// <summary>The symbol an OCAD symbol number stands for in this version.</summary>
-    public DiffSymbol SymbolFor(int symbolNumber)
+    public ObjectSymbol SymbolFor(int symbolNumber)
     {
         // Negative numbers are OCAD's objects without a symbol: imported, broken
         // apart into graphics, images and layout objects.
         if (symbolNumber < 0) {
-            return new DiffSymbol("", symbolNumber switch {
+            return new ObjectSymbol("", symbolNumber switch {
                 -2 => "Graphic object",
                 -3 => "Image object",
                 -4 => "Layout object",
@@ -81,6 +81,6 @@ public sealed class OcadMapSnapshot
         // Same rendering PurplePen uses for OCAD 9 and later, which is also what
         // OCAD itself shows: 109000 is "109.0", 401002 is "401.2".
         string number = $"{symbolNumber / 1000}.{symbolNumber % 1000}";
-        return new DiffSymbol(number, symbolNames.TryGetValue(number, out string name) ? name : "");
+        return new ObjectSymbol(number, symbolNames.TryGetValue(number, out string name) ? name : "");
     }
 }

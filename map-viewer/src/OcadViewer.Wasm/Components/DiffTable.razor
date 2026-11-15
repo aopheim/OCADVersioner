@@ -1,3 +1,4 @@
+@using OcadViewer.Diff
 @using OcadViewer.Wasm.Services
 @inject Localiser L
 
@@ -40,6 +41,7 @@
                     <th scope="col">@L["#_movedNumberOfMeters"]</th>
                     <th scope="col">@L["#_percentageLengthDiff"]</th>
                     <th scope="col">@L["#_percentageAreaDiff"]</th>
+                    <th scope="col">@L["#_changes"]</th>
                 }
                 <th scope="col">@L["#_createdAt"]</th>
                 <th scope="col">@L["#_lastEditedAt"]</th>
@@ -48,7 +50,7 @@
         <tbody>
             @if (Rows().Count == 0) {
                 <tr>
-                    <td colspan="7" class="text-center text-muted py-3">
+                    <td colspan="8" class="text-center text-muted py-3">
                         @(Available ? "No symbols in this category." : "Nothing to show.")
                     </td>
                 </tr>
@@ -70,6 +72,7 @@
                         <td>@Metres(updated.MovementInMeters)</td>
                         <td>@Percent(updated.LengthDiffInPercent)</td>
                         <td>@Percent(updated.AreaDiffInPercent)</td>
+                        <td>@ChangeNames(updated.Changes)</td>
                     }
 
                     <td>@Date(symbol.CreatedAtUtc)</td>
@@ -111,6 +114,16 @@
     private string Metres(double? value) => value is null ? "" : $"{value:N0} {L["#_mAbbreviation"]}";
     private string SquareMetres(double? value) => value is null ? "" : $"{value:N0} {L["#_m2Abbreviation"]}";
     private static string Percent(double? value) => value is null ? "" : $"{value:N1} %";
+
+    private static readonly (ObjectChanges Change, string Key)[] ChangeKeys = [
+        (ObjectChanges.Symbol, "#_changeSymbol"),
+        (ObjectChanges.Geometry, "#_changeGeometry"),
+        (ObjectChanges.Angle, "#_changeAngle"),
+        (ObjectChanges.Text, "#_changeText"),
+    ];
+
+    private string ChangeNames(ObjectChanges changes)
+        => string.Join(", ", ChangeKeys.Where(c => changes.HasFlag(c.Change)).Select(c => L[c.Key]));
     private static string Date(DateTimeOffset? value)
         => value is null ? "" : value.Value.ToLocalTime().ToString("g");
 }
