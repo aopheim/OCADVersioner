@@ -13,6 +13,9 @@ namespace OcadViewer.Diff.Tests;
 ///   entry 5 an area (403.0).</item>
 ///   <item><c>_moved</c>: the same three entries and creation dates, each edited.</item>
 ///   <item><c>_deleted</c>: all five entries kept for undo, none counting.</item>
+///   <item><c>_406</c>: entry 5's area changed to 406.0 in OCAD.</item>
+///   <item><c>1knoll_rotated</c>: entry 1's knoll rotated 45° in OCAD.</item>
+///   <item><c>blank</c>: a new map with the same symbols, and no index entries.</item>
 /// </list>
 /// </remarks>
 [TestFixture]
@@ -299,16 +302,12 @@ public sealed class OcadDiffServiceTests
     [Test]
     public void ASymbolChangeInTheSameIndexEntryIsAnEdit()
     {
-        // 403.0 (rough open land) to 406.0 (forest, slow running): same object,
-        // same entry, new symbol. Patched; an OCAD-drawn fixture would be better.
-        byte[] newer = Fixture.Bytes(Fixture.PointLineArea);
-        OcadBytes.SetSymbol(newer, entry: 5, 406000);
-
-        ObjectEdited area = diff.Compare(Fixture.Snapshot(Fixture.PointLineArea),
-                                         Fixture.Snapshot(Fixture.PointLineArea, newer))
-                                .Edited.Single();
+        // 403.0 (rough open land) to 406.0 (slow running), with OCAD's Change
+        // Symbol: same object, same entry, new symbol.
+        ObjectEdited area = Compare(Fixture.PointLineArea, Fixture.PointLineArea406).Edited.Single();
 
         Assert.Multiple(() => {
+            Assert.That(area.Index, Is.EqualTo(5));
             Assert.That(area.Changes, Is.EqualTo(ObjectChanges.Symbol));
             Assert.That(area.Symbol.Number, Is.EqualTo("406.0"));
             Assert.That(area.PreviousSymbol.Number, Is.EqualTo("403.0"));
@@ -318,13 +317,43 @@ public sealed class OcadDiffServiceTests
     [Test]
     public void ARotatedObjectIsAnAngleChange()
     {
-        byte[] newer = Fixture.Bytes(Fixture.OneKnoll);
-        OcadBytes.SetAngle(newer, entry: 1, tenthsOfADegree: 450);
-
-        ObjectEdited knoll = diff.Compare(Fixture.Snapshot(Fixture.OneKnoll),
-                                          Fixture.Snapshot(Fixture.OneKnoll, newer))
-                                 .Edited.Single();
+        // Rotated 45° about its own point, so the coordinates do not move.
+        ObjectEdited knoll = Compare(Fixture.OneKnoll, Fixture.OneKnollRotated).Edited.Single();
 
         Assert.That(knoll.Changes, Is.EqualTo(ObjectChanges.Angle));
+    }
+
+    /* ------------------------------------------------------------ a blank map */
+
+    [Test]
+    public void ABlankMapHasNoObjects()
+    {
+        ObjectDiff result = Compare(null, Fixture.Blank);
+
+        Assert.That(result.IsEmpty, Is.True);
+    }
+
+    [Test]
+    public void EverythingDrawnOnABlankMapIsAdded()
+    {
+        ObjectDiff result = Compare(Fixture.Blank, Fixture.PointLineArea);
+
+        Assert.Multiple(() => {
+            Assert.That(result.Added.Select(a => a.Symbol.Number), Is.EquivalentTo(new[] { "101.0", "109.0", "403.0" }));
+            Assert.That(result.Edited, Is.Empty);
+            Assert.That(result.Deleted, Is.Empty);
+        });
+    }
+
+    [Test]
+    public void EverythingErasedToABlankMapIsDeleted()
+    {
+        ObjectDiff result = Compare(Fixture.PointLineArea, Fixture.Blank);
+
+        Assert.Multiple(() => {
+            Assert.That(result.Deleted.Select(d => d.Index), Is.EquivalentTo(new[] { 3, 4, 5 }));
+            Assert.That(result.Added, Is.Empty);
+            Assert.That(result.Edited, Is.Empty);
+        });
     }
 }

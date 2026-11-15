@@ -6,8 +6,8 @@ namespace OcadViewer.Diff.Tests;
 /// Edits an OCAD 2018 file in place: a field of one object, or the index itself.
 /// </summary>
 /// <remarks>
-/// For the cases no fixture shows: an entry handed to a new object, a symbol swap,
-/// a rotation, objects renumbered, dates shifted. Only the first index block is searched, which is all the fixtures
+/// For the cases no fixture shows: an entry handed to a new object, objects
+/// trading entries, dates shifted, a batch sharing one creation date. Only the first index block is searched, which is all the fixtures
 /// have. Offsets as in <see cref="OcadObjectIndexReader"/>.
 /// </remarks>
 internal static class OcadBytes
@@ -21,9 +21,6 @@ internal static class OcadBytes
         BinaryPrimitives.WriteInt32LittleEndian(file.AsSpan(IndexEntryAt(file, entry) + 24), symbolNumber);
         BinaryPrimitives.WriteInt32LittleEndian(file.AsSpan(ObjectAt(file, entry)), symbolNumber);
     }
-
-    public static void SetAngle(byte[] file, int entry, short tenthsOfADegree)
-        => BinaryPrimitives.WriteInt16LittleEndian(file.AsSpan(ObjectAt(file, entry) + 6), tenthsOfADegree);
 
     /// <summary>
     /// Swaps two entries of the object index, so each object is found under the

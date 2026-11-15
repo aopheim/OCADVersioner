@@ -35,6 +35,54 @@ public sealed class RenumberedObjectsTests
         return bytes;
     }
 
+    /* ------------------------------------------------- as OCAD itself does it */
+
+    [Test]
+    public void AMapImportedIntoANewFileHasNoChanges()
+    {
+        // File, Import into a blank map, offset 0: OCAD renumbers 3, 4, 5 to 1, 2, 3,
+        // keeps every coordinate and creation date, and stamps a new modification
+        // date - Bymarkabasen's rebuilt releases, made by OCAD.
+        ObjectDiff result = Compare(Fixture.Bytes(Fixture.PointLineArea), Fixture.Bytes(Fixture.PointLineAreaImported));
+
+        Assert.That(result.IsEmpty, Is.True, Describe(result));
+    }
+
+    [Test]
+    public void ObjectsPastedIntoANewFileAreEditsNotNewObjects()
+    {
+        // Copy and paste instead: renumbered the same way, but the paste moved
+        // every object by (-1.27, +1.18) mm. The same three objects, moved.
+        ObjectDiff result = Compare(Fixture.Bytes(Fixture.PointLineArea), Fixture.Bytes(Fixture.PointLineAreaPasted));
+
+        Assert.Multiple(() => {
+            Assert.That(result.Added, Is.Empty, Describe(result));
+            Assert.That(result.Deleted, Is.Empty, Describe(result));
+            Assert.That(result.Edited.Select(e => (e.Index, e.Symbol.Number, e.PreviousSymbol.Number, e.Changes)),
+                        Is.EqualTo(new[] {
+                            (1, "101.0", "101.0", ObjectChanges.Geometry),
+                            (2, "109.0", "109.0", ObjectChanges.Geometry),
+                            (3, "403.0", "403.0", ObjectChanges.Geometry),
+                        }));
+        });
+    }
+
+    [Test]
+    public void APastedObjectMeasuresOnlyThePasteShift()
+    {
+        ObjectDiff result = Compare(Fixture.Bytes(Fixture.PointLineArea), Fixture.Bytes(Fixture.PointLineAreaPasted));
+
+        Assert.Multiple(() => {
+            // 1.73 mm on paper at 1:15 000.
+            Assert.That(result.Edited.Single(e => e.Kind == MapObjectKind.Point).MovementInMeters,
+                        Is.EqualTo(26.0).Within(0.1));
+            Assert.That(result.Edited.Single(e => e.Kind == MapObjectKind.Line).LengthChangeInPercent,
+                        Is.EqualTo(0).Within(1e-9));
+            Assert.That(result.Edited.Single(e => e.Kind == MapObjectKind.Area).AreaChangeInPercent,
+                        Is.EqualTo(0).Within(1e-9));
+        });
+    }
+
     /* --------------------------------------------- unchanged under a new number */
 
     [Test]

@@ -84,15 +84,24 @@ Angular app. What each contains, as read from its object index:
 | `point_line_area_moved` | the same three entries and creation dates, each edited |
 | `point_line_area_deleted` | none; all five entries kept for undo |
 
-Cases no OCAD-saved fixture shows (a reused index entry, a symbol swap, a
-rotation, objects renumbered, dates shifted) are made by patching a copy's bytes
-in the test (`OcadBytes`). `RenumberedObjectsTests` rebuilds the Bymarkabasen
-situations in miniature this way: entries swapped, an object moved to an unused
-entry, all dates two hours earlier, edits under a new number, a batch of objects
-sharing one creation date. OCAD-drawn
-fixtures for these would be better, and are worth adding when someone has OCAD to
-hand: an area changed from 403 to 406, a rotated point, and a blank map with the
-same symbol set.
+Made from those in OCAD 2020.8, which still saves the 2018 format:
+
+| Fixture | How it was made | What OCAD wrote |
+|---|---|---|
+| `point_line_area_406` | area changed with Change Symbol | entry 5 now 406.0, modification date moved |
+| `1knoll_rotated` | knoll rotated 45° | angle 450 (tenths), same point, modification date moved |
+| `blank` | File, New, symbols loaded from `point_line_area` | no index entries at all |
+| `point_line_area_imported` | `point_line_area` imported into `blank`, offset 0 | entries 1-3 instead of 3-5, same coordinates and creation dates, new modification dates |
+| `point_line_area_pasted` | its objects copied and pasted into `blank` | as imported, but every object shifted by (-1.27, +1.18) mm |
+
+The imported copy is the Bymarkabasen rebuild made by OCAD itself: renumbered,
+creation dates kept, modification dates restamped. It must diff as empty; the
+pasted one as three geometry edits under their new entries.
+
+Cases no OCAD-saved fixture shows (a reused index entry, objects trading entries,
+dates shifted by whole hours, a batch sharing one creation date) are made by
+patching a copy's bytes in the test (`OcadBytes`). `RenumberedObjectsTests`
+rebuilds the remaining Bymarkabasen situations in miniature this way.
 
 The comparison tests build snapshots from the object index alone
 (`Fixture.Snapshot`, at the fixtures' 1:15 000), because that is all the

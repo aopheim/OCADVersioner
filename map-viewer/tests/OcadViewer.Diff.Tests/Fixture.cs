@@ -4,8 +4,9 @@ namespace OcadViewer.Diff.Tests;
 
 /// <summary>The .ocd files in Fixtures/, by name.</summary>
 /// <remarks>
-/// Every fixture is a real file saved by OCAD 2018, copied from the Angular app's
-/// <c>src/assets/tests</c> so they outlive it. What each one contains is written
+/// Every fixture is a real file saved by OCAD in its 2018 format. The first four were
+/// copied from the Angular app's <c>src/assets/tests</c> so they outlive it; the rest
+/// were made from them in OCAD 2020.8. What each one contains is written
 /// down in <see cref="OcadDiffServiceTests"/>, because the expectations lean on it.
 /// Cases no fixture shows are made by patching a copy's bytes; see <see cref="OcadBytes"/>.
 /// </remarks>
@@ -22,6 +23,28 @@ internal static class Fixture
 
     /// <summary><see cref="PointLineArea"/> with all three objects deleted.</summary>
     public const string PointLineAreaDeleted = "point_line_area_deleted";
+
+    /// <summary><see cref="OneKnoll"/> rotated 45° in OCAD.</summary>
+    public const string OneKnollRotated = "1knoll_rotated";
+
+    /// <summary><see cref="PointLineArea"/> with the area changed from 403.0 to 406.0 in OCAD.</summary>
+    public const string PointLineArea406 = "point_line_area_406";
+
+    /// <summary>A new map with <see cref="PointLineArea"/>'s symbols and no objects at all.</summary>
+    public const string Blank = "blank";
+
+    /// <summary>
+    /// <see cref="Blank"/> with <see cref="PointLineArea"/> imported into it (File, Import,
+    /// offset 0): the same three objects, renumbered 1-3, creation dates kept.
+    /// </summary>
+    public const string PointLineAreaImported = "point_line_area_imported";
+
+    /// <summary>
+    /// <see cref="Blank"/> with <see cref="PointLineArea"/>'s objects copied and pasted
+    /// into it: renumbered 1-3, creation dates kept, and every object shifted by the
+    /// paste, (-1.27, +1.18) mm.
+    /// </summary>
+    public const string PointLineAreaPasted = "point_line_area_pasted";
 
     public static string PathOf(string name)
         => Path.Combine(TestContext.CurrentContext.TestDirectory, "Fixtures", name + ".ocd");
