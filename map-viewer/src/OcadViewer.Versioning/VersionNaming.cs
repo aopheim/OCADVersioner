@@ -4,15 +4,10 @@ namespace OcadViewer.Versioning;
 /// What a release folder is called, and what the working file is called.
 /// </summary>
 /// <remarks>
-/// The single place that knows the <c>V&lt;n&gt;</c> rule. It used to be stated
-/// three times - in the JavaScript that scans the folder, in the service that
-/// names the next version, and again in the one that parsed a number back out -
-/// across two languages. The folder layout is a contract with the Angular app, so
-/// a rule stated in several places is a rule that eventually disagrees with
-/// itself.
-///
-/// The JavaScript now reports folder names and nothing else; deciding which of
-/// them is a release happens here.
+/// The single place that knows the <c>V&lt;n&gt;</c> rule. The folder layout is a
+/// contract with the Angular app, and a rule stated in several places is a rule
+/// that eventually disagrees with itself. Paths built from these names are
+/// <see cref="FolderLayout"/>'s.
 /// </remarks>
 public static class VersionNaming
 {

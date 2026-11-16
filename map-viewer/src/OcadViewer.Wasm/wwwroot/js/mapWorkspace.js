@@ -5,36 +5,33 @@
  * putting it on a Leaflet map meet each other - each of which is a module that
  * knows nothing about the other two.
  *
- * It is also why map bytes no longer cross the JS/.NET boundary three times. The
- * page used to ask .NET for the bytes, get them marshalled out of JavaScript, hand
- * them back down to JavaScript, and have JavaScript pass them into .NET again -
- * three crossings of a multi-megabyte array for data the page never looked at. Now
- * the bytes are read and handed straight to the renderer, and C# only ever says
- * which version it wants to see.
+ * Map bytes are read here and handed straight to the renderer; C# only says which
+ * version it wants, where its file is, and whether to read it again.
+ *
+ * What is parsed is held in one place: the tile source's store. This module keeps
+ * no record of its own of what was loaded. The only thing it caches is the change
+ * mask, and that is tagged with the load ids of the two parses it was made from,
+ * so it goes stale by itself when either is read again.
  */
 
-import { readMap, sizeOf } from './projectFolder.js';
+import { readBytes, sizeOf } from './projectFolder.js';
 import { createTileSource } from './mapTiles.js';
 import { createSyncedMaps } from './leafletViewport.js';
 import { paint, coverage, boundsOf } from './changeMask.js';
 
 /**
  * Builds the viewer over two elements.
- * @returns {Promise<{plan: Function, parse: Function, draw: Function, showing: Function, stats: object, dispose: Function}>}
+ * @returns {Promise<{plan: Function, parse: Function, draw: Function, showChanges: Function,
+ *                    zoomToChanges: Function, reset: Function, showing: Function, stats: object, dispose: Function}>}
  */
 export async function createWorkspace(leftEl, rightEl) {
     const tiles = await createTileSource();
     const view = createSyncedMaps(leftEl, rightEl, tiles.render);
 
-    /* What each parse reported, by version name. Bounds and georeferencing do not
-     * change, so this survives the map itself being evicted from .NET's store and
-     * re-read later. */
-    const parsed = new Map();
-
-    /* The change mask for one comparison: the bytes, what they cover, and the
-     * image currently painted from them. Kept because computing it means
-     * rendering both whole maps - seconds of work - while changing which kinds
-     * of change are shown is only a repaint of these same bytes. */
+    /* The change mask for one pair of parses: the bytes, the plan they were drawn
+     * to, the image painted from them and how much they cover. Kept because
+     * computing it means rendering both whole maps, while turning the overlay
+     * off and on again should cost nothing. */
     let changes = null;
 
     /** Whether this map has to be read off disk before it can be shown. */
@@ -43,8 +40,8 @@ export async function createWorkspace(leftEl, rightEl) {
     }
 
     function summaryOf(versionName) {
-        const info = parsed.get(versionName);
-        if (!info)
+        const info = tiles.describe(versionName);
+        if (!info.ok)
             throw new Error(`No parse result for "${versionName}".`);
         return info;
     }
@@ -55,23 +52,32 @@ export async function createWorkspace(leftEl, rightEl) {
     }
 
     /**
+     * Names the two parses a mask would be made from, or null if either is not
+     * held. Two masks with the same key were drawn from the same parses.
+     */
+    function maskKey(olderName, newerName) {
+        const older = tiles.describe(olderName);
+        const newer = tiles.describe(newerName);
+        return older.ok && newer.ok
+            ? `${olderName}#${older.loadId}|${newerName}#${newer.loadId}`
+            : null;
+    }
+
+    /** Drops the mask, and takes it off the screen, if its parses have changed. */
+    function dropStaleChanges() {
+        if (changes && changes.key !== maskKey(changes.older, changes.newer)) {
+            view.clearOverlays();
+            forgetChanges();
+        }
+    }
+
+    /**
      * Which pane is showing a version, found by name rather than by position.
-     *
-     * The newer side is the right one today, and saying so here would be the
-     * third place that knew it. Asking the viewport what it is showing keeps
-     * this working if the panes are ever swapped or a third is added.
+     * Asking the viewport keeps this working if the panes are ever swapped.
      */
     function sideShowing(versionName) {
         const showing = view.showing();
         return Object.keys(showing).find(side => showing[side] === versionName) ?? null;
-    }
-
-    /** Drops any mask that was computed against this version. */
-    function invalidate(versionName) {
-        if (changes && (changes.older === versionName || changes.newer === versionName)) {
-            view.clearOverlays();
-            forgetChanges();
-        }
     }
 
     return {
@@ -82,8 +88,8 @@ export async function createWorkspace(leftEl, rightEl) {
          * pane will ask for. What they are worth against each other is decided
          * in C#, where it can be tested.
          *
-         * @param requests [{side, versionName, reload}], in the order they will
-         *                 be loaded
+         * @param requests [{side, versionName, path, reload}], in the order they
+         *                 will be loaded
          * @returns [{bytesToParse, tilesToDraw}] in the same order; bytesToParse
          *          is zero for a map already in memory
          */
@@ -92,7 +98,7 @@ export async function createWorkspace(leftEl, rightEl) {
 
             for (const request of requests) {
                 steps.push({
-                    bytesToParse: needsParse(request) ? await sizeOf(request.versionName) : 0,
+                    bytesToParse: needsParse(request) ? await sizeOf(request.path) : 0,
                     tilesToDraw: view.expectedTiles(request.side)
                 });
             }
@@ -101,31 +107,27 @@ export async function createWorkspace(leftEl, rightEl) {
         },
 
         /**
-         * Makes sure a version is parsed, reading it only if it is not already held.
+         * Makes sure a version is parsed, reading and parsing it only if it has to.
          *
          * One map at a time, and nothing about which load asked: the order of a
          * comparison and whether a load has been overtaken are decided in C#,
          * between these calls.
          *
-         * @param request {side, versionName, reload}; reload is true for the
-         *                working file, which changes on disk while the app is
-         *                open, and false for a release, which never does
+         * @param request {side, versionName, path, reload}; path is where the
+         *                file is, relative to the project folder, and reload is
+         *                true when the file can have changed since it was read
          * @returns the parse summary
          */
         async parse(request) {
             if (needsParse(request)) {
-                const bytes = await readMap(request.versionName);
+                const bytes = await readBytes(request.path);
                 const summary = tiles.load(
-                    request.versionName, `${request.versionName}.ocd`, bytes);
+                    request.versionName, request.path.split('/').pop(), bytes);
 
                 if (!summary.ok)
-                    throw new Error(summary.error ?? `Could not read ${request.versionName}.`);
+                    throw new Error(summary.error ?? `Could not read ${request.path}.`);
 
-                parsed.set(request.versionName, summary);
-
-                // The file on disk has just been read again, so any mask built
-                // against the old contents is describing a map that is gone.
-                invalidate(request.versionName);
+                dropStaleChanges();
             }
 
             return summaryOf(request.versionName);
@@ -148,12 +150,8 @@ export async function createWorkspace(leftEl, rightEl) {
          * Shows where the two versions differ, as a tinted overlay.
          *
          * On the newer side only. The change is a property of the newer map -
-         * this is what was done to it - and tinting the older one as well
-         * covered the very pixels you turn to it to see.
-         *
-         * The mask is computed once per comparison, both whole maps rendered and
-         * differenced, and then kept with the image painted from it. Turning the
-         * overlay off and on again costs nothing.
+         * this is what was done to it - and tinting the older one as well would
+         * cover the very pixels you turn to it to see.
          *
          * @returns what was drawn, for reporting: size, pixel counts, timings
          */
@@ -163,24 +161,29 @@ export async function createWorkspace(leftEl, rightEl) {
                 return { shown: false };
             }
 
+            const key = maskKey(olderName, newerName);
+            if (!key)
+                throw new Error(`${olderName} and ${newerName} are not both loaded.`);
+
             let computedMs = 0;
 
-            if (changes?.older !== olderName || changes?.newer !== newerName) {
+            if (changes?.key !== key) {
                 forgetChanges();
 
-                const plan = tiles.planChangeMask(newerName);
+                const plan = tiles.planChangeMask(olderName, newerName);
                 if (!plan.ok)
-                    throw new Error(plan.error ?? `Cannot measure ${newerName}.`);
+                    throw new Error(plan.error ?? `Cannot measure ${olderName} against ${newerName}.`);
 
                 const started = performance.now();
-                const mask = tiles.renderChangeMask(olderName, newerName);
+                const mask = tiles.renderChangeMask(olderName, newerName, plan);
                 computedMs = performance.now() - started;
 
                 if (!mask)
                     throw new Error('One of the two versions is no longer loaded.');
 
                 changes = {
-                    older: olderName, newer: newerName, plan, mask,
+                    key, older: olderName, newer: newerName, plan, mask,
+                    covered: coverage(mask),
                     url: await paint(mask, plan.width, plan.height)
                 };
             }
@@ -195,15 +198,13 @@ export async function createWorkspace(leftEl, rightEl) {
                 maxX: changes.plan.maxX, maxY: changes.plan.maxY
             });
 
-            const { shown, total } = coverage(changes.mask);
-
             return {
                 shown: true,
                 width: changes.plan.width,
                 height: changes.plan.height,
                 computedMs: Math.round(computedMs),
-                shownPixels: shown,
-                totalPixels: total
+                shownPixels: changes.covered.shown,
+                totalPixels: changes.covered.total
             };
         },
 
@@ -225,7 +226,7 @@ export async function createWorkspace(leftEl, rightEl) {
             const box = boundsOf(changes.mask, width, height);
             if (!box) return null;
 
-            // Mask pixels to paper millimetres. The mask covers the map's own
+            // Mask pixels to paper millimetres. The mask covers the planned
             // rectangle exactly, and its rows run downwards while paper Y runs
             // up, which is the only subtlety here.
             const x = px => minX + (px / width) * (maxX - minX);
@@ -242,6 +243,18 @@ export async function createWorkspace(leftEl, rightEl) {
             return area;
         },
 
+        /**
+         * Forgets every parsed map and change mask, for when a different
+         * project folder is opened. Version names are only unique within one
+         * project - every project has a "V1".
+         */
+        reset() {
+            view.clearOverlays();
+            forgetChanges();
+            tiles.clear();
+            view.refit();
+        },
+
         showing: () => view.showing(),
 
         stats: view.stats,
@@ -249,9 +262,7 @@ export async function createWorkspace(leftEl, rightEl) {
         dispose() {
             forgetChanges();
             view.dispose();
-            for (const name of parsed.keys())
-                tiles.unload(name);
-            parsed.clear();
+            tiles.dispose();
         }
     };
 }

@@ -13,9 +13,9 @@
 
 /* Crimson, and the hue is not a matter of taste. An orienteering map already
  * spends most of the spectrum: brown contours, blue water, yellow and orange
- * open land, green vegetation, black rock and paths, and - the one that caught
- * the first attempt out - purple for overprint and boundaries, which a magenta
- * tint is nearly indistinguishable from. Crimson is the gap. */
+ * open land, green vegetation, black rock and paths, and purple for overprint
+ * and boundaries, which a magenta tint is nearly indistinguishable from.
+ * Crimson is the gap. */
 const TINT = { r: 232, g: 0, b: 60, a: 165 };
 
 /**
@@ -46,6 +46,12 @@ export async function paint(mask, width, height) {
     // A blob URL rather than a data URL: at four megapixels the base64 of this
     // image is tens of megabytes of string, built and parsed for nothing.
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+    // toBlob hands back null rather than throwing when the browser cannot
+    // encode the canvas, usually because it is too large.
+    if (!blob)
+        throw new Error(`The change overlay (${width} x ${height} px) is too large for this browser to draw.`);
+
     return URL.createObjectURL(blob);
 }
 

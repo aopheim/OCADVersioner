@@ -1,190 +1,179 @@
 /* File System Access API wrapper for the project folder.
  *
- * The on-disk layout is fixed by the existing Angular app and must not change -
- * both apps run against the same folders during the migration:
+ * Disk access and nothing else. Everything here works on paths relative to the
+ * folder the user picked, '/'-separated. What those paths mean - where releases
+ * live, what the working file is, what a version's files are called - is decided
+ * in C#, by OcadViewer.Versioning, because that layout is a contract with the
+ * Angular app and is stated in one place.
  *
- *   <project>/
- *     <anything>.ocd        the working file, known as "current"
- *     Releases/
- *       V1/V1.ocd  V1.json
- *       V2/V2.ocd  V2.json
- *
- * This module reads and writes; it does not interpret. Which folder names count as
- * releases, what the next one is called and how the metadata parses are decided in
- * C#, by OcadViewer.Versioning, because those rules are a contract with the Angular
- * app and were previously stated here *and* there - in two languages, with nothing
- * keeping them in step. What this reports is simply what it saw.
- *
- * Handles cannot cross the JS/.NET boundary, so they are kept here and referred to
- * by name. Chromium only: showDirectoryPicker does not exist in Firefox or Safari,
- * which is the same limitation the Angular app already has.
+ * Handles cannot cross the JS/.NET boundary, so the picked folder is kept here.
+ * Chromium only: showDirectoryPicker does not exist in Firefox or Safari, which
+ * is the same limitation the Angular app has.
  */
 
-const RELEASES = 'Releases';
-
-/** The name C# and this module both use for the working file. */
-const WORKING_FILE = 'current';
-
-let projectDir = null;       // FileSystemDirectoryHandle for the project root
-let currentFile = null;      // FileSystemFileHandle for the working .ocd
-let chosenFileName = null;   // the name the user picked, kept across a rescan
-const folders = new Map();   // folder name -> { ocd, meta } under Releases/
+let projectDir = null;   // FileSystemDirectoryHandle for the folder the user picked
 
 export function isSupported() {
     return typeof window.showDirectoryPicker === 'function';
 }
 
 /**
- * Asks for a project folder and reads its structure.
- * Must be called from a user gesture or the browser refuses.
+ * Asks for a project folder. Must be called from a user gesture or the browser
+ * refuses.
+ * @returns {Promise<string>} the folder's name
  */
 export async function openProject() {
     if (!isSupported())
         throw new Error('This browser cannot open folders. Use a Chromium-based browser.');
 
     projectDir = await window.showDirectoryPicker({ mode: 'readwrite' });
-    chosenFileName = null;
-    return await rescan();
+    return projectDir.name;
 }
 
-/** Re-reads the folder. Cheap enough to call after creating a version. */
-export async function rescan() {
-    if (!projectDir) throw new Error('No project folder is open.');
+/**
+ * What a folder holds.
+ * @param path folder to list, '' for the project root
+ * @param withFolderFiles also list the files directly inside each subfolder
+ * @returns {Promise<{files: string[], folders: {name: string, files: string[]}[]}|null>}
+ *          null when the folder does not exist
+ */
+export async function listFolder(path, withFolderFiles) {
+    const dir = await folderAt(path, false);
+    if (!dir) return null;
 
-    folders.clear();
-    currentFile = null;
+    const files = [];
+    const folders = [];
 
-    // The working file is the only .ocd directly in the project root. If there is
-    // more than one the caller has to choose, so report them all.
-    const candidates = [];
-    for await (const [name, handle] of projectDir.entries()) {
-        if (handle.kind === 'file' && name.toLowerCase().endsWith('.ocd'))
-            candidates.push(name);
-    }
-
-    // A rescan must not undo the user's choice. selectCurrentFile is followed by a
-    // rescan, so clearing the handle and only restoring it for a single candidate
-    // threw the selection away at the moment it was made - which surfaced later as
-    // "No map file for current", pointing at reading rather than at choosing.
-    if (chosenFileName && candidates.includes(chosenFileName))
-        currentFile = await projectDir.getFileHandle(chosenFileName);
-    else if (candidates.length === 1)
-        currentFile = await projectDir.getFileHandle(candidates[0]);
-
-    const releases = await getDirectory(projectDir, RELEASES, false);
-    const found = [];
-
-    if (releases) {
-        for await (const name of releases.keys()) {
-            const dir = await getDirectory(releases, name, false);
-            if (!dir) continue;
-
-            // Non-destructive existence checks. The Angular version creates the
-            // file with create:true, measures it and deletes it again if empty,
-            // which writes to the user's folder just to ask a question.
-            const ocd = await getFile(dir, `${name}.ocd`);
-            const meta = await getFile(dir, `${name}.json`);
-
-            folders.set(name, { ocd, meta });
-            found.push({
-                name,
-                hasMapFile: ocd !== null,
-                metadataJson: meta ? await readText(meta) : null
-            });
+    for await (const [name, handle] of dir.entries()) {
+        if (handle.kind === 'file') {
+            files.push(name);
+        } else {
+            const inside = [];
+            if (withFolderFiles) {
+                for await (const [child, childHandle] of handle.entries())
+                    if (childHandle.kind === 'file') inside.push(child);
+            }
+            folders.push({ name, files: inside });
         }
     }
 
-    return {
-        projectName: projectDir.name,
-        currentFileName: currentFile?.name ?? null,
-        ocdCandidates: candidates,
-        releaseFolders: found
-    };
+    return { files, folders };
 }
 
-/** Chooses which root .ocd is the working file, when the folder has several. */
-export async function selectCurrentFile(fileName) {
-    if (!projectDir) throw new Error('No project folder is open.');
-    currentFile = await projectDir.getFileHandle(fileName);
-    chosenFileName = currentFile.name;
-    return currentFile.name;
+/** A file's contents. */
+export async function readBytes(path) {
+    const file = await fileAt(path, false);
+    if (!file) throw new Error(`Could not find ${path}.`);
+    return new Uint8Array(await (await file.getFile()).arrayBuffer());
 }
 
 /**
- * Reads a version's map bytes. "current" means the working file.
- * @returns Uint8Array
- */
-export async function readMap(versionName) {
-    return new Uint8Array(await (await fileFor(versionName)).arrayBuffer());
-}
-
-/**
- * How many bytes a version's map file is, without reading any of them.
+ * How many bytes a file is, without reading any of them.
  *
  * The size is in the directory entry, so this costs nothing, and it is the only
  * thing known about a load before it starts that says how long it will take.
  * What that is worth is decided in C#; this reports what the folder says.
  */
-export async function sizeOf(versionName) {
-    return (await fileFor(versionName)).size;
+export async function sizeOf(path) {
+    const file = await fileAt(path, false);
+    if (!file) throw new Error(`Could not find ${path}.`);
+    return (await file.getFile()).size;
 }
 
 /**
- * Copies the working file into Releases/<name>/ and writes its metadata, which is
- * exactly what the Angular app does so either app can read the result.
+ * Several small text files at once.
+ * @param paths may contain nulls, which come back as null
+ * @returns {Promise<(string|null)[]>} null for anything missing or unreadable
  */
-export async function createVersion(versionName, metadataJson) {
-    if (!projectDir) throw new Error('No project folder is open.');
-    if (!currentFile) throw new Error('No working .ocd file is selected.');
+export async function readTexts(paths) {
+    return Promise.all(paths.map(async path => {
+        if (!path) return null;
+        try {
+            return await (await (await fileAt(path, false)).getFile()).text();
+        } catch {
+            return null;
+        }
+    }));
+}
 
-    const releases = await getDirectory(projectDir, RELEASES, true);
-    const dir = await releases.getDirectoryHandle(versionName, { create: true });
+/**
+ * Creates a folder, and any missing folders above it.
+ *
+ * Refuses if the folder itself already exists. Whatever is in it belongs to
+ * somebody else - the Angular app shares these folders - and the files written
+ * into it next are truncated as they are opened, so there is no undo.
+ */
+export async function createFolder(path) {
+    const { parent, name } = split(path);
+    const above = await folderAt(parent, true);
 
-    const ocd = await dir.getFileHandle(`${versionName}.ocd`, { create: true });
-    let stream = await ocd.createWritable({ keepExistingData: false });
-    await stream.write(await currentFile.getFile());
-    await stream.close();
+    if (await child(above, name, 'directory'))
+        throw new Error(`${path} already exists. Re-read the folder and try again.`);
 
-    const meta = await dir.getFileHandle(`${versionName}.json`, { create: true });
-    stream = await meta.createWritable({ keepExistingData: false });
-    await stream.write(metadataJson);
-    await stream.close();
+    await above.getDirectoryHandle(name, { create: true });
+}
 
-    return await rescan();
+/** Copies a file, replacing the target if it exists. */
+export async function copyFile(from, to) {
+    const source = await fileAt(from, false);
+    if (!source) throw new Error(`Could not find ${from}.`);
+    await write(to, await source.getFile());
+}
+
+/** Writes a text file, replacing it if it exists. */
+export async function writeText(path, text) {
+    await write(path, text);
 }
 
 /* ------------------------------------------------------------------ helpers */
 
-/** The File behind a version's map, named rather than numbered. */
-async function fileFor(versionName) {
-    const handle = versionName === WORKING_FILE
-        ? currentFile
-        : folders.get(versionName)?.ocd;
-
-    if (!handle) throw new Error(`No map file for "${versionName}".`);
-    return await handle.getFile();
+function root() {
+    if (!projectDir) throw new Error('No project folder is open.');
+    return projectDir;
 }
 
-async function getDirectory(parent, name, create) {
+function split(path) {
+    const parts = path.split('/').filter(Boolean);
+    return { parent: parts.slice(0, -1).join('/'), name: parts.at(-1) };
+}
+
+async function folderAt(path, create) {
+    let dir = root();
+    for (const part of path.split('/').filter(Boolean)) {
+        dir = create
+            ? await dir.getDirectoryHandle(part, { create: true })
+            : await child(dir, part, 'directory');
+        if (!dir) return null;
+    }
+    return dir;
+}
+
+async function fileAt(path, create) {
+    const { parent, name } = split(path);
+    const dir = await folderAt(parent, create);
+    if (!dir) return null;
+    return create ? dir.getFileHandle(name, { create: true }) : child(dir, name, 'file');
+}
+
+/** A child handle, or null - asking without creating anything. */
+async function child(dir, name, kind) {
     try {
-        return await parent.getDirectoryHandle(name, { create });
+        return kind === 'file'
+            ? await dir.getFileHandle(name, { create: false })
+            : await dir.getDirectoryHandle(name, { create: false });
     } catch {
         return null;
     }
 }
 
-async function getFile(parent, name) {
+async function write(path, data) {
+    const handle = await fileAt(path, true);
+    const stream = await handle.createWritable({ keepExistingData: false });
     try {
-        return await parent.getFileHandle(name, { create: false });
-    } catch {
-        return null;
-    }
-}
-
-async function readText(handle) {
-    try {
-        return await (await handle.getFile()).text();
-    } catch {
-        return null;
+        await stream.write(data);
+        await stream.close();
+    } catch (err) {
+        await stream.abort().catch(() => { });
+        throw err;
     }
 }

@@ -9,8 +9,7 @@ namespace OcadViewer.Versioning;
 /// </summary>
 /// <remarks>
 /// One definition, used for both the release metadata on disk and the settings in
-/// local storage. It was two identical copies, one per service, which is the
-/// cheapest possible way to let two file formats drift apart.
+/// local storage, so the two formats cannot drift apart.
 /// </remarks>
 public static class AngularJson
 {

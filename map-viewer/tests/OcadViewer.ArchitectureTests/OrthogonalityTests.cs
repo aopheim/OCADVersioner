@@ -9,14 +9,16 @@ namespace OcadViewer.ArchitectureTests;
 /// </summary>
 /// <remarks>
 /// These read the source rather than the compiled output, because most of what
-/// goes wrong here goes wrong between languages. The worst offender this suite was
-/// written for - an untyped slot index that meant the same thing in a Razor page,
-/// a component, a JavaScript module and a <c>[JSExport]</c> - was invisible to the
-/// compiler from every one of those four sides.
+/// goes wrong here goes wrong between languages: a value that has to mean the
+/// same thing in a Razor page, a JavaScript module and a <c>[JSExport]</c> is
+/// invisible to the compiler from every side.
 ///
-/// A rule here is not a style preference. Each one marks a place where a single
-/// decision had been written down more than once, and so could disagree with
-/// itself.
+/// A rule here is not a style preference. Each one marks a decision that has to
+/// be written down once, because two copies of it can disagree.
+///
+/// Matching text can only keep a rule from being broken again; it cannot show
+/// the rule is right. Where a contract can be tested by behaviour instead, as
+/// the folder layout is in <see cref="VersioningTests"/>, it is.
 /// </remarks>
 [TestFixture]
 public sealed class OrthogonalityTests
@@ -44,11 +46,10 @@ public sealed class OrthogonalityTests
         IReadOnlyList<SourceFile> offenders = Matching(all, @"\bslots?\b", RegexOptions.IgnoreCase);
 
         Assert.That(offenders, Is.Empty,
-            "A map is identified by its version name. The slot index this replaces had to mean "
-            + "the same thing in the page, the component, the Leaflet module and the interop at "
-            + "once, so a third pane - or a single-map view - could not be added without touching "
-            + "all four. It also tied a parsed map to a screen position, which forced both sides "
-            + "to be re-read and re-parsed whenever either changed.");
+            "A map is identified by its version name. A pane index would have to mean the same "
+            + "thing in the page, the component, the Leaflet module and the interop at once, and "
+            + "would tie a parsed map to a screen position, so both sides would be re-read and "
+            + "re-parsed whenever either changed.");
     }
 
     [Test]
@@ -81,10 +82,9 @@ public sealed class OrthogonalityTests
             .Where(shim.Mentions)];
 
         Assert.That(logic, Is.Empty,
-            "TileInterop is the JavaScript face of MapStore and nothing else. Everything it used "
-            + "to decide for itself - slot bookkeeping, timing, staging fonts, converting pixel "
-            + "formats, formatting JSON by hand - belongs in a project that a console can call "
-            + "and a test can reach.");
+            "TileInterop is the JavaScript face of MapStore and nothing else. Timing, staging "
+            + "fonts, converting pixel formats and choosing what to keep belong in a project that "
+            + "a console can call and a test can reach.");
     }
 
     /* ------------------------------------------------------- the module graph */
@@ -133,9 +133,8 @@ public sealed class OrthogonalityTests
 
         Assert.That(violations, Is.Empty,
             "Only mapWorkspace.js may know about more than one of these at a time: it is the "
-            + "composition root. In particular the Leaflet module must not reach the .NET runtime "
-            + "- it did, and that made the viewport impossible to load, test or reuse without "
-            + "Blazor underneath it.");
+            + "composition root. In particular the Leaflet module must not reach the .NET runtime, "
+            + "or the viewport cannot be loaded, tested or reused without Blazor underneath it.");
     }
 
     [Test]
@@ -185,27 +184,42 @@ public sealed class OrthogonalityTests
     {
         /* Three documented exceptions, each holding a handle to something there is
          * genuinely one of per page, obtained once and never replaced:
-         *   projectFolder.js  the directory handles, which cannot cross into .NET
-         *                     and cannot be re-obtained without asking the user
+         *   projectFolder.js  the picked folder, which cannot cross into .NET and
+         *                     cannot be re-obtained without asking the user
          *   dotnetExports.js  the .NET runtime
          *   appInsights.js    the telemetry SDK, once it has loaded
          * What the rule is really after is coordination state - a queue, a latch,
-         * a timer - which is what makes a module secretly unrepeatable. */
+         * a timer, a cache - which is what makes a module secretly unrepeatable.
+         * A const holding a Map or a Set is as mutable as a let, so it counts. */
         string[] exempt = ["projectFolder.js", "dotnetExports.js", "appInsights.js"];
 
         List<string> violations = [];
 
         foreach (SourceFile script in scripts.Where(s => !exempt.Contains(s.Name, StringComparer.Ordinal))) {
             foreach (string line in Lines(script)) {
-                if (Regex.IsMatch(line, @"^(let|var)\s"))
+                if (Regex.IsMatch(line, @"^(let|var)\s")
+                    || Regex.IsMatch(line, @"^(export\s+)?const\s+\w+\s*=\s*new\s+(Weak)?(Map|Set)\b"))
                     violations.Add($"{script.Name}: {line.Trim()}");
             }
         }
 
         Assert.That(violations, Is.Empty,
-            "Module-level mutable state is a singleton with no name. The tile pump used to be "
-            + "exactly that - one queue, one latch and one watchdog shared by every map on the "
-            + "page - which made a second viewport quietly impossible.");
+            "Module-level mutable state is a singleton with no name: one queue, latch or cache "
+            + "shared by every caller on the page, which makes a second viewport quietly "
+            + "impossible. Put it inside the factory that owns it.");
+    }
+
+    [Test]
+    public void NoParsedMapsAreHeldOutsideAStoreSomebodyOwns()
+    {
+        // A static field or property of type MapStore; a static method returning one is fine.
+        IReadOnlyList<SourceFile> offenders = Matching(
+            csharp, @"static\s+(readonly\s+)?MapStore\s+\w+\s*(=|;|\{|=>)");
+
+        Assert.That(offenders, Is.Empty,
+            "A static MapStore is one set of parsed maps for the whole page, keyed by names that "
+            + "are only unique within a project. Each workspace creates its own store, clears it "
+            + "when the project changes and disposes it with itself.");
     }
 
     [Test]
@@ -217,9 +231,7 @@ public sealed class OrthogonalityTests
         Assert.That(NamesOf(offenders), Is.EquivalentTo(new[] { "MapStore.cs" }),
             "The renderer classifies each changed pixel, because it is the only thing that can. "
             + "Nothing above it reads that classification: the overlay asks one question - did "
-            + "this change - so the only thing crossing the boundary is \"zero means unchanged\". "
-            + "The JavaScript used to carry a copy of the four names to decide which of them "
-            + "each filter showed, and a copy of their numbers with no type to keep it honest.");
+            + "this change - so the only thing crossing the boundary is \"zero means unchanged\".");
     }
 
     /* ------------------------------------------------- contracts stated once */
@@ -231,8 +243,36 @@ public sealed class OrthogonalityTests
 
         Assert.That(NamesOf(offenders), Is.EquivalentTo(new[] { "VersionNaming.cs" }),
             "The V<n> rule is a contract with the Angular app, which reads and writes the same "
-            + "folders. It was stated in the JavaScript that scanned the directory and again in "
-            + "two places in C# - in two languages, with nothing keeping them in step.");
+            + "folders, so it is stated in one place.");
+    }
+
+    /// <summary>
+    /// The folder layout is a contract with the Angular app, and C# owns all of it.
+    /// </summary>
+    /// <remarks>
+    /// This test only keeps the layout from leaking back out. Whether the layout is
+    /// right is tested by behaviour, in <see cref="VersioningTests"/> - which is
+    /// possible because nothing about it is left in JavaScript.
+    /// </remarks>
+    [Test]
+    public void TheFolderLayoutIsWrittenDownOnlyInVersioning()
+    {
+        const string layoutWords = @"['""`](Releases|current|\.ocd|\.json)['""`]";
+        string[] owners = ["FolderLayout.cs", "VersionNaming.cs"];
+
+        Assert.Multiple(() => {
+            Assert.That(NamesOf(Matching(scripts, layoutWords)), Is.Empty,
+                "projectFolder.js is handed paths and works on them. Knowing where releases live, "
+                + "what the working file is called or what a version's files are named would put "
+                + "half of the Angular contract in a second language again.");
+
+            Assert.That(NamesOf(Matching(csharp, layoutWords)), Is.SubsetOf(owners),
+                "Where things are in a project folder is FolderLayout's business, and the names in "
+                + "it are VersionNaming's. Ask them for a path rather than building one.");
+
+            Assert.That(NamesOf(Matching(scripts, @"\$\{[^}]*\}\.(ocd|json)")), Is.Empty,
+                "A file name built from a version name in JavaScript is the layout restated.");
+        });
     }
 
     [Test]
@@ -252,7 +292,8 @@ public sealed class OrthogonalityTests
 
         Assert.That(NamesOf(offenders), Is.EquivalentTo(new[] { "JsModule.cs" }),
             "A page can be torn down while JavaScript is already gone, and a throwing DisposeAsync "
-            + "takes the rest of the teardown with it. That rule was copied into four files.");
+            + "takes the rest of the teardown with it. Every caller releases modules through "
+            + "JsModule so the rule is written once.");
     }
 
     [Test]

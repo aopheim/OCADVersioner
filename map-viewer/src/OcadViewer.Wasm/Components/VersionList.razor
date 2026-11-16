@@ -9,6 +9,7 @@
     @foreach (var item in Items) {
         <button type="button"
                 class="list-group-item list-group-item-action @(item.Number == SelectedNumber ? "active" : "")"
+                disabled="@Disabled"
                 @onclick="() => OnSelected.InvokeAsync(item.Number)">
             <div class="d-flex w-100 justify-content-between">
                 <h6 class="mb-1 text-truncate">@DisplayTitle(item)</h6>
@@ -44,6 +45,9 @@
 
     /// <summary>The highlighted row, 0 for none - which is the working file's view.</summary>
     [Parameter] public int SelectedNumber { get; set; }
+
+    /// <summary>True while the page is busy, so a second comparison cannot start on top of the first.</summary>
+    [Parameter] public bool Disabled { get; set; }
 
     [Parameter] public EventCallback<int> OnSelected { get; set; }
 

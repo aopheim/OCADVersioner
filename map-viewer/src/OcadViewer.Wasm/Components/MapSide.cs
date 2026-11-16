@@ -2,11 +2,10 @@ namespace OcadViewer.Wasm.Components;
 
 /// <summary>Which pane of the comparison.</summary>
 /// <remarks>
-/// This replaces an untyped slot index that used to mean the same thing in four
-/// places at once - the page, this component, the Leaflet module and the .NET
-/// interop - with nothing naming it and nothing checking it. A pane is now a
-/// named side, and a map is identified by its version name rather than by which
-/// pane it happens to be in.
+/// A pane is a named side, and nothing more: a map is identified by its version
+/// name, never by which pane it happens to be in. That keeps a parsed map
+/// independent of where it is on screen, and lets a pane be added or swapped
+/// without touching the page, the Leaflet module and the interop at once.
 /// </remarks>
 public enum MapSide
 {

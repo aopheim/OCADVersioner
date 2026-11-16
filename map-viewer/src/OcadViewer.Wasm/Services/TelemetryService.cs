@@ -53,10 +53,9 @@ public sealed class TelemetryService(IJSRuntime js, ILogger<TelemetryService> lo
     }
 
     /// <remarks>
-    /// Traces and exceptions only. The page-view and custom-event wrappers that
-    /// used to sit here had no callers at all - this app reports what the logging
-    /// pipeline hands it, which is errors. Adding them back is a few lines, on the
-    /// day something actually wants to call them.
+    /// Traces and exceptions only: this app reports what the logging pipeline
+    /// hands it, which is errors. Page views and custom events are a few lines
+    /// to add on the day something wants to call them.
     /// </remarks>
     public async Task TrackAsync(string message, TelemetrySeverity severity,
                                  IDictionary<string, object> properties = null)
