@@ -13,7 +13,7 @@
 .choice.side-a { border-color: #0E8A93; color: #0B7A82; font-weight: 600; }
 .choice.side-b { border-color: #E26A0A; color: #B35309; font-weight: 600; }
 
-.choice.current {
+.choice.chosen {
     background: var(--bs-body-color);
     border-color: var(--bs-body-color);
     color: #fff;
