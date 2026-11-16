@@ -20,7 +20,7 @@ import { paint, coverage, boundsOf } from './changeMask.js';
 
 /**
  * Builds the viewer over two elements.
- * @returns {Promise<{show: Function, showing: Function, stats: object, dispose: Function}>}
+ * @returns {Promise<{plan: Function, parse: Function, draw: Function, showing: Function, stats: object, dispose: Function}>}
  */
 export async function createWorkspace(leftEl, rightEl) {
     const tiles = await createTileSource();
@@ -37,15 +37,16 @@ export async function createWorkspace(leftEl, rightEl) {
      * of change are shown is only a repaint of these same bytes. */
     let changes = null;
 
-    /* Which load is the current one. A mapper who picks another version while one
-     * is still going means the new one, so the old is abandoned at its next await
-     * rather than raced. It cannot be stopped sooner than that: a parse already
-     * running is one blocking call with nowhere to check a flag. */
-    const current = { generation: 0 };
-
     /** Whether this map has to be read off disk before it can be shown. */
     function needsParse(request) {
         return request.reload || !tiles.isLoaded(request.versionName);
+    }
+
+    function summaryOf(versionName) {
+        const info = parsed.get(versionName);
+        if (!info)
+            throw new Error(`No parse result for "${versionName}".`);
+        return info;
     }
 
     function forgetChanges() {
@@ -100,68 +101,47 @@ export async function createWorkspace(leftEl, rightEl) {
         },
 
         /**
-         * Shows a whole comparison, reporting how far along it is.
+         * Makes sure a version is parsed, reading it only if it is not already held.
          *
-         * Loading two maps is one thing a mapper waits for, not two, so it is one
-         * call - and this is the only place that knows a comparison has more than
-         * one side. Each map is parsed only if it is not already held, and then
-         * waited for until its pane has actually drawn it.
+         * One map at a time, and nothing about which load asked: the order of a
+         * comparison and whether a load has been overtaken are decided in C#,
+         * between these calls.
          *
-         * @param requests [{side, versionName, reload}]; reload is true for the
-         *                 working file, which changes on disk while the app is
-         *                 open, and false for a release, which never does
-         * @param report a .NET object with a Progress method, or null
-         * @param generation which load this is; a later one abandons this
-         * @returns {{stale: boolean, maps: object[]}} the parse summaries, in the
-         *          order asked for, and whether this load was superseded
+         * @param request {side, versionName, reload}; reload is true for the
+         *                working file, which changes on disk while the app is
+         *                open, and false for a release, which never does
+         * @returns the parse summary
          */
-        async show(requests, report, generation) {
-            current.generation = generation;
+        async parse(request) {
+            if (needsParse(request)) {
+                const bytes = await readMap(request.versionName);
+                const summary = tiles.load(
+                    request.versionName, `${request.versionName}.ocd`, bytes);
 
-            const mine = () => current.generation === generation;
-            const tell = (step, done, asked, finished) =>
-                report?.invokeMethodAsync('Progress', generation, step, true, done, asked, finished)
-                      ?.catch(() => { });
+                if (!summary.ok)
+                    throw new Error(summary.error ?? `Could not read ${request.versionName}.`);
 
-            const maps = [];
+                parsed.set(request.versionName, summary);
 
-            for (const [step, request] of requests.entries()) {
-                if (!mine())
-                    return { stale: true, maps };
-
-                if (needsParse(request)) {
-                    const bytes = await readMap(request.versionName);
-
-                    if (!mine())
-                        return { stale: true, maps };
-
-                    const summary = tiles.load(
-                        request.versionName, `${request.versionName}.ocd`, bytes);
-
-                    if (!summary.ok)
-                        throw new Error(summary.error ?? `Could not read ${request.versionName}.`);
-
-                    parsed.set(request.versionName, summary);
-
-                    // The file on disk has just been read again, so any mask built
-                    // against the old contents is describing a map that is gone.
-                    invalidate(request.versionName);
-                }
-
-                const info = parsed.get(request.versionName);
-                if (!info)
-                    throw new Error(`No parse result for "${request.versionName}".`);
-
-                tell(step, 0, 0, false);
-
-                await view.show(request.side, request.versionName, info,
-                                (done, asked) => tell(step, done, asked, false));
-
-                tell(step, 0, 0, true);
-                maps.push(info);
+                // The file on disk has just been read again, so any mask built
+                // against the old contents is describing a map that is gone.
+                invalidate(request.versionName);
             }
 
-            return { stale: !mine(), maps };
+            return summaryOf(request.versionName);
+        },
+
+        /**
+         * Puts a parsed version in its pane, and waits until the pane has drawn it.
+         *
+         * @param request {side, versionName}
+         * @param report a .NET object told (drawn, asked for) as tiles land, or null
+         * @returns resolved when the pane is drawn, or when another map takes the
+         *          pane first
+         */
+        async draw(request, report) {
+            await view.show(request.side, request.versionName, summaryOf(request.versionName),
+                (drawn, asked) => report?.invokeMethodAsync('Tiles', drawn, asked)?.catch(() => { }));
         },
 
         /**

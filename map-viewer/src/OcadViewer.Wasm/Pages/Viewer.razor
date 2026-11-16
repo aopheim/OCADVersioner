@@ -15,30 +15,8 @@
 *@
 <div class="container-fluid">
 
-@*
-    A 2 px bar, present only while something is happening, as in the Angular app -
-    but pinned to the window rather than sitting at the top of the page. The
-    slowest thing the app does is write a version, and that form is far enough
-    down that an in-flow bar had scrolled out of sight by the time it mattered.
-*@
-<div class="loadStrip">
-    @if (busy) {
-        <div class="progress">
-            @if (plan is { HasWork: true }) {
-                <div class="progress-bar" style="width:@Percent(plan)%"></div>
-            } else {
-                @* Work whose size cannot be known in advance - the overlay, a
-                   rescan, writing a version - keeps the stripe that admits it. *@
-                <div class="progress-bar progress-bar-striped progress-bar-animated"
-                     style="width:100%"></div>
-            }
-        </div>
-    }
-
-    @if (status is not null) {
-        <div class="loadMessage @(failed ? "text-danger" : "text-muted")">@status</div>
-    }
-</div>
+<LoadStrip @ref="loadStrip" Busy="busy" Failed="failed" Status="@status"
+           Plan="plan" StepNames="stepNames" />
 
 <div class="d-flex justify-content-between align-items-center">
     <h3 class="my-2">@L["#_OCADVersioner"]</h3>
@@ -125,7 +103,7 @@
                 <span class="fw-medium">@Label(Comparison.Newer)</span>
             </div>
 
-            <OcadMapPair @ref="mapPair" OnProgress="OnLoadProgress" />
+            <OcadMapPair @ref="mapPair" />
 
             <DiffTable Diff="diff" Available="DiffSource.IsAvailable"
                        UnavailableReason="@DiffSource.UnavailableReason" />
@@ -141,6 +119,7 @@
     private OcadMapPair mapPair;
     private ProjectDirectorySelector selector;
     private CreateVersionForm versionForm;
+    private LoadStrip loadStrip;
 
     /// <summary>Set when a project has just opened and the maps still need loading.</summary>
     private bool comparisonPending;
@@ -148,14 +127,17 @@
     private string status;
     private bool failed;
 
+    /// <summary>How many <see cref="Run"/>s have started and not yet finished.</summary>
+    private int running;
+
     /// <summary>
     /// How much of the current load is done, or null when what is running has no
     /// size anyone can know in advance.
     /// </summary>
     private LoadPlan plan;
 
-    /// <summary>The maps the current load is putting on screen, in load order.</summary>
-    private IReadOnlyList<OcadMapPair.MapRequest> loading;
+    /// <summary>What the steps of <see cref="plan"/> are called on screen, in load order.</summary>
+    private IReadOnlyList<string> stepNames = [];
 
     /// <summary>
     /// Which load is the current one.
@@ -163,11 +145,14 @@
     /// <remarks>
     /// Picking a version means picking it, even if the last one is still coming:
     /// a load lasts a few seconds now that it waits for the tiles, so a second
-    /// thought part-way through is ordinary rather than a corner case. Each run
-    /// takes a number, the newest number owns the screen, and an older run that
-    /// finishes afterwards says nothing and changes nothing.
+    /// thought part-way through is ordinary rather than a corner case. Each load
+    /// takes a number, the newest number owns the screen, and an older load
+    /// checks after every wait and stops - saying nothing, not even an error.
+    ///
+    /// Only loads take a number. Anything else the page runs is not a newer
+    /// version of a load and supersedes nothing.
     /// </remarks>
-    private int generation;
+    private int loadGeneration;
 
     private MapDiff diff = MapDiff.Empty;
     private string georeference;
@@ -299,36 +284,84 @@
             throw new InvalidOperationException("The map pair is not on the page yet.");
 
         (string newer, string older) = Comparison;
-        int mine = generation;
+        int mine = ++loadGeneration;
+
+        // Until this load is weighed, the bar must not go on showing the last one.
+        plan = null;
+
+        // A newer load took the panes over. It owns what is on screen and what
+        // the page says about it; this one has nothing left to contribute.
+        bool Superseded() => mine != loadGeneration;
 
         // Older on the left, newer on the right: time runs that way, and the
         // overlay - which is painted on the newer map - then sits where the eye
         // ends up rather than where it starts. The newer map is loaded first,
         // because it is the one being looked at.
-        loading = [
+        OcadMapPair.MapRequest[] maps = [
             new(MapSide.Right, newer, ProjectService.IsVolatile(newer)),
             new(MapSide.Left, older, ProjectService.IsVolatile(older))
         ];
 
-        // Weighed before anything is read, so the bar can say how much of the
-        // whole wait is left rather than which step it is on.
-        plan = LoadPlan.For(await mapPair.PlanAsync(loading));
-        StateHasChanged();
+        try {
+            // Weighed before anything is read, so the bar can say how much of the
+            // whole wait is left rather than which step it is on.
+            IReadOnlyList<LoadStep> steps = await mapPair.PlanAsync(maps);
+            if (Superseded())
+                return;
 
-        OcadMapPair.LoadResult loaded = await mapPair.ShowAsync(loading, mine);
+            LoadPlan mapsPlan = plan = LoadPlan.For(steps);
+            stepNames = [.. maps.Select(map => Label(map.VersionName))];
+            StateHasChanged();
 
-        // A newer load took the panes over. It owns what is on screen and what
-        // the page says about it; this one has nothing left to contribute.
-        if (loaded.Stale)
-            return;
+            for (int step = 0; step < maps.Length; step++) {
+                OcadMapPair.MapInfo info = await mapPair.ParseAsync(maps[step]);
+                if (Superseded())
+                    return;
 
-        georeference = loaded.Maps[0].Georeference;
+                mapsPlan.Parsed(step);
+                loadStrip?.Refresh();
 
-        diff = await DiffSource.CompareAsync(older, newer);
+                if (step == 0)
+                    georeference = info.Georeference;
 
-        // The overlay belongs to a pair of versions, so a new comparison needs a
-        // new mask. Only paid for if the user has asked to see one.
-        await ApplyChangeOverlay();
+                int drawing = step;
+                Task drawn = mapPair.DrawAsync(maps[step], (tilesDrawn, tilesAsked) => {
+                    if (Superseded())
+                        return;
+
+                    mapsPlan.Drew(drawing, tilesDrawn, tilesAsked);
+                    loadStrip?.Refresh();
+                });
+
+                // Both maps are parsed, and the diff is read from what the parses
+                // kept - it needs nothing from the tiles. So the table is filled
+                // now, while the last pane draws, rather than after it.
+                if (step == maps.Length - 1) {
+                    diff = await DiffSource.CompareAsync(older, newer);
+                    if (Superseded())
+                        return;
+
+                    StateHasChanged();
+                }
+
+                await drawn;
+                if (Superseded())
+                    return;
+
+                mapsPlan.Finished(step);
+                loadStrip?.Refresh();
+            }
+
+            // The overlay belongs to a pair of versions, so a new comparison needs
+            // a new mask. Only paid for if the user has asked to see one - and only
+            // once both panes are drawn, because building it renders both maps in
+            // full and would hold up the tiles.
+            await ApplyChangeOverlay();
+        }
+        catch when (Superseded()) {
+            // The mapper has already moved on. What went wrong with a comparison
+            // nobody is waiting for any more is not worth telling them.
+        }
     }
 
     /// <summary>Turns the overlay on or off, from the button or from the keyboard.</summary>
@@ -388,85 +421,41 @@
         return $"{summary.ShownPixels * 100.0 / summary.TotalPixels:0.0}% of the map";
     }
 
-    /// <summary>
-    /// How far along the bar should be drawn.
-    /// </summary>
-    /// <remarks>
-    /// Rounded here and nowhere else: a width of "33.333333333%" in the markup
-    /// is a new string on every tile, and Blazor would rewrite the attribute
-    /// each time to no visible effect.
-    /// </remarks>
-    private static int Percent(LoadPlan plan) => (int)Math.Round(plan.Fraction * 100);
-
-    /// <summary>Takes in what the browser reports as a load goes on.</summary>
-    /// <remarks>
-    /// Reports from a load that has been superseded are dropped. They arrive: a
-    /// parse cannot be interrupted, so the run that was abandoned finishes the
-    /// map it was in the middle of and says so afterwards.
-    /// </remarks>
-    private void OnLoadProgress(OcadMapPair.LoadReport report)
-    {
-        if (plan is null || report.Generation != generation)
-            return;
-
-        plan.Report(report.Step, report.Parsed,
-                    report.TilesDrawn, report.TilesExpected, report.Finished);
-        status = LoadingMessage() ?? status;
-        StateHasChanged();
-    }
-
-    /// <summary>
-    /// What the load is doing, in the names a mapper uses for these maps.
-    /// </summary>
-    /// <remarks>
-    /// Reading and parsing cannot be told apart from outside - the read is one
-    /// await and the parse one blocking call - so they are one word. Drawing is
-    /// worth naming separately because it is the half where the map appears.
-    /// </remarks>
-    private string LoadingMessage()
-    {
-        if (plan is null || loading is null || plan.Step >= loading.Count)
-            return null;
-
-        string name = Label(loading[plan.Step].VersionName);
-        return plan.IsDrawing ? $"Drawing {name}…" : $"Loading {name}…";
-    }
-
     /// <summary>Runs an action with the progress bar, busy flag and error reporting.</summary>
     /// <remarks>
-    /// Only the newest run writes to the screen. An older one, abandoned when the
-    /// user asked for something else, would otherwise clear the busy flag out
-    /// from under its successor and leave a load running with no bar.
+    /// Runs can overlap - a version picked while the last one is still loading -
+    /// so the page is busy until the last of them has finished, not the first.
+    /// Every error that reaches here is shown: a load that was overtaken keeps
+    /// its own errors to itself (see <see cref="ShowComparison"/>), so nothing
+    /// arriving here is stale. A run that succeeds clears the message only when
+    /// nothing else is running and nothing has failed meanwhile, so it never
+    /// wipes out a successor's message or someone else's error.
     /// </remarks>
     private async Task Run(string message, Func<Task> action)
     {
-        int mine = ++generation;
-
+        running++;
         busy = true;
         failed = false;
         status = message;
-        plan = null;
         StateHasChanged();
         await Task.Yield();
 
         try {
             await action();
 
-            if (mine == generation)
+            if (running == 1 && !failed)
                 status = null;
         }
         catch (Exception ex) {
-            if (mine == generation) {
-                failed = true;
-                status = ex.Message;
-            }
+            failed = true;
+            status = ex.Message;
         }
         finally {
-            if (mine == generation) {
-                busy = false;
+            running--;
+            busy = running > 0;
+            if (!busy)
                 plan = null;
-                StateHasChanged();
-            }
+            StateHasChanged();
         }
     }
 }

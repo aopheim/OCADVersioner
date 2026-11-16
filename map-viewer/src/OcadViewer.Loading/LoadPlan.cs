@@ -142,43 +142,53 @@ public sealed class LoadPlan
     /// <summary>Whether the map being worked on is past its parse and on screen.</summary>
     public bool IsDrawing => Step < Steps && parsed[Step] >= 1;
 
-    /// <summary>
-    /// Takes in what the browser saw.
-    /// </summary>
+    /// <summary>The map at this step has been read and parsed.</summary>
     /// <param name="step">Which map, by its position in the plan.</param>
-    /// <param name="parsed">Whether that map has been read and parsed by now.</param>
+    /// <remarks>
+    /// Out-of-range steps are ignored rather than thrown on, here and below. A
+    /// report can outlive the load it belongs to - the user picks another version
+    /// and the one in flight is dropped - and a late report is not a programming
+    /// error.
+    /// </remarks>
+    public void Parsed(int step)
+    {
+        if (InRange(step))
+            parsed[step] = 1;
+    }
+
+    /// <summary>Tiles have landed in the pane of the map at this step.</summary>
+    /// <param name="step">Which map, by its position in the plan.</param>
     /// <param name="tilesDrawn">How many of its tiles have been drawn.</param>
     /// <param name="tilesExpected">
     /// How many the pane actually asked for, which is known only once the layer is
     /// attached and may differ from the estimate this plan was weighed with.
     /// </param>
-    /// <param name="finished">
-    /// Whether that map is done with. Needed in its own right: a pane can ask for
-    /// no tiles at all - it is off screen, or the window is tiny - and then there
-    /// is no count that reaching the end could be read from.
-    /// </param>
-    /// <remarks>
-    /// Out-of-range steps are ignored rather than thrown on. A report can outlive
-    /// the load it belongs to - the user picks another version and the one in
-    /// flight is dropped - and a late report is not a programming error.
-    /// </remarks>
-    public void Report(int step, bool parsed, int tilesDrawn, int tilesExpected, bool finished)
+    public void Drew(int step, int tilesDrawn, int tilesExpected)
     {
-        if (step < 0 || step >= Steps)
-            return;
-
         // A map that is done stays done. Tile reports are sent without waiting
         // for an answer, so one can arrive after the map it belongs to has
         // finished, and taking it would walk the bar backwards.
-        if (drawn[step] >= 1 && !finished)
+        if (!InRange(step) || drawn[step] >= 1 || tilesExpected <= 0)
             return;
 
-        if (parsed || finished)
-            this.parsed[step] = 1;
-
-        if (finished)
-            drawn[step] = 1;
-        else if (tilesExpected > 0)
-            drawn[step] = Math.Clamp((double)tilesDrawn / tilesExpected, 0, 1);
+        drawn[step] = Math.Clamp((double)tilesDrawn / tilesExpected, 0, 1);
     }
+
+    /// <summary>The map at this step is parsed and on screen.</summary>
+    /// <param name="step">Which map, by its position in the plan.</param>
+    /// <remarks>
+    /// Said outright rather than read from the tile count: a pane can ask for no
+    /// tiles at all - it is off screen, or the window is tiny - and then there is
+    /// no count that reaching the end could be read from.
+    /// </remarks>
+    public void Finished(int step)
+    {
+        if (!InRange(step))
+            return;
+
+        parsed[step] = 1;
+        drawn[step] = 1;
+    }
+
+    private bool InRange(int step) => step >= 0 && step < Steps;
 }

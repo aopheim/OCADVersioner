@@ -29,18 +29,6 @@
     private ElementReference rightEl;
     private IJSObjectReference module;
     private IJSObjectReference workspace;
-    private DotNetObjectReference<OcadMapPair> self;
-
-    /// <summary>
-    /// Told how far a load has got, as the browser gets there.
-    /// </summary>
-    /// <remarks>
-    /// Facts, not a percentage: what a piece of work is worth against the rest is
-    /// <see cref="LoadPlan"/>'s judgement, and this component has no business
-    /// having a second opinion about it.
-    /// </remarks>
-    [Parameter] public EventCallback<LoadReport> OnProgress { get; set; }
-
     /// <summary>One map to put on one side.</summary>
     /// <param name="Reload">
     /// Whether the file must be re-read even if that version is already parsed.
@@ -50,17 +38,21 @@
     /// </param>
     public sealed record MapRequest(MapSide Side, string VersionName, bool Reload);
 
-    /// <summary>How far a load has got.</summary>
-    /// <param name="Generation">
-    /// Which load this is about. A report can outlive the load it belongs to,
-    /// because a mapper who picks another version supersedes the one in flight.
-    /// </param>
-    public sealed record LoadReport(
-        int Generation, int Step, bool Parsed, int TilesDrawn, int TilesExpected, bool Finished);
-
-    /// <summary>What a load produced, in the order it was asked for.</summary>
-    /// <param name="Stale">Whether a later load took over before this one finished.</param>
-    public sealed record LoadResult(bool Stale, IReadOnlyList<MapInfo> Maps);
+    /// <summary>
+    /// Told as tiles land in a pane: how many are drawn, and how many it asked for.
+    /// </summary>
+    /// <remarks>
+    /// Facts, not a percentage: what a piece of work is worth against the rest is
+    /// <see cref="LoadPlan"/>'s judgement, and this component has no business
+    /// having a second opinion about it. One per draw, so JavaScript never has to
+    /// say which map or which load a report belongs to - the caller's own closure
+    /// already knows.
+    /// </remarks>
+    public sealed class TileReporter(Action<int, int> onTiles)
+    {
+        [JSInvokable]
+        public void Tiles(int drawn, int asked) => onTiles(drawn, asked);
+    }
 
     /// <summary>What the parser reported about one version.</summary>
     public sealed record MapInfo(
@@ -96,7 +88,6 @@
 
     private async Task InitialiseAsync()
     {
-        self = DotNetObjectReference.Create(this);
         module = await JS.ImportAsync("./js/mapWorkspace.js");
         workspace = await module.InvokeAsync<IJSObjectReference>("createWorkspace", leftEl, rightEl);
     }
@@ -113,18 +104,14 @@
     }
 
     /// <summary>
-    /// Shows a comparison, and waits until it is on screen.
+    /// Makes sure a version is parsed, reading the file only if it has to.
     /// </summary>
-    /// <param name="generation">
-    /// Which load this is. Starting a later one abandons this at the first point
-    /// it can be abandoned, so the version picked last is the one that wins.
-    /// </param>
     /// <remarks>
-    /// Both maps in one call, because putting a comparison on screen is one wait
-    /// and the page should not have to know how many maps that is. It also means
-    /// the two sides can be weighed against each other before either starts.
+    /// Parsing and drawing are separate calls so the page can decide, between
+    /// them, whether the load is still wanted - a parse already running is one
+    /// blocking call and cannot be stopped, but the next one need not start.
     /// </remarks>
-    public async Task<LoadResult> ShowAsync(IReadOnlyList<MapRequest> maps, int generation)
+    public async Task<MapInfo> ParseAsync(MapRequest map)
     {
         // The parent can get here before this component's own first render has
         // finished setting up - the renderer does not wait for a child's
@@ -134,16 +121,26 @@
         // caller doing nothing wrong used to see.
         await (ready ??= InitialiseAsync());
 
-        return await workspace.InvokeAsync<LoadResult>(
-            "show", OnTheWire(maps), self, generation);
+        return await workspace.InvokeAsync<MapInfo>("parse", OnTheWire(map));
     }
 
-    /// <summary>Called from JavaScript as a load gets on with it.</summary>
-    [JSInvokable]
-    public Task Progress(
-        int generation, int step, bool parsed, int tilesDrawn, int tilesExpected, bool finished)
-        => OnProgress.InvokeAsync(
-            new LoadReport(generation, step, parsed, tilesDrawn, tilesExpected, finished));
+    /// <summary>
+    /// Puts a parsed version in its pane, and waits until the pane has drawn it.
+    /// </summary>
+    /// <param name="onTiles">Told (drawn, asked for) as tiles land.</param>
+    /// <remarks>
+    /// Also finishes, early, when another map takes the pane: the tiles this was
+    /// waiting for are dropped then and will never land.
+    /// </remarks>
+    public async Task DrawAsync(MapRequest map, Action<int, int> onTiles)
+    {
+        await (ready ??= InitialiseAsync());
+
+        using DotNetObjectReference<TileReporter> reporter =
+            DotNetObjectReference.Create(new TileReporter(onTiles));
+
+        await workspace.InvokeVoidAsync("draw", OnTheWire(map), reporter);
+    }
 
     /// <summary>
     /// One map, in the shape JavaScript reads it.
@@ -166,7 +163,10 @@
     /// where it expects a sequence of them.
     /// </remarks>
     private static List<JsRequest> OnTheWire(IReadOnlyList<MapRequest> maps)
-        => [.. maps.Select(map => new JsRequest(map.Side.JsName(), map.VersionName, map.Reload))];
+        => [.. maps.Select(OnTheWire)];
+
+    private static JsRequest OnTheWire(MapRequest map)
+        => new(map.Side.JsName(), map.VersionName, map.Reload);
 
     /// <summary>
     /// Shows where two versions differ, as a tinted overlay on the newer one.
@@ -201,6 +201,5 @@
     {
         await workspace.ReleaseAsync("dispose");
         await module.ReleaseAsync();
-        self?.Dispose();
     }
 }

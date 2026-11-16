@@ -40,7 +40,8 @@ public sealed class ProjectDependencyTests
         ["OcadViewer.Loading"] = [],
         ["OcadViewer.RenderCli"] = ["OcadViewer.Core"],
         ["OcadViewer.Wasm"] = ["OcadViewer.Core", "OcadViewer.Loading", "OcadViewer.Versioning"],
-        ["OcadViewer.ArchitectureTests"] = ["OcadViewer.Loading", "OcadViewer.Versioning"],
+        ["OcadViewer.ArchitectureTests"] = ["OcadViewer.Versioning"],
+        ["OcadViewer.UnitTests"] = ["OcadViewer.Loading"],
     };
 
     /// <summary>Packages that only a UI host has any business referencing.</summary>

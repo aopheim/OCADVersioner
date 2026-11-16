@@ -208,15 +208,29 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
 
             this._ocadAsked++;
 
-            // Every path through drawTile ends in done(), including the ones that
-            // discard the tile, so counting here counts them all.
+            // Counted once per tile, however it ends.
+            let counted = false;
             const finished = (error, element) => {
+                if (counted) return;
+                counted = true;
                 this._ocadDone++;
-                this._ocadReport?.(this);
+                this._ocadReport?.();
                 done(error, element);
             };
 
-            pump.enqueue(() => drawTile({ tile, coords, size, done: finished, layer: this }), this);
+            /* Every path through drawTile ends in done(), including the ones that
+             * discard the tile - except a throw. The pump catches that and moves
+             * on, and a tile that never reports leaves whoever waits for the pane
+             * waiting for ever, with the whole page busy. So a failed tile counts
+             * as finished, and is rethrown for the pump to log. */
+            pump.enqueue(() => {
+                try {
+                    drawTile({ tile, coords, size, done: finished, layer: this });
+                } catch (err) {
+                    finished(err, tile);
+                    throw err;
+                }
+            }, this);
             return tile;
         }
     });
@@ -316,13 +330,11 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
                 layer.addTo(map);
 
                 /* Leaflet creates the tiles for the current view inside addTo, so
-                 * the count is final by this line. A pane that asked for none -
-                 * laid out at zero height, or scrolled off the map entirely - has
-                 * nothing to wait for and must not be waited for. */
-                if (layer._ocadAsked === 0) {
-                    layer._ocadReport = null;
-                    settle(side);
-                }
+                 * the count is final by this line - and reported now, so the bar
+                 * learns the real number before the first tile lands. A pane that
+                 * asked for none - laid out at zero height, or scrolled off the
+                 * map entirely - is settled by the same check: nothing to wait for. */
+                layer._ocadReport();
             });
         },
 

@@ -2,7 +2,7 @@ using NUnit.Framework;
 
 using OcadViewer.Loading;
 
-namespace OcadViewer.ArchitectureTests;
+namespace OcadViewer.UnitTests;
 
 /// <summary>
 /// What the loading bar means.
@@ -27,9 +27,6 @@ public sealed class LoadPlanTests
 
     private static double RenderCost(int tiles)
         => tiles * LoadPlan.RenderMillisecondsPerTile;
-
-    private static void Finish(LoadPlan plan, int step)
-        => plan.Report(step, parsed: true, tilesDrawn: 0, tilesExpected: 0, finished: true);
 
     [Test]
     public void ALoadWithNothingToDoShowsNothing()
@@ -64,7 +61,7 @@ public sealed class LoadPlanTests
             new LoadStep(Megabyte, 10)
         ]);
 
-        Finish(plan, 0);
+        plan.Finished(0);
 
         Assert.That(plan.Fraction, Is.EqualTo(0.5).Within(1e-9));
     }
@@ -77,7 +74,7 @@ public sealed class LoadPlanTests
             new LoadStep(Megabyte, 0)
         ]);
 
-        Finish(plan, 0);
+        plan.Finished(0);
 
         Assert.That(plan.Fraction, Is.EqualTo(2.0 / 3).Within(1e-9),
             "Steps of equal count but unequal size are what made the old bar meaningless. "
@@ -89,7 +86,7 @@ public sealed class LoadPlanTests
     {
         LoadPlan plan = LoadPlan.For([new LoadStep(Megabyte, 10)]);
 
-        plan.Report(0, parsed: true, tilesDrawn: 0, tilesExpected: 10, finished: false);
+        plan.Parsed(0);
 
         double expected = ParseCost(1) / (ParseCost(1) + RenderCost(10));
         Assert.That(plan.Fraction, Is.EqualTo(expected).Within(1e-9));
@@ -100,7 +97,8 @@ public sealed class LoadPlanTests
     {
         LoadPlan plan = LoadPlan.For([new LoadStep(Megabyte, 10)]);
 
-        plan.Report(0, parsed: true, tilesDrawn: 5, tilesExpected: 10, finished: false);
+        plan.Parsed(0);
+        plan.Drew(0, tilesDrawn: 5, tilesExpected: 10);
 
         double expected = (ParseCost(1) + RenderCost(10) / 2) / (ParseCost(1) + RenderCost(10));
         Assert.That(plan.Fraction, Is.EqualTo(expected).Within(1e-9),
@@ -113,7 +111,8 @@ public sealed class LoadPlanTests
     {
         LoadPlan plan = LoadPlan.For([new LoadStep(Megabyte, 4)]);
 
-        plan.Report(0, parsed: true, tilesDrawn: 30, tilesExpected: 30, finished: false);
+        plan.Parsed(0);
+        plan.Drew(0, tilesDrawn: 30, tilesExpected: 30);
 
         Assert.That(plan.Fraction, Is.EqualTo(1).Within(1e-9),
             "The tile count is an estimate from the size of the pane; the real one arrives "
@@ -125,7 +124,7 @@ public sealed class LoadPlanTests
     {
         LoadPlan plan = LoadPlan.For([new LoadStep(Megabyte, 6)]);
 
-        Finish(plan, 0);
+        plan.Finished(0);
 
         Assert.That(plan.Fraction, Is.EqualTo(1).Within(1e-9),
             "A pane laid out at zero height asks for no tiles at all, so there is no count "
@@ -137,8 +136,8 @@ public sealed class LoadPlanTests
     {
         LoadPlan plan = LoadPlan.For([new LoadStep(Megabyte, 10), new LoadStep(Megabyte, 10)]);
 
-        Finish(plan, 0);
-        plan.Report(0, parsed: true, tilesDrawn: 3, tilesExpected: 10, finished: false);
+        plan.Finished(0);
+        plan.Drew(0, tilesDrawn: 3, tilesExpected: 10);
 
         Assert.That(plan.Fraction, Is.EqualTo(0.5).Within(1e-9),
             "Tile reports are sent without waiting for an answer, so one can arrive after "
@@ -153,7 +152,7 @@ public sealed class LoadPlanTests
             new LoadStep(Megabyte, 10)
         ]);
 
-        Finish(plan, 0);
+        plan.Finished(0);
 
         double expected = RenderCost(10) / (RenderCost(10) + ParseCost(1) + RenderCost(10));
         Assert.That(plan.Fraction, Is.EqualTo(expected).Within(1e-9),
@@ -171,17 +170,18 @@ public sealed class LoadPlanTests
             Assert.That(plan.IsDrawing, Is.False, "Nothing has been read yet.");
         });
 
-        plan.Report(0, parsed: true, tilesDrawn: 1, tilesExpected: 10, finished: false);
+        plan.Parsed(0);
+        plan.Drew(0, tilesDrawn: 1, tilesExpected: 10);
 
         Assert.Multiple(() => {
             Assert.That(plan.Step, Is.Zero);
             Assert.That(plan.IsDrawing, Is.True, "Past the parse and on screen.");
         });
 
-        Finish(plan, 0);
+        plan.Finished(0);
         Assert.That(plan.Step, Is.EqualTo(1));
 
-        Finish(plan, 1);
+        plan.Finished(1);
         Assert.Multiple(() => {
             Assert.That(plan.Step, Is.EqualTo(plan.Steps), "Everything is done.");
             Assert.That(plan.IsDrawing, Is.False);
@@ -195,8 +195,10 @@ public sealed class LoadPlanTests
         LoadPlan plan = LoadPlan.For([new LoadStep(Megabyte, 10)]);
 
         Assert.Multiple(() => {
-            Assert.DoesNotThrow(() => Finish(plan, 7));
-            Assert.DoesNotThrow(() => Finish(plan, -1));
+            Assert.DoesNotThrow(() => plan.Finished(7));
+            Assert.DoesNotThrow(() => plan.Finished(-1));
+            Assert.DoesNotThrow(() => plan.Parsed(7));
+            Assert.DoesNotThrow(() => plan.Drew(-1, 1, 1));
             Assert.That(plan.Fraction, Is.Zero,
                 "A report can outlive the load it belongs to, because a parse already "
                 + "running cannot be interrupted. A late report is not a programming error.");
