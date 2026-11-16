@@ -4,3 +4,18 @@
 .w-10 {
     width: 10%;
 }
+
+/* The flags are buttons for the keyboard, but should look like Angular's bare
+   SVGs: no padding, border or background around the picture. */
+.flag {
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+}
+
+/* The width/height attributes give the aspect ratio before the image loads;
+   without this the height attribute would also fix the rendered height. */
+img {
+    height: auto;
+}
