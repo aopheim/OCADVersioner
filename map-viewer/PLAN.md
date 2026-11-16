@@ -20,9 +20,13 @@ dotnet run --project map-viewer/src/OcadViewer.Wasm -c Release          # the ap
 pwsh map-viewer/tools/sync-purplepen.ps1 -PurplePenPath <path> -Check   # vendor drift
 ```
 
-`/` is the workspace and `/about` carries the third-party notices. Those, plus
-`/not-found`, are the whole app: it is the Angular app's feature set and nothing
-else.
+`/` is the workspace (`Pages/Workspace.razor`) and `/about` carries the
+third-party notices. Those, plus `/not-found`, are the Angular app's feature set.
+`/viewer` (`Pages/Viewer.razor`) is the one page beyond it: a mobile-friendly
+viewer for one or two map files picked or dropped from the device, with no
+project folder. It reuses `OcadMapPair` (in its `Fill`/`SinglePane` modes) and the
+shared `ChangeOverlayToggle`; picked files reach the renderer through
+`mapWorkspace.showFile`, so map bytes still never pass through .NET.
 
 **The `/smoke` diagnostic page is gone**, removed in the parity cleanup along with
 the rest of the build scaffolding. It was nine checks over Skia, fonts, text

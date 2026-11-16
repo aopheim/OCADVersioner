@@ -84,8 +84,8 @@ internal sealed record SourceFile(string Name, string RelativePath, string Text)
     /// </summary>
     /// <remarks>
     /// Every rule in this suite is about code. Matching the raw text instead would
-    /// make a file fail for explaining, in a comment, the very thing it no longer
-    /// does - which is exactly what the comments here are for.
+    /// make a file fail for explaining, in a comment, the very thing it must not
+    /// do.
     /// </remarks>
     public string Code => code ??= StripComments(Text);
 

@@ -20,15 +20,15 @@ public sealed class OcadDiffSource(IOcadDiffService diff) : IDiffSource
 
     public string UnavailableReason { get; private set; }
 
-    public Task<MapDiff> CompareAsync(string olderVersion, string newerVersion)
+    public Task<MapDiff> CompareAsync(MapStore maps, string olderVersion, string newerVersion)
     {
-        OcadMapSnapshot newer = LoadedMaps.Store.Get(newerVersion)?.Snapshot;
+        OcadMapSnapshot newer = maps.Get(newerVersion)?.Snapshot;
 
         // No older version: a release with nothing before it. Its objects are all
         // new, as they were in the Angular app, so compare it with nothing. The
         // same version on both sides is an ordinary comparison, with no changes.
         bool firstVersion = olderVersion is null;
-        OcadMapSnapshot older = firstVersion ? null : LoadedMaps.Store.Get(olderVersion)?.Snapshot;
+        OcadMapSnapshot older = firstVersion ? null : maps.Get(olderVersion)?.Snapshot;
 
         if (newer is null || (!firstVersion && older is null)) {
             IsAvailable = false;

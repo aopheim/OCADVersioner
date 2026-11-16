@@ -47,9 +47,8 @@ function latLngBounds(area) {
 export function createSyncedMaps(leftEl, rightEl, renderTile) {
     const pump = createTilePump();
 
-    /* One shared counter set per viewport. Per-layer counters looked tidier but
-     * reset every time a side was reloaded, and orphaned layers swallowed their
-     * own numbers - which hid a bug where every tile took the detached path. */
+    /* One shared counter set per viewport rather than per layer: a layer is
+     * replaced every time a side is reloaded, and its numbers would go with it. */
     const stats = freshStats();
 
     const makeMap = el => L.map(el, {
@@ -81,21 +80,38 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
      * Only react to an actual size change. Calling invalidateSize unconditionally
      * re-enters the observer - invalidateSize touches layout, which fires the
      * observer, which calls it again - and the resulting loop pins the view so the
-     * map silently refuses to zoom. */
-    const lastSize = new WeakMap();
+     * map silently refuses to zoom.
+     *
+     * "Changed" is measured against the size Leaflet believes, not against the
+     * last size this observer saw. A pane can be hidden, and anything that
+     * invalidates a hidden map - a show(), a window resize - leaves Leaflet
+     * believing it is 0x0. When the pane reappears at its old size, a cache of
+     * our own would call that "no change" and the map would draw nothing. */
     const resizeObserver = new ResizeObserver(entries => {
         for (const entry of entries) {
             const el = entry.target;
             const w = el.clientWidth, h = el.clientHeight;
             if (w === 0 || h === 0) continue;
 
-            const previous = lastSize.get(el);
-            if (previous && previous.w === w && previous.h === h) continue;
-            lastSize.set(el, { w, h });
+            const side = SIDES.find(s => maps[s].getContainer() === el);
+            if (!side) continue;
 
-            for (const side of SIDES) {
-                if (maps[side].getContainer() === el)
-                    maps[side].invalidateSize({ animate: false, pan: false });
+            const map = maps[side];
+            const believed = map.getSize();
+            if (believed.x === w && believed.y === h) continue;
+
+            const wasHidden = believed.x === 0 || believed.y === 0;
+            map.invalidateSize({ animate: false, pan: false });
+
+            /* A hidden map is still synced, but leaflet.sync places it using its
+             * 0x0 size, and invalidateSize({pan: false}) keeps that wrong pixel
+             * origin - so it comes back looking at a different place from its
+             * partner. Put it back where the visible map is. */
+            if (wasHidden) {
+                const partner = maps[SIDES.find(s => s !== side)];
+                const partnerSize = partner.getSize();
+                if (partnerSize.x > 0 && partnerSize.y > 0)
+                    map.setView(partner.getCenter(), partner.getZoom(), { animate: false });
             }
         }
     });
@@ -103,7 +119,27 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
 
     const layers = { left: null, right: null };
     const overlays = { left: null, right: null };
+
+    /* Whoever is waiting for a pane to finish drawing. A show resolves when the
+     * tiles it asked for are all through the pump - or, if the pane is handed to
+     * another map first, when that happens, because the tiles it was waiting for
+     * are dropped from the queue and will never report back. */
+    const pending = { left: null, right: null };
+
     let fitted = false;
+
+    function paneFor(side) {
+        if (!SIDES.includes(side))
+            throw new Error(`Unknown side "${side}".`);
+
+        return maps[side];
+    }
+
+    function settle(side) {
+        const resolve = pending[side];
+        pending[side] = null;
+        if (resolve) resolve();
+    }
 
     /* ------------------------------------------------------------- rendering */
 
@@ -112,8 +148,8 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
         const map = layer._map;
 
         // The layer was detached while this job sat in the queue - which happens
-        // every time a side is reloaded. Counted, because silently returning here
-        // once hid a bug where every single tile took this path.
+        // every time a side is reloaded. Counted rather than silent, so that
+        // every tile taking this path shows up in the stats as a bug.
         if (!map || !layer._ocadBounds) { stats.detached++; job.done(null, tile); return; }
 
         /* Leaflet prunes tiles as soon as the view moves past them, but a job
@@ -142,11 +178,8 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             return;
         }
 
-        /* Measured here rather than asked of .NET afterwards. The renderer used to
-         * expose the stopwatch it kept inside the render call, which excluded
-         * marshalling and left the number sitting in a static that only meant
-         * anything until the next call. Wall time around the boundary is both
-         * honest and stateless. */
+        /* Measured here rather than asked of .NET afterwards: wall time around the
+         * boundary includes marshalling, and needs no state on the other side. */
         const started = performance.now();
         const bytes = renderTile(layer._ocadKey, minX, minY, maxX - minX, maxY - minY, size.x);
         const ms = performance.now() - started;
@@ -171,6 +204,12 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             L.GridLayer.prototype.initialize.call(this, options);
             this._ocadKey = mapKey;
             this._ocadBounds = null;
+
+            /* How many tiles this layer has asked for and how many have finished,
+             * so that show() can say when the pane is drawn. */
+            this._ocadAsked = 0;
+            this._ocadDone = 0;
+            this._ocadCheck = null;
         },
 
         createTile(coords, done) {
@@ -178,7 +217,32 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             const tile = document.createElement('canvas');
             tile.width = size.x;
             tile.height = size.y;
-            pump.enqueue(() => drawTile({ tile, coords, size, done, layer: this }), this);
+
+            this._ocadAsked++;
+
+            // Counted once per tile, however it ends.
+            let counted = false;
+            const finished = (error, element) => {
+                if (counted) return;
+                counted = true;
+                this._ocadDone++;
+                this._ocadCheck?.();
+                done(error, element);
+            };
+
+            /* Every path through drawTile ends in done(), including the ones that
+             * discard the tile - except a throw. The pump catches that and moves
+             * on, and a tile that never reports leaves whoever waits for the pane
+             * waiting for ever, with the whole page busy. So a failed tile counts
+             * as finished, and is rethrown for the pump to log. */
+            pump.enqueue(() => {
+                try {
+                    drawTile({ tile, coords, size, done: finished, layer: this });
+                } catch (err) {
+                    finished(err, tile);
+                    throw err;
+                }
+            }, this);
             return tile;
         }
     });
@@ -187,22 +251,34 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
 
     const handle = {
         /**
-         * Shows the named map on one side.
+         * Shows the named map on one side, and waits for it to be on screen.
+         *
+         * Attaching the layer is instant; the tiles behind it are rendered one
+         * per frame afterwards, which is most of the time a mapper waits and all
+         * of the time anything is visibly happening. So this resolves when the
+         * pane has drawn what it asked for, not when Leaflet has been told what
+         * to draw.
+         *
          * @param side 'left' or 'right'
          * @param mapKey the name the tile source holds it under
          * @param bounds {minX, minY, maxX, maxY} in paper millimetres
+         * @returns {Promise<void>} resolved when the pane is drawn, or when the
+         *          pane is handed to another map and these tiles are abandoned
          */
         show(side, mapKey, bounds) {
-            if (!SIDES.includes(side))
-                throw new Error(`Unknown side "${side}".`);
+            const map = paneFor(side);
 
             // Drop queued work for the layer being replaced, rather than letting
             // the pump grind through tiles for a map that is no longer shown.
             const outgoing = layers[side];
             if (outgoing) {
                 pump.remove(tag => tag === outgoing);
+                outgoing._ocadCheck = null;
                 outgoing.remove();
             }
+
+            // Those dropped tiles are what somebody was waiting for.
+            settle(side);
 
             /* Always re-measure before adding a layer. The ResizeObserver catches
              * later changes, but the first show often happens before the browser
@@ -214,10 +290,10 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             /* Fit only on the first show, and only on one map - leaflet.sync
              * mirrors it to the other. Re-fitting on every show fights the user's
              * own zoom, and fitting both maps makes sync bounce the view back and
-             * forth, which prunes tiles mid-flight. The spike saw 113 stale
-             * against 1 drawn before the view was allowed to settle. */
+             * forth, which prunes tiles mid-flight - measured at 113 stale tiles
+             * for every one drawn. */
             if (!fitted) {
-                maps[side].fitBounds(latLngBounds(bounds), { animate: false });
+                map.fitBounds(latLngBounds(bounds), { animate: false });
                 fitted = true;
             }
 
@@ -234,8 +310,26 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
                 maxZoom: MAX_ZOOM
             });
             layer._ocadBounds = { ...bounds };
-            layer.addTo(maps[side]);
             layers[side] = layer;
+
+            return new Promise(resolve => {
+                pending[side] = resolve;
+
+                layer._ocadCheck = () => {
+                    if (layer._ocadDone >= layer._ocadAsked) {
+                        layer._ocadCheck = null;
+                        settle(side);
+                    }
+                };
+
+                layer.addTo(map);
+
+                /* Leaflet creates the tiles for the current view inside addTo, so
+                 * the count is final by this line. A pane that asked for none -
+                 * laid out at zero height, or scrolled off the map - has nothing
+                 * to wait for and is settled here. */
+                layer._ocadCheck();
+            });
         },
 
         /** Which map each side is showing, by name. */
@@ -255,15 +349,13 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
          * @param bounds {minX, minY, maxX, maxY} in paper millimetres
          */
         setOverlay(side, url, bounds) {
-            if (!SIDES.includes(side))
-                throw new Error(`Unknown side "${side}".`);
-
+            const map = paneFor(side);
             clearOverlay(side);
 
             overlays[side] = L.imageOverlay(
                 url, latLngBounds(bounds),
                 { interactive: false, className: 'changeMask' }
-            ).addTo(maps[side]);
+            ).addTo(map);
         },
 
         /**
@@ -293,12 +385,25 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
                 maps[side].getPane('tilePane').style.visibility = visible ? '' : 'hidden';
         },
 
+        /**
+         * Lets the next show fit the view again, as the very first one did.
+         *
+         * For a different project: its maps can sit anywhere on the paper, so
+         * keeping the last project's zoom and centre could leave both panes
+         * looking at empty paper.
+         */
+        refit() {
+            fitted = false;
+        },
+
         stats,
 
         dispose() {
             pump.dispose();
             resizeObserver.disconnect();
             for (const side of SIDES) {
+                // Anything still waiting for this pane never will be.
+                settle(side);
                 clearOverlay(side);
                 layers[side]?.remove();
                 maps[side].remove();

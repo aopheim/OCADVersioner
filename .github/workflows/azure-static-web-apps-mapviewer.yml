@@ -1,9 +1,13 @@
 name: MapViewer Deploy
 
-# The Blazor WebAssembly map viewer deploys to its OWN Static Web App, separate
-# from the two that serve the Angular app (icy-pond for main, thankful-coast for
-# develop). Those are untouched, so a problem here can never take the live app
-# down - which is the whole point of Stage 9.
+# develop: the Blazor app REPLACES Angular on the DEV Static Web App
+# (thankful-coast). The Angular DEV workflow no longer deploys on push, so the
+# two cannot race to overwrite each other.
+#
+# main: the Blazor app goes to its OWN Static Web App, so production Angular
+# (icy-pond) is untouched and a problem here can never take the live app down.
+# That resource and its token do not exist yet; until they do, main skips the
+# deploy (skip_deploy_on_missing_secrets).
 #
 # It is built here and uploaded prebuilt, because Oryx cannot build .NET 10
 # Blazor WebAssembly and has no wasm-tools workload.
@@ -65,7 +69,7 @@ jobs:
             # deployed app is silent too.
             - name: Inject the telemetry key
               run: |
-                  jq --arg k "${{ secrets.APPINSIGHTSINSTRUMENTATIONKEY_PROD }}" \
+                  jq --arg k "${{ github.ref == 'refs/heads/develop' && secrets.APPINSIGHTSINSTRUMENTATIONKEY_DEV || secrets.APPINSIGHTSINSTRUMENTATIONKEY_PROD }}" \
                      '.Telemetry.ConnectionString = $k' \
                      publish/wwwroot/appsettings.json > appsettings.tmp
                   mv appsettings.tmp publish/wwwroot/appsettings.json
@@ -74,9 +78,10 @@ jobs:
               id: builddeploy
               uses: Azure/static-web-apps-deploy@v1
               with:
-                  # Rename this secret to match the Azure-generated name once the
-                  # Static Web App exists, the way the Angular two are named.
-                  azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MAPVIEWER }}
+                  # develop -> thankful-coast (DEV). main -> the Blazor app's own
+                  # Static Web App; rename that secret to the Azure-generated name
+                  # once the resource exists, the way the Angular two are named.
+                  azure_static_web_apps_api_token: ${{ github.ref == 'refs/heads/develop' && secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_COAST_0330E1403 || secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MAPVIEWER }}
                   repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
                   action: 'upload'
                   app_location: '/publish/wwwroot' # Already published - see skip_app_build
@@ -85,12 +90,8 @@ jobs:
                   # Load-bearing. Without it the deploy hands the directory to
                   # Oryx, which cannot build this and will not admit why.
                   skip_app_build: true
-                  # Both branches deploy to the one Static Web App, so develop
-                  # goes to a named environment rather than over production.
-                  # Written this way round on purpose: '' is falsy in an Actions
-                  # expression, so `main && '' || 'develop'` would yield
-                  # 'develop' on main - the classic ternary trap.
-                  deployment_environment: ${{ github.ref == 'refs/heads/develop' && 'develop' || '' }}
+                  # No deployment_environment: each branch now has its own Static
+                  # Web App, so both deploy to that app's production environment.
                   # Lets the workflow land before the Azure resource and its
                   # token exist, rather than failing every push until they do.
                   skip_deploy_on_missing_secrets: true

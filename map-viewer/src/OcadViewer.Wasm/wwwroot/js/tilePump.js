@@ -4,10 +4,9 @@
  * Leaflet's own animations. Running one job per frame lets the browser paint what
  * is already done and keeps input alive in between.
  *
- * This is a factory, not a module. It used to be a set of module-level variables -
- * one queue, one latch, one watchdog - shared by every map on the page, which made
- * a second viewport quietly impossible: two of them would have fed one queue and
- * fought over one latch. Nothing here is shared now; a caller gets its own.
+ * This is a factory, not a module. Each caller gets its own queue, latch and
+ * watchdog; shared ones would let two viewports feed one queue and fight over
+ * one latch.
  */
 
 /**

@@ -1,3 +1,5 @@
+@using OcadViewer.Core
+@using OcadViewer.Versioning
 @using OcadViewer.Wasm.Services
 @implements IAsyncDisposable
 @inject IJSRuntime JS
@@ -5,21 +7,32 @@
 @*
     Two synced Leaflet maps. Blazor owns the page and the state; JavaScript owns
     the viewport, the file reading and the renderer behind them. This component
-    says which version belongs on which side and learns what the parser found;
-    map bytes never pass through .NET at all.
+    says which version belongs on which side, and where its file is, and learns
+    what the parser found; map bytes never pass through .NET at all.
 *@
 
 @*
     The same grid as Angular's ocad-map-viewer: two columns with a hair of gutter,
-    each map 80vh on white. The captions the spike used are gone - the comparison
-    header above already names both sides, which is where Angular says it.
+    each map 80vh on white. The comparison header above names both sides, which
+    is where Angular says it.
 *@
-<div class="row g-1">
-    <div class="col-sm-6">
-        <div @ref="leftEl" class="mapDiv"></div>
+@*
+    Both panes are always on the page, even when only one is shown: Leaflet and
+    leaflet.sync are built over two elements once, and a hidden pane keeps its
+    map, so showing it again costs nothing and loses nothing.
+*@
+<div class="row g-1 mapPair @(Fill ? "fill" : "") @(OnlySide is null ? "" : "single")">
+    <div class="@ColumnClass" hidden="@(OnlySide == MapSide.Right)">
+        <div class="mapPane">
+            <div @ref="leftEl" class="mapDiv"></div>
+            @PaneContent?.Invoke(MapSide.Left)
+        </div>
     </div>
-    <div class="col-sm-6">
-        <div @ref="rightEl" class="mapDiv"></div>
+    <div class="@ColumnClass" hidden="@(OnlySide == MapSide.Left)">
+        <div class="mapPane">
+            <div @ref="rightEl" class="mapDiv"></div>
+            @PaneContent?.Invoke(MapSide.Right)
+        </div>
     </div>
 </div>
 
@@ -29,18 +42,33 @@
     private IJSObjectReference module;
     private IJSObjectReference workspace;
 
-    /// <summary>What the parser reported about one version.</summary>
-    public sealed record MapInfo(
-        string Key, int Version, double MinX, double MinY, double MaxX, double MaxY,
-        double ParseMs, string Georeference);
+    /// <summary>
+    /// Show this pane only, or both when null. The other keeps its map, hidden,
+    /// for when the page asks for both again.
+    /// </summary>
+    [Parameter] public MapSide? OnlySide { get; set; }
+
+    /// <summary>
+    /// Fill the parent's height instead of the fixed height the workspace uses:
+    /// half each when the panes stack on a narrow screen, all of it when they
+    /// sit side by side or only one is shown.
+    /// </summary>
+    [Parameter] public bool Fill { get; set; }
+
+    /// <summary>
+    /// Anything the page wants inside a pane, over its map - such as a way to
+    /// choose the file shown there. Rendered as a sibling of the map element,
+    /// inside the pane, so it can be positioned against the pane.
+    /// </summary>
+    [Parameter] public RenderFragment<MapSide> PaneContent { get; set; }
+
+    private string ColumnClass => OnlySide is null ? "col-sm-6" : "col-12";
 
     /// <summary>
     /// What the change overlay drew, for reporting.
     /// </summary>
     /// <param name="ShownPixels">
-    /// How many pixels changed. Counted on the other side of the boundary,
-    /// where the mask is, rather than handed over as a tally for the page to
-    /// add up.
+    /// How many pixels changed, counted in JavaScript where the mask is.
     /// </param>
     public sealed record ChangeSummary(
         bool Shown, int Width, int Height, double ComputedMs,
@@ -65,30 +93,68 @@
     {
         module = await JS.ImportAsync("./js/mapWorkspace.js");
         workspace = await module.InvokeAsync<IJSObjectReference>("createWorkspace", leftEl, rightEl);
+        Maps = TileInterop.StoreFor(await workspace.InvokeAsync<int>("storeHandle"));
     }
 
     /// <summary>
-    /// Shows a version on one side.
+    /// The parsed maps these panes draw from; null until the panes are set up.
     /// </summary>
-    /// <param name="versionName">"current" for the working file, otherwise "V3".</param>
-    /// <param name="reload">
-    /// Whether the file must be re-read even if that version is already parsed.
-    /// True for the working file, which changes on disk while the app is open.
-    /// A release never changes, so showing one that is already in memory costs
-    /// nothing - no read, no parse.
+    /// <remarks>
+    /// For the object diff, which reads the same parses rather than parsing
+    /// again, and so describes exactly what is on screen. Each pair has its own
+    /// store, gone when the pair is disposed.
+    /// </remarks>
+    public MapStore Maps { get; private set; }
+
+    /// <summary>
+    /// Makes sure a version is parsed, reading its file only if it has to.
+    /// </summary>
+    /// <param name="source">
+    /// Which version, where its file is, and whether it must be read again even
+    /// if it is already parsed. A release never changes, so one that is already
+    /// in memory costs no read and no parse.
     /// </param>
-    public async Task<MapInfo> ShowAsync(MapSide side, string versionName, bool reload)
+    /// <remarks>
+    /// Separate from <see cref="DrawAsync"/> so the page can say which of the two
+    /// is happening, and can stop between them if the mapper has moved on.
+    /// </remarks>
+    public async Task<MapSummary> ParseAsync(MapSource source)
     {
         // The parent can get here before this component's own first render has
         // finished setting up - the renderer does not wait for a child's
         // OnAfterRenderAsync before running the parent's. Starting the work here
-        // if it has not started, and awaiting it either way, removes the race
-        // rather than reporting it as "not initialised yet", which is what a
-        // caller doing nothing wrong used to see.
+        // if it has not started, and awaiting it either way, removes the race.
         await (ready ??= InitialiseAsync());
 
-        return await workspace.InvokeAsync<MapInfo>(
-            "show", side.JsName(), versionName, reload);
+        return await workspace.InvokeAsync<MapSummary>(
+            "parse", source.Name, source.Path, source.Reload);
+    }
+
+    /// <summary>
+    /// Puts a parsed version in a pane, and waits until the pane has drawn it -
+    /// or until another map takes the pane, which drops the tiles it was
+    /// waiting for.
+    /// </summary>
+    public async Task DrawAsync(MapSide side, string versionName)
+    {
+        await (ready ??= InitialiseAsync());
+        await workspace.InvokeVoidAsync("draw", side.JsName(), versionName);
+    }
+
+    /// <summary>
+    /// Shows the file chosen in a file input on one side.
+    /// </summary>
+    /// <param name="mapName">What to hold the map under. Read again every time.</param>
+    /// <param name="input">
+    /// The <c>&lt;input type="file"&gt;</c> holding the file. The element, not the
+    /// file, crosses the boundary: the bytes go from the browser to the renderer
+    /// without passing through .NET.
+    /// </param>
+    public async Task<MapSummary> ShowFileAsync(MapSide side, string mapName, ElementReference input)
+    {
+        await (ready ??= InitialiseAsync());
+
+        return await workspace.InvokeAsync<MapSummary>("showFile", side.JsName(), mapName, input);
     }
 
     /// <summary>
@@ -136,6 +202,19 @@
     {
         await (ready ??= InitialiseAsync());
         await workspace.InvokeVoidAsync("setMapVisible", visible);
+    }
+
+    /// <summary>
+    /// Forgets every parsed map and change mask, because a different project
+    /// folder is about to be shown.
+    /// </summary>
+    /// <remarks>
+    /// Maps are held by version name, and every project has a "V1".
+    /// </remarks>
+    public async Task ResetAsync()
+    {
+        await (ready ??= InitialiseAsync());
+        await workspace.InvokeVoidAsync("reset");
     }
 
     public async ValueTask DisposeAsync()

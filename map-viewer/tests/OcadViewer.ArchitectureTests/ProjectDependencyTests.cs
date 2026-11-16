@@ -22,9 +22,8 @@ namespace OcadViewer.ArchitectureTests;
 /// OcadViewer.Diff sits beside the renderer rather than on top of it: it needs
 /// the parsed Map, never the pixels.
 ///
-/// That was true when these tests were written, and the only thing keeping it
-/// true was a comment in a .csproj saying it should be. One <c>using</c> of
-/// Microsoft.AspNetCore in the wrong project would have compiled.
+/// Nothing in the compiler keeps it that way: one <c>using</c> of
+/// Microsoft.AspNetCore in the wrong project compiles. These tests do.
 /// </remarks>
 [TestFixture]
 public sealed class ProjectDependencyTests

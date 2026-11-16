@@ -2,8 +2,12 @@
  *
  * The Angular app loads Bootstrap and Bootstrap Icons and adds about fifteen
  * lines of its own, spread across component stylesheets. Everything here is
- * either one of those rules or something Blazor itself needs; there is no theme
- * of our own, because any rule here is a way for the two apps to look different.
+ * either a small utility several components share or something Blazor itself
+ * needs; there is no theme of our own, because any rule here is a way for the
+ * two apps to look different.
+ *
+ * Rules that belong to one component live beside it, in its .razor.css, where
+ * Blazor scopes them to that component.
  */
 
 /* From ocad-versioner.component.scss ------------------------------------- */
@@ -15,13 +19,6 @@
 /* Keeps the About link the colour of the surrounding icons rather than link blue. */
 .noColor {
     color: black;
-}
-
-/* From ocad-map-viewer.component.scss ----------------------------------- */
-
-.mapDiv {
-    background: white;
-    height: 80vh;
 }
 
 /* From app-settings-modal.component.scss and about-page.component.scss --- */

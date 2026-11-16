@@ -48,8 +48,8 @@ OcadViewer.Core
                            diff cannot read the file)
 
 OcadViewer.Wasm
-  LoadedMaps               the page's one MapStore, shared by the tile shim and
-                           the diff, so a version is parsed once
+  OcadMapPair.Maps         the panes' own MapStore, which the diff reads too,
+                           so a version is parsed once
   OcadDiffSource           IDiffSource: snapshots from the store -> table rows
   DiffTable.razor          gains a "Changes" column on the Edited tab, and a zoom
                            button per row that frames the object on both maps

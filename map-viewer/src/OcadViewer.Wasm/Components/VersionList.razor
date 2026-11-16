@@ -10,6 +10,7 @@
         <button type="button"
                 class="list-group-item list-group-item-action @RowClass(item)"
                 title="@RowTitle(item)"
+                disabled="@Disabled"
                 @onclick="() => OnSelected.InvokeAsync(item.Number)">
             <div class="d-flex w-100 justify-content-between">
                 <h6 class="mb-1 text-truncate">@DisplayTitle(item)</h6>
@@ -61,6 +62,9 @@
         => item.Number == SelectedNumber ? "On the right"
          : item.Number == OtherNumber ? "On the left"
          : null;
+
+    /// <summary>True while the page is busy, so a second comparison cannot start on top of the first.</summary>
+    [Parameter] public bool Disabled { get; set; }
 
     [Parameter] public EventCallback<int> OnSelected { get; set; }
 

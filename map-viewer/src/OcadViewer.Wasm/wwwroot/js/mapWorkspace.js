@@ -5,36 +5,35 @@
  * putting it on a Leaflet map meet each other - each of which is a module that
  * knows nothing about the other two.
  *
- * It is also why map bytes no longer cross the JS/.NET boundary three times. The
- * page used to ask .NET for the bytes, get them marshalled out of JavaScript, hand
- * them back down to JavaScript, and have JavaScript pass them into .NET again -
- * three crossings of a multi-megabyte array for data the page never looked at. Now
- * the bytes are read and handed straight to the renderer, and C# only ever says
- * which version it wants to see.
+ * Map bytes are read here and handed straight to the renderer. C# only says which
+ * map it wants and where its bytes are: a path in the project folder (parse), or
+ * a file input the user chose a file in (showFile).
+ *
+ * What is parsed is held in one place: the tile source's store. This module keeps
+ * no record of its own of what was loaded. The only thing it caches is the change
+ * mask, and that is tagged with the load ids of the two parses it was made from,
+ * so it goes stale by itself when either is read again.
  */
 
-import { readMap } from './projectFolder.js';
+import { readBytes } from './projectFolder.js';
 import { createTileSource } from './mapTiles.js';
 import { createSyncedMaps } from './leafletViewport.js';
 import { paint, coverage, boundsOf } from './changeMask.js';
 
 /**
  * Builds the viewer over two elements.
- * @returns {Promise<{show: Function, showing: Function, stats: object, dispose: Function}>}
+ * @returns {Promise<{parse: Function, draw: Function, showFile: Function, showChanges: Function,
+ *                    zoomToChanges: Function, zoomTo: Function, setMapVisible: Function, reset: Function,
+ *                    showing: Function, stats: object, storeHandle: Function, dispose: Function}>}
  */
 export async function createWorkspace(leftEl, rightEl) {
     const tiles = await createTileSource();
     const view = createSyncedMaps(leftEl, rightEl, tiles.render);
 
-    /* What each parse reported, by version name. Bounds and georeferencing do not
-     * change, so this survives the map itself being evicted from .NET's store and
-     * re-read later. */
-    const parsed = new Map();
-
-    /* The change mask for one comparison: the bytes, what they cover, and the
-     * image currently painted from them. Kept because computing it means
-     * rendering both whole maps - seconds of work - while changing which kinds
-     * of change are shown is only a repaint of these same bytes. */
+    /* The change mask for one pair of parses: the bytes, the plan they were drawn
+     * to, the image painted from them and how much they cover. Kept because
+     * computing it means rendering both whole maps, while turning the overlay
+     * off and on again should cost nothing. */
     let changes = null;
 
     function forgetChanges() {
@@ -43,55 +42,117 @@ export async function createWorkspace(leftEl, rightEl) {
     }
 
     /**
+     * Names the two parses a mask would be made from, or null if either is not
+     * held. Two masks with the same key were drawn from the same parses.
+     */
+    function maskKey(olderName, newerName) {
+        const older = tiles.describe(olderName);
+        const newer = tiles.describe(newerName);
+        return older.ok && newer.ok
+            ? `${olderName}#${older.loadId}|${newerName}#${newer.loadId}`
+            : null;
+    }
+
+    /** Drops the mask, and takes it off the screen, if its parses have changed. */
+    function dropStaleChanges() {
+        if (changes && changes.key !== maskKey(changes.older, changes.newer)) {
+            view.clearOverlays();
+            forgetChanges();
+        }
+    }
+
+    /**
      * Which pane is showing a version, found by name rather than by position.
-     *
-     * The newer side is the right one today, and saying so here would be the
-     * third place that knew it. Asking the viewport what it is showing keeps
-     * this working if the panes are ever swapped or a third is added.
+     * Asking the viewport keeps this working if the panes are ever swapped.
      */
     function sideShowing(versionName) {
         const showing = view.showing();
         return Object.keys(showing).find(side => showing[side] === versionName) ?? null;
     }
 
-    /** Drops any mask that was computed against this version. */
-    function invalidate(versionName) {
-        if (changes && (changes.older === versionName || changes.newer === versionName)) {
-            view.clearOverlays();
-            forgetChanges();
-        }
+    /**
+     * Makes sure a map is parsed, wherever its bytes come from.
+     *
+     * @param read async () => ({ fileName, bytes }); only called when the map
+     *             has to be (re)parsed
+     * @returns the parse summary
+     */
+    async function parseFrom(mapName, read, reload) {
+        if (!reload && tiles.isLoaded(mapName))
+            return tiles.describe(mapName);
+
+        const { fileName, bytes } = await read();
+        const info = tiles.load(mapName, fileName, bytes);
+
+        if (!info.ok)
+            throw new Error(info.error ?? `Could not read ${fileName}.`);
+
+        dropStaleChanges();
+        return info;
+    }
+
+    /** Puts a parsed map in a pane; resolves once the pane has drawn it. */
+    function draw(side, mapName) {
+        return view.show(side, mapName, tiles.describe(mapName));
     }
 
     return {
         /**
-         * Shows a version on one side, parsing it only if it is not already held.
+         * Makes sure a version from the project folder is parsed, reading it
+         * only if it has to. Parsing and drawing are separate calls so the page
+         * can say which is happening, and can stop between them when the mapper
+         * has already picked something else.
          *
-         * @param side 'left' or 'right'
-         * @param versionName 'current', 'V3', ...
-         * @param reload true for the working file, which changes on disk while the
-         *               app is open; false for a release, which never does.
+         * @param versionName the name the map is held under
+         * @param path where its file is, relative to the project folder
+         * @param reload true when the file can have changed since it was read
          * @returns the parse summary
          */
-        async show(side, versionName, reload) {
-            if (reload || !tiles.isLoaded(versionName)) {
-                const bytes = await readMap(versionName);
-                const info = tiles.load(versionName, `${versionName}.ocd`, bytes);
+        parse(versionName, path, reload) {
+            return parseFrom(versionName, async () => ({
+                fileName: path.split('/').pop(),
+                bytes: await readBytes(path)
+            }), reload);
+        },
 
-                if (!info.ok)
-                    throw new Error(info.error ?? `Could not read ${versionName}.`);
+        /**
+         * Puts a parsed map in a pane.
+         *
+         * @param side a pane name, passed through to the viewport
+         * @returns resolved when the pane has drawn it, or when another map
+         *          takes the pane first
+         */
+        draw,
 
-                parsed.set(versionName, info);
+        /**
+         * Shows the file chosen in an <input type="file"> on one side.
+         *
+         * The element is passed rather than the file because a File cannot
+         * cross into .NET - and should not: map bytes go straight from the
+         * browser to the renderer. Always re-read, since the same input can
+         * hold a different file each time it is asked.
+         *
+         * @param mapName the name the map is held under
+         * @param input the file input element
+         * @returns the parse summary
+         */
+        async showFile(side, mapName, input) {
+            const file = input?.files?.[0];
+            if (!file)
+                throw new Error('No file was chosen.');
 
-                // The file on disk has just been read again, so any mask built
-                // against the old contents is describing a map that is gone.
-                invalidate(versionName);
-            }
+            /* Emptied once the file is in hand, because a browser only fires
+             * 'change' when the choice differs from what the input holds - and
+             * choosing the same file again, after saving it in OCAD, is exactly
+             * how a user reloads it. */
+            input.value = '';
 
-            const info = parsed.get(versionName);
-            if (!info)
-                throw new Error(`No parse result for "${versionName}".`);
+            const info = await parseFrom(mapName, async () => ({
+                fileName: file.name,
+                bytes: new Uint8Array(await file.arrayBuffer())
+            }), true);
 
-            view.show(side, versionName, info);
+            draw(side, mapName);
             return info;
         },
 
@@ -99,12 +160,8 @@ export async function createWorkspace(leftEl, rightEl) {
          * Shows where the two versions differ, as a tinted overlay.
          *
          * On the newer side only. The change is a property of the newer map -
-         * this is what was done to it - and tinting the older one as well
-         * covered the very pixels you turn to it to see.
-         *
-         * The mask is computed once per comparison, both whole maps rendered and
-         * differenced, and then kept with the image painted from it. Turning the
-         * overlay off and on again costs nothing.
+         * this is what was done to it - and tinting the older one as well would
+         * cover the very pixels you turn to it to see.
          *
          * @returns what was drawn, for reporting: size, pixel counts, timings
          */
@@ -114,24 +171,29 @@ export async function createWorkspace(leftEl, rightEl) {
                 return { shown: false };
             }
 
+            const key = maskKey(olderName, newerName);
+            if (!key)
+                throw new Error(`${olderName} and ${newerName} are not both loaded.`);
+
             let computedMs = 0;
 
-            if (changes?.older !== olderName || changes?.newer !== newerName) {
+            if (changes?.key !== key) {
                 forgetChanges();
 
-                const plan = tiles.planChangeMask(newerName);
+                const plan = tiles.planChangeMask(olderName, newerName);
                 if (!plan.ok)
-                    throw new Error(plan.error ?? `Cannot measure ${newerName}.`);
+                    throw new Error(plan.error ?? `Cannot measure ${olderName} against ${newerName}.`);
 
                 const started = performance.now();
-                const mask = tiles.renderChangeMask(olderName, newerName);
+                const mask = tiles.renderChangeMask(olderName, newerName, plan);
                 computedMs = performance.now() - started;
 
                 if (!mask)
                     throw new Error('One of the two versions is no longer loaded.');
 
                 changes = {
-                    older: olderName, newer: newerName, plan, mask,
+                    key, older: olderName, newer: newerName, plan, mask,
+                    covered: coverage(mask),
                     url: await paint(mask, plan.width, plan.height)
                 };
             }
@@ -146,15 +208,13 @@ export async function createWorkspace(leftEl, rightEl) {
                 maxX: changes.plan.maxX, maxY: changes.plan.maxY
             });
 
-            const { shown, total } = coverage(changes.mask);
-
             return {
                 shown: true,
                 width: changes.plan.width,
                 height: changes.plan.height,
                 computedMs: Math.round(computedMs),
-                shownPixels: shown,
-                totalPixels: total
+                shownPixels: changes.covered.shown,
+                totalPixels: changes.covered.total
             };
         },
 
@@ -176,7 +236,7 @@ export async function createWorkspace(leftEl, rightEl) {
             const box = boundsOf(changes.mask, width, height);
             if (!box) return null;
 
-            // Mask pixels to paper millimetres. The mask covers the map's own
+            // Mask pixels to paper millimetres. The mask covers the planned
             // rectangle exactly, and its rows run downwards while paper Y runs
             // up, which is the only subtlety here.
             const x = px => minX + (px / width) * (maxX - minX);
@@ -215,16 +275,29 @@ export async function createWorkspace(leftEl, rightEl) {
             view.setMapVisible(visible);
         },
 
+        /**
+         * Forgets every parsed map and change mask, for when a different
+         * project folder is opened. Version names are only unique within one
+         * project - every project has a "V1".
+         */
+        reset() {
+            view.clearOverlays();
+            forgetChanges();
+            tiles.clear();
+            view.refit();
+        },
+
         showing: () => view.showing(),
 
         stats: view.stats,
 
+        /** The handle of the .NET store the maps are parsed into, for the object diff. */
+        storeHandle: () => tiles.store,
+
         dispose() {
             forgetChanges();
             view.dispose();
-            for (const name of parsed.keys())
-                tiles.unload(name);
-            parsed.clear();
+            tiles.dispose();
         }
     };
 }

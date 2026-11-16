@@ -6,12 +6,12 @@ namespace OcadViewer.Wasm.Services;
 /// Importing an ES module, and letting go of one safely.
 /// </summary>
 /// <remarks>
-/// The teardown is the point. Every component and service that imported a module
-/// carried its own copy of the same five lines - dispose inside a try, swallow
-/// <see cref="JSDisconnectedException"/> and <see cref="ObjectDisposedException"/>
-/// - because a page can be torn down while JavaScript is already gone, and a
-/// throwing <c>DisposeAsync</c> takes the rest of the teardown with it. Four
-/// copies of a rule is four chances to get it subtly different.
+/// The teardown is the point. Releasing a module means disposing inside a try and
+/// swallowing <see cref="JSDisconnectedException"/> and
+/// <see cref="ObjectDisposedException"/>, because a page can be torn down while
+/// JavaScript is already gone, and a throwing <c>DisposeAsync</c> takes the rest
+/// of the teardown with it. Every component and service that imports a module
+/// releases it through here, so the rule is written once.
 /// </remarks>
 public static class JsModule
 {
