@@ -16,9 +16,9 @@ public sealed class OcadFileTests
     [Test]
     public void SkipsRecordsOcadMarkedDeleted()
     {
-        // Slot 2 holds the forest that was deleted while drawing base: the record is
+        // Entry 2 holds the forest that was deleted while drawing base: the record is
         // still in the file, flagged with index status 3.
-        Assert.That(Fixtures.Base.Objects.Select(o => o.Slot), Has.None.EqualTo(2));
+        Assert.That(Fixtures.Base.Objects.Select(o => o.Entry), Has.None.EqualTo(2));
     }
 
     [Test]

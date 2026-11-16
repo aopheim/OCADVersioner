@@ -21,19 +21,19 @@ public sealed class OcadSetting
     public const int ScaleType = 1039;
 
     /// <summary>The 0-based entry in the string index.</summary>
-    public int Slot { get; }
+    public int Entry { get; }
 
     public int Type { get; }
 
-    /// <summary>The object slot the string belongs to, or 0 for map-wide settings.</summary>
+    /// <summary>The object entry the string belongs to, or 0 for map-wide settings.</summary>
     public int ObjectIndex { get; }
 
     /// <summary>The string's characters, without the padding OCAD reserves after them.</summary>
     public ReadOnlyMemory<byte> Content { get; }
 
-    internal OcadSetting(int slot, int type, int objectIndex, ReadOnlyMemory<byte> reserved)
+    internal OcadSetting(int entry, int type, int objectIndex, ReadOnlyMemory<byte> reserved)
     {
-        Slot = slot;
+        Entry = entry;
         Type = type;
         ObjectIndex = objectIndex;
         int end = reserved.Span.IndexOf((byte)0);

@@ -41,17 +41,17 @@ public static class MergeAnalyzer
         }
 
         foreach (OcadObject o in @base.Objects)
-            Add($"obj:base:{o.Slot}", o, toA.GetValueOrDefault(o), toB.GetValueOrDefault(o));
+            Add($"obj:base:{o.Entry}", o, toA.GetValueOrDefault(o), toB.GetValueOrDefault(o));
 
         // Added in both branches with the same identity - e.g. the same object pasted
         // into both from a shared source - is one item, not two.
         ObjectPairing added = ObjectMatcher.Match(inA.OnlyInBranch, inB.OnlyInBranch);
         foreach ((OcadObject x, OcadObject y) in added.Pairs)
-            Add($"obj:a:{x.Slot}", null, x, y);
+            Add($"obj:a:{x.Entry}", null, x, y);
         foreach (OcadObject x in added.OnlyInBase)
-            Add($"obj:a:{x.Slot}", null, x, null);
+            Add($"obj:a:{x.Entry}", null, x, null);
         foreach (OcadObject y in added.OnlyInBranch)
-            Add($"obj:b:{y.Slot}", null, null, y);
+            Add($"obj:b:{y.Entry}", null, null, y);
 
         return items;
     }

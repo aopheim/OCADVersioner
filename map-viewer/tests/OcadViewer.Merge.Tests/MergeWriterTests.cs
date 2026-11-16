@@ -91,7 +91,7 @@ public sealed class MergeWriterTests
     {
         OcadFile merged = MergeFixtures();
 
-        Assert.That(Only(merged, Fixtures.Created.Footpath).Slot, Is.EqualTo(Only(Fixtures.Base, Fixtures.Created.Footpath).Slot));
+        Assert.That(Only(merged, Fixtures.Created.Footpath).Entry, Is.EqualTo(Only(Fixtures.Base, Fixtures.Created.Footpath).Entry));
     }
 
     [Test]

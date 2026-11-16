@@ -14,8 +14,8 @@ public sealed class ObjectMatcherTests
         ObjectPairing pairing = ObjectMatcher.Match(file.Objects, file.Objects);
 
         Assert.Multiple(() => {
-            Assert.That(pairing.Pairs.Select(p => (p.Base.Slot, p.Branch.Slot)),
-                        Is.EqualTo(file.Objects.Select(o => (o.Slot, o.Slot))));
+            Assert.That(pairing.Pairs.Select(p => (p.Base.Entry, p.Branch.Entry)),
+                        Is.EqualTo(file.Objects.Select(o => (o.Entry, o.Entry))));
             Assert.That(pairing.OnlyInBase, Is.Empty);
             Assert.That(pairing.OnlyInBranch, Is.Empty);
         });
@@ -43,14 +43,14 @@ public sealed class ObjectMatcherTests
     }
 
     [Test]
-    public void SlotNumbersAreNotIdentity()
+    public void EntryNumbersAreNotIdentity()
     {
-        // Kari's slot 10 is a new ride, Ola's slot 10 is a new knoll.
+        // Kari's entry 10 is a new ride, Ola's entry 10 is a new knoll.
         ObjectPairing kari = ObjectMatcher.Match(Fixtures.Base.Objects, Fixtures.Kari.Objects);
         ObjectPairing ola = ObjectMatcher.Match(Fixtures.Base.Objects, Fixtures.Ola.Objects);
 
-        Assert.That(kari.OnlyInBranch.Single(o => o.Slot == 10).Symbol,
-                    Is.Not.EqualTo(ola.OnlyInBranch.Single(o => o.Slot == 10).Symbol));
+        Assert.That(kari.OnlyInBranch.Single(o => o.Entry == 10).Symbol,
+                    Is.Not.EqualTo(ola.OnlyInBranch.Single(o => o.Entry == 10).Symbol));
     }
 
     [Test]

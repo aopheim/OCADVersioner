@@ -10,8 +10,8 @@ public sealed class OcadObject
 {
     private readonly FileLayout layout;
 
-    /// <summary>The 1-based slot in the object index. Not an identity: see MERGE-PLAN.md.</summary>
-    public int Slot { get; }
+    /// <summary>The 1-based entry in the object index. Not an identity: see MERGE-PLAN.md.</summary>
+    public int Entry { get; }
 
     /// <summary>The object's 40-byte index entry.</summary>
     public ReadOnlyMemory<byte> IndexEntry { get; }
@@ -21,10 +21,10 @@ public sealed class OcadObject
 
     public IReadOnlyList<OcadCoord> Coords { get; }
 
-    internal OcadObject(FileLayout layout, int slot, ReadOnlyMemory<byte> indexEntry, ReadOnlyMemory<byte> record)
+    internal OcadObject(FileLayout layout, int entry, ReadOnlyMemory<byte> indexEntry, ReadOnlyMemory<byte> record)
     {
         this.layout = layout;
-        Slot = slot;
+        Entry = entry;
         IndexEntry = indexEntry;
         Record = record;
         Coords = ReadCoords();
@@ -33,7 +33,7 @@ public sealed class OcadObject
     public FileLayout Layout => layout;
 
     /// <summary>The same object with a different record, e.g. a new creation date.</summary>
-    public OcadObject WithRecord(ReadOnlyMemory<byte> record) => new(layout, Slot, IndexEntry, record);
+    public OcadObject WithRecord(ReadOnlyMemory<byte> record) => new(layout, Entry, IndexEntry, record);
 
     /// <summary>OCAD's symbol number times 1000, e.g. 109000 for 109.0.</summary>
     public int Symbol => BitConverter.ToInt32(Record.Span);
@@ -71,7 +71,7 @@ public sealed class OcadObject
         ReadOnlySpan<byte> record = Record.Span;
         int count = BitConverter.ToInt32(record[layout.ObjectCoordCountOffset..]);
         if (count < 0 || layout.ObjectHeaderSize + (long)count * OcadCoord.Size > record.Length)
-            throw new OcadFormatException($"Object {Slot} claims more coordinates than its record holds.");
+            throw new OcadFormatException($"Object {Entry} claims more coordinates than its record holds.");
 
         OcadCoord[] coords = new OcadCoord[count];
         for (int i = 0; i < count; i++)
@@ -79,5 +79,5 @@ public sealed class OcadObject
         return coords;
     }
 
-    public override string ToString() => $"#{Slot} {Symbol / 1000.0:0.000} {Type} {CreatedAt:O}";
+    public override string ToString() => $"#{Entry} {Symbol / 1000.0:0.000} {Type} {CreatedAt:O}";
 }

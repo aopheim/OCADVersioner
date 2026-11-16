@@ -68,7 +68,7 @@ public static class OcadSplicer
         Allocator index = new(file, @base.SymbolIndex, entry => Int(entry, 0) == 0);
 
         foreach (Operation<OcadSymbol> op in operations) {
-            int entry = op.Kind == OperationKind.Add ? index.Allocate() : @base.SymbolIndex.EntryOffset(op.Target.Slot);
+            int entry = op.Kind == OperationKind.Add ? index.Allocate() : @base.SymbolIndex.EntryOffset(op.Target.Entry);
             if (op.Kind == OperationKind.Delete) {
                 file.WriteInt(entry, 0);
                 continue;
@@ -88,14 +88,14 @@ public static class OcadSplicer
 
         foreach (Operation<OcadSetting> op in operations) {
             if (op.Kind == OperationKind.Delete) {
-                int gone = @base.StringIndex.EntryOffset(op.Target.Slot);
+                int gone = @base.StringIndex.EntryOffset(op.Target.Entry);
                 file.WriteInt(gone + FileLayout.StringPosOffset, 0);
                 file.WriteInt(gone + FileLayout.StringLenOffset, 0);
                 file.WriteInt(gone + FileLayout.StringTypeOffset, 0);
                 continue;
             }
 
-            int entry = op.Kind == OperationKind.Add ? index.Allocate() : @base.StringIndex.EntryOffset(op.Target.Slot);
+            int entry = op.Kind == OperationKind.Add ? index.Allocate() : @base.StringIndex.EntryOffset(op.Target.Entry);
             byte[] text = [.. op.Source.Content.Span, 0];
             int pos = file.Append(text);
             file.WriteInt(entry + FileLayout.StringPosOffset, pos);
@@ -105,7 +105,7 @@ public static class OcadSplicer
         }
     }
 
-    private static int EntryOf(OcadFile @base, OcadObject target) => @base.ObjectIndex.EntryOffset(target.Slot - 1);
+    private static int EntryOf(OcadFile @base, OcadObject target) => @base.ObjectIndex.EntryOffset(target.Entry - 1);
 
     private static int Int(ReadOnlySpan<byte> bytes, int offset) => BitConverter.ToInt32(bytes[offset..]);
 

@@ -13,8 +13,8 @@ public static class SettingIdentity
     public static readonly IReadOnlySet<int> ViewStateTypes = new HashSet<int> { 12, 19, 24, 1024, 1030 };
 
     /// <summary>
-    /// Whether <paramref name="setting"/> is merged. Strings tied to an object slot
-    /// are not: slots are not identities, so such a string cannot be carried over
+    /// Whether <paramref name="setting"/> is merged. Strings tied to an object entry
+    /// are not: entries are not identities, so such a string cannot be carried over
     /// safely, and base's is kept.
     /// </summary>
     public static bool IsMerged(OcadSetting setting)

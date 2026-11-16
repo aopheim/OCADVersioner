@@ -21,8 +21,8 @@ public sealed record ObjectPairing(
 /// none) or whose date was changed by hand fall back to identical geometry: same
 /// symbol, same type, same coordinates. Nothing is paired on mere nearness, so a
 /// doubt becomes a delete plus an add, which is safe.</para>
-/// <para>Slot numbers are never used: a new object takes the next free slot, so
-/// the same slot holds unrelated objects in two branches.</para>
+/// <para>Entry numbers are never used: a new object takes the next free entry, so
+/// the same entry holds unrelated objects in two branches.</para>
 /// </remarks>
 public static class ObjectMatcher
 {

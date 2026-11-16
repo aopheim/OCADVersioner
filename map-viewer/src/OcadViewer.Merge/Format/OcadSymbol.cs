@@ -6,14 +6,14 @@ namespace OcadViewer.Merge.Format;
 public sealed class OcadSymbol
 {
     /// <summary>The 0-based entry in the symbol index.</summary>
-    public int Slot { get; }
+    public int Entry { get; }
 
     /// <summary>The whole record, as long as its own size field says.</summary>
     public ReadOnlyMemory<byte> Record { get; }
 
-    internal OcadSymbol(int slot, ReadOnlyMemory<byte> record)
+    internal OcadSymbol(int entry, ReadOnlyMemory<byte> record)
     {
-        Slot = slot;
+        Entry = entry;
         Record = record;
     }
 
