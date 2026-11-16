@@ -137,11 +137,10 @@
             candidates = project.OcdCandidates;
 
             if (candidates.Count == 0) {
-                // Angular writes this message in English regardless of language,
-                // with a TODO about it. Ours uses the folder name the same way but
-                // at least goes through the translation table when a key exists.
+                // Angular writes this message in English regardless of language, with
+                // a TODO about it. Ours is translated, with the folder name filled in.
                 errors.Add((ErrorType.NoOcdFileInDirectory,
-                            $"Found no .ocd file in the {project.ProjectName} folder"));
+                            L.Format("#_noOcdFileInFolder", ("folderName", project.ProjectName))));
                 return;
             }
 

@@ -7,11 +7,10 @@ namespace OcadViewer.Wasm.Services;
 /// Looks up UI strings by the keys the Angular app already uses.
 /// </summary>
 /// <remarks>
-/// Deliberately not Blazor's .resx localisation. The translations exist, they are
-/// maintained, and the Angular app is still live - copying them into .resx would
-/// mean two copies drifting apart for as long as both apps run. An MSBuild target
-/// copies <c>src/assets/i18n/*.json</c> into this app's wwwroot, so there is one
-/// source of truth until Angular is deleted.
+/// Deliberately not Blazor's .resx localisation. The translations are the Angular
+/// app's own JSON files, now kept here in <c>wwwroot/i18n</c>; the Angular build
+/// copies them from this folder for as long as it lives, so there is one set of
+/// strings for both apps and deleting Angular takes nothing with it.
 ///
 /// Keys keep their <c>#_</c> prefix for the same reason: so a string can be traced
 /// to the Angular component it came from without translating names as well.

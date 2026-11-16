@@ -1,4 +1,4 @@
-@using OcadViewer.Wasm.Services
+@inherits LocalisedComponent
 
 @*
     The list of versions down the left side. Mirrors Angular's ocad-version-list:
@@ -21,13 +21,13 @@
             }
 
             <div class="d-flex justify-content-around small">
-                <span title="Added symbols">
+                <span title="@L["#_addedSymbols"]">
                     <i class="bi bi-plus-square mx-1"></i>@item.Added
                 </span>
-                <span title="Edited symbols">
+                <span title="@L["#_editedSymbols"]">
                     <i class="bi bi-pencil mx-1"></i>@item.Edited
                 </span>
-                <span title="Deleted symbols">
+                <span title="@L["#_deletedSymbols"]">
                     <i class="bi bi-trash mx-1"></i>@item.Deleted
                 </span>
             </div>

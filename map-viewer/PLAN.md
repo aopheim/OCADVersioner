@@ -840,10 +840,11 @@ and the reason the diff above is deferred rather than cancelled.
   does not exist here yet, and rewriting a shape we do not use would be a way to
   corrupt it. The Angular app's duplicated `epsg-index` bundle is not repeated.
 - **Localisation**, en and no, read at startup from `i18n/{lang}.json` — the
-  Angular app's own translation files, staged into `wwwroot` by the
-  `StageTranslations` target rather than copied, so there is one set of strings
-  for both apps. A missing key renders as the key itself, which makes gaps
-  visible instead of blank.
+  Angular app's own translation files. They now live in this app's
+  `wwwroot/i18n` and the Angular build copies them from there (an `assets` glob in
+  `angular.json`), so there is one set of strings for both apps and deleting
+  `ocad-versioner/` takes nothing the Blazor app needs. A missing key renders as
+  the key itself, which makes gaps visible instead of blank.
 - **About page and the third-party notices link.**
 - **Application Insights telemetry and the global error handler** — see below.
 

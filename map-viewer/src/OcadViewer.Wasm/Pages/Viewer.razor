@@ -26,13 +26,13 @@
 <BusyBar Busy="Busy" />
 
 <div class="d-flex align-items-center gap-1 gap-sm-2 py-1 flex-nowrap">
-    <div class="btn-group" role="group" aria-label="How many maps">
+    <div class="btn-group" role="group" aria-label="@L["#_howManyMaps"]">
         <button class="btn @(single ? "btn-primary" : "btn-outline-secondary")"
-                @onclick="() => SetSingle(true)" disabled="@Busy" title="One map">
+                @onclick="() => SetSingle(true)" disabled="@Busy" title="@L["#_oneMap"]">
             <i class="bi bi-square"></i>
         </button>
         <button class="btn @(single ? "btn-outline-secondary" : "btn-primary")"
-                @onclick="() => SetSingle(false)" disabled="@Busy" title="Two maps, compared">
+                @onclick="() => SetSingle(false)" disabled="@Busy" title="@L["#_twoMapsCompared"]">
             <i class="bi bi-layout-split"></i>
         </button>
     </div>
@@ -78,12 +78,12 @@
                 <label for="@InputId(side)" class="paneEmpty">
                     <i class="bi bi-folder2-open display-6"></i>
                     <span class="fw-medium">@PaneLabel(side)</span>
-                    <span class="text-muted small">Tap to choose a map, or drop an OCAD file here</span>
+                    <span class="text-muted small">@L["#_tapToChooseMap"]</span>
                 </label>
             }
             else {
                 <label for="@InputId(side)" class="btn btn-light btn-sm border paneButton"
-                       title="Choose another map">
+                       title="@L["#_chooseAnotherMap"]">
                     <i class="bi bi-folder2-open"></i> @PaneLabel(side): @files[side]
                 </label>
             }
@@ -154,7 +154,7 @@
     private static string InputId(MapSide side) => $"mapFile{side}";
 
     private string PaneLabel(MapSide side)
-        => single ? "Map" : side == Older ? "Older" : "Newer";
+        => L[single ? "#_map" : side == Older ? "#_older" : "#_newer"];
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -181,7 +181,7 @@
 
         // Waits rather than being dropped if something else is running: a file
         // dropped during a long parse is still what the user wants to see.
-        await RunWhenIdle($"Loading {name}…", async () => {
+        await RunWhenIdle(L.Format("#_loadingMap", ("name", name)), async () => {
             // A newer choice for this pane arrived while this one waited. The
             // input holds that one now, and it will load it itself.
             if (choice != choices[side])
@@ -191,7 +191,7 @@
             // out every file whose type they do not recognise.
             if (!FolderLayout.IsMapFile(name))
                 throw new InvalidOperationException(
-                    $"{name} is not an OCAD map ({FolderLayout.MapExtension}).");
+                    L.Format("#_notAnOcadMap", ("name", name), ("extension", FolderLayout.MapExtension)));
 
             await mapPair.ShowFileAsync(side, KeyFor(side), inputs[side]);
             files[side] = name;
@@ -214,7 +214,7 @@
         // and the workspace took it off the screen. Back to two maps, the switch
         // may still say it is on, so bring the picture back in line with it.
         if (Comparing)
-            await Run("Finding changes…", () => overlay.ApplyAsync(KeyFor(Older), KeyFor(Newer)));
+            await Run(L["#_findingChanges"], () => overlay.ApplyAsync(KeyFor(Older), KeyFor(Newer)));
     }
 
     /// <summary>
