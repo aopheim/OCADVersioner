@@ -2,7 +2,6 @@
 @inject AppSettingsService SettingsService
 @inherits LocalisedComponent
 @inject IJSRuntime JS
-@implements IAsyncDisposable
 
 @*
     Settings, as the Angular app's app-settings-modal: a real Bootstrap modal,
@@ -157,7 +156,7 @@
         StateHasChanged();
     }
 
-    public async ValueTask DisposeAsync()
+    protected override async ValueTask DisposeAsyncCore()
     {
         await ui.ReleaseAsync();
         self?.Dispose();

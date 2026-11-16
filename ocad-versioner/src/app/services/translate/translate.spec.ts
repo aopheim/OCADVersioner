@@ -1,6 +1,6 @@
 import { Dictionary } from 'lodash'
-import langNO from '../../../../../map-viewer/src/OcadViewer.Wasm/wwwroot/i18n/no.json'
-import langEN from '../../../../../map-viewer/src/OcadViewer.Wasm/wwwroot/i18n/en.json'
+import langNO from '../../../assets/i18n/no.json'
+import langEN from '../../../assets/i18n/en.json'
 
 const langs: Dictionary<Dictionary<string>> = {
     NO: langNO,

@@ -27,11 +27,6 @@
                         "assets": [
                             "src/favicon.ico",
                             "src/assets",
-                            {
-                                "glob": "*.json",
-                                "input": "../map-viewer/src/OcadViewer.Wasm/wwwroot/i18n",
-                                "output": "assets/i18n"
-                            },
                             "src/staticwebapp.config.json"
                         ],
                         "styles": [
@@ -93,15 +88,7 @@
                         "polyfills": ["zone.js", "zone.js/testing"],
                         "tsConfig": "tsconfig.spec.json",
                         "inlineStyleLanguage": "scss",
-                        "assets": [
-                            "src/favicon.ico",
-                            "src/assets",
-                            {
-                                "glob": "*.json",
-                                "input": "../map-viewer/src/OcadViewer.Wasm/wwwroot/i18n",
-                                "output": "assets/i18n"
-                            }
-                        ],
+                        "assets": ["src/favicon.ico", "src/assets"],
                         "styles": ["src/styles.scss"],
                         "scripts": []
                         // This results in building the web worker, which fails in testing, because it references 'Window' and other elements not available in a server environment

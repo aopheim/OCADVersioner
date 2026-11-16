@@ -1,3 +1,5 @@
+using OcadViewer.Wasm.Services;
+
 namespace OcadViewer.Wasm.Components;
 
 /// <summary>
@@ -21,7 +23,13 @@ public abstract class BusyPage : LocalisedComponent
     protected bool Blocked => blocking > 0;
 
     /// <summary>What is happening, or why the last action failed; null when idle.</summary>
-    protected string Status { get; private set; }
+    /// <remarks>
+    /// Held as a function and read at render time, so a message on screen
+    /// follows a language switch like every other string on the page.
+    /// </remarks>
+    protected string Status => status?.Invoke();
+
+    private Func<string> status;
 
     /// <summary>Whether <see cref="Status"/> is an error.</summary>
     protected bool Failed { get; private set; }
@@ -45,7 +53,7 @@ public abstract class BusyPage : LocalisedComponent
     /// first interleaves with it: each sets one pane, and the two end up from
     /// different comparisons under a heading that names neither.
     /// </remarks>
-    protected Task Run(string message, Func<Task> action)
+    protected Task Run(Func<string> message, Func<Task> action)
         => Busy ? Task.CompletedTask : RunCore(message, action, takesOver: false);
 
     /// <summary>
@@ -59,7 +67,7 @@ public abstract class BusyPage : LocalisedComponent
     /// ignored while anything else runs: a refresh or a version being written
     /// changes what the load would be reading.
     /// </remarks>
-    protected Task RunTakingOver(string message, Func<Task> action)
+    protected Task RunTakingOver(Func<string> message, Func<Task> action)
         => Blocked ? Task.CompletedTask : RunCore(message, action, takesOver: true);
 
     /// <summary>
@@ -72,7 +80,7 @@ public abstract class BusyPage : LocalisedComponent
     /// The loop matters - several waiters wake together, the first starts its
     /// action and the rest find the page busy again and go back to waiting.
     /// </remarks>
-    protected async Task RunWhenIdle(string message, Func<Task> action)
+    protected async Task RunWhenIdle(Func<string> message, Func<Task> action)
     {
         while (Busy)
             await idle.Task;
@@ -81,9 +89,9 @@ public abstract class BusyPage : LocalisedComponent
     }
 
     /// <summary>Says what the running action is doing now, and how far it is.</summary>
-    protected void Report(string message, double? progress)
+    protected void Report(Func<string> message, double? progress)
     {
-        Status = message;
+        status = message;
         Progress = progress;
         StateHasChanged();
     }
@@ -94,7 +102,7 @@ public abstract class BusyPage : LocalisedComponent
     /// message only when nothing else is running and nothing has failed
     /// meanwhile, so it never wipes out a successor's message or its error.
     /// </remarks>
-    private async Task RunCore(string message, Func<Task> action, bool takesOver)
+    private async Task RunCore(Func<string> message, Func<Task> action, bool takesOver)
     {
         if (running++ == 0)
             idle = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -109,11 +117,14 @@ public abstract class BusyPage : LocalisedComponent
             await action();
 
             if (running == 1 && !Failed)
-                Status = null;
+                status = null;
         }
         catch (Exception ex) {
             Failed = true;
-            Status = ex.Message;
+            // A localised failure keeps its key, so it follows a language switch
+            // like the rest of the page; anything else has only its message.
+            string failure = ex.Message;
+            status = ex is LocalisedException localised ? localised.Text : () => failure;
         }
         finally {
             if (!takesOver)

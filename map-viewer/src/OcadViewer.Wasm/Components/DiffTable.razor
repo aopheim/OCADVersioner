@@ -23,7 +23,7 @@
 </ul>
 
 @if (!Available) {
-    <div class="alert alert-secondary mt-3 mb-0">@L[UnavailableReason]</div>
+    <div class="alert alert-secondary mt-3 mb-0">@L[UnavailableReasonKey ?? "#_nothingToShow"]</div>
 }
 
 <div class="table-responsive mt-3">
@@ -86,7 +86,7 @@
 
     [Parameter, EditorRequired] public MapDiff Diff { get; set; } = MapDiff.Empty;
     [Parameter] public bool Available { get; set; }
-    [Parameter] public string UnavailableReason { get; set; }
+    [Parameter] public string UnavailableReasonKey { get; set; }
 
     private DiffTableView Current { get; set; } = DiffTableView.Added;
 

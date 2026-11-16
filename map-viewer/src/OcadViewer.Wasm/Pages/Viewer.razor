@@ -3,7 +3,6 @@
 @using OcadViewer.Wasm.Components
 @using OcadViewer.Wasm.Services
 @inherits BusyPage
-@implements IAsyncDisposable
 @inject IJSRuntime JS
 
 <PageTitle>@L["#_OCADVersioner"]</PageTitle>
@@ -41,7 +40,7 @@
        shortcut survive a trip to single-map mode and back. *@
     <ChangeOverlayToggle @ref="overlay" MapPair="mapPair"
                          Older="@KeyFor(Older)" Newer="@KeyFor(Newer)"
-                         OlderLabel="@files[Older]"
+                         OlderLabel="@(files[Older] ?? PaneLabel(Older))"
                          Available="Comparing"
                          Busy="Busy" Run="Run" Large="true" />
 
@@ -181,7 +180,7 @@
 
         // Waits rather than being dropped if something else is running: a file
         // dropped during a long parse is still what the user wants to see.
-        await RunWhenIdle(L.Format("#_loadingMap", ("name", name)), async () => {
+        await RunWhenIdle(() => L.Format("#_loadingMap", ("name", name)), async () => {
             // A newer choice for this pane arrived while this one waited. The
             // input holds that one now, and it will load it itself.
             if (choice != choices[side])
@@ -190,7 +189,7 @@
             // Checked here rather than filtered in the picker: some phones grey
             // out every file whose type they do not recognise.
             if (!FolderLayout.IsMapFile(name))
-                throw new InvalidOperationException(
+                throw new LocalisedException(() =>
                     L.Format("#_notAnOcadMap", ("name", name), ("extension", FolderLayout.MapExtension)));
 
             await mapPair.ShowFileAsync(side, KeyFor(side), inputs[side]);
@@ -214,7 +213,7 @@
         // and the workspace took it off the screen. Back to two maps, the switch
         // may still say it is on, so bring the picture back in line with it.
         if (Comparing)
-            await Run(L["#_findingChanges"], () => overlay.ApplyAsync(KeyFor(Older), KeyFor(Newer)));
+            await Run(() => L["#_findingChanges"], () => overlay.ApplyAsync(KeyFor(Older), KeyFor(Newer)));
     }
 
     /// <summary>
@@ -228,7 +227,7 @@
     private static string FileNameOf(string value)
         => value?.Split('\\', '/').LastOrDefault();
 
-    public async ValueTask DisposeAsync()
+    protected override async ValueTask DisposeAsyncCore()
     {
         foreach (IJSObjectReference drop in drops)
             await drop.ReleaseAsync("dispose");

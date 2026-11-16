@@ -78,7 +78,7 @@ public interface IDiffSource
     /// <summary>
     /// Why no comparison is available, as a translation key the UI looks up.
     /// </summary>
-    string UnavailableReason { get; }
+    string UnavailableReasonKey { get; }
 
     Task<MapDiff> CompareAsync(string olderVersion, string newerVersion);
 }
@@ -91,7 +91,7 @@ public sealed class NoDiffSource : IDiffSource
 {
     public bool IsAvailable => false;
 
-    public string UnavailableReason => "#_diffNotImplemented";
+    public string UnavailableReasonKey => "#_diffNotImplemented";
 
     public Task<MapDiff> CompareAsync(string olderVersion, string newerVersion)
         => Task.FromResult(MapDiff.Empty);

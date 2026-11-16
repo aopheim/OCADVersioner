@@ -73,7 +73,7 @@
     /// line. The toggle has none of its own, so a failure is reported where
     /// every other failure on the page is.
     /// </summary>
-    [Parameter, EditorRequired] public Func<string, Func<Task>, Task> Run { get; set; }
+    [Parameter, EditorRequired] public Func<Func<string>, Func<Task>, Task> Run { get; set; }
 
     /// <summary>Also offer to zoom to what the overlay shows.</summary>
     [Parameter] public bool ShowZoom { get; set; }
@@ -144,7 +144,7 @@
         if (!Available)
             return;
 
-        await Run(L["#_findingChanges"], async () => {
+        await Run(() => L["#_findingChanges"], async () => {
             showChanges = !showChanges;
             // A click or key press comes after a render, so these are current.
             await ApplyAsync(Older, Newer);
@@ -153,7 +153,7 @@
 
     /// <summary>Frames whatever the overlay is showing, however small it is.</summary>
     private async Task ZoomAsync()
-        => await Run(L["#_zooming"], async () => await MapPair.ZoomToChangesAsync());
+        => await Run(() => L["#_zooming"], async () => await MapPair.ZoomToChangesAsync());
 
     /// <summary>
     /// How much of the map the overlay is lighting up, or null.
