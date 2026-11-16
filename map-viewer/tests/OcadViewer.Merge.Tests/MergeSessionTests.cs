@@ -61,6 +61,33 @@ public sealed class MergeSessionTests
     }
 
     [Test]
+    public void ForgettingAnOverlapDecisionOpensItAgain()
+    {
+        MergeSession session = Start();
+        OverlapGroup group = session.Analysis.Overlaps[0];
+        session.DecideOverlap(group, Choice.Both);
+
+        session.Forget(group.Key);
+
+        Assert.Multiple(() => {
+            Assert.That(session.Resolution.IsResolved(group), Is.False);
+            Assert.That(session.CanUndo, Is.True);
+        });
+    }
+
+    [Test]
+    public void ForgettingARejectionAcceptsTheCleanChangeAgain()
+    {
+        MergeSession session = Start();
+        ObjectItem lake = session.Analysis.Objects.Single(i => i.Base?.CreatedAt == Fixtures.Created.Lake);
+        session.Decide(lake, Choice.Base);
+
+        session.Forget(lake.Key);
+
+        Assert.That(session.Resolution.ChoiceFor(lake), Is.EqualTo(Choice.A));
+    }
+
+    [Test]
     public void APreviewCanBeWrittenWhileConflictsAreOpen()
     {
         MergeSession session = Start();

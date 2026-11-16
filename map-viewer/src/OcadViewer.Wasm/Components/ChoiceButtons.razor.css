@@ -1,0 +1,33 @@
+.choice-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.choice {
+    border: 1px solid var(--bs-border-color);
+    background: #fff;
+}
+
+.choice.side-a { border-color: #0E8A93; color: #0B7A82; font-weight: 600; }
+.choice.side-b { border-color: #E26A0A; color: #B35309; font-weight: 600; }
+
+.choice.current {
+    background: var(--bs-body-color);
+    border-color: var(--bs-body-color);
+    color: #fff;
+}
+
+.choice-buttons.large {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.choice-buttons.large .choice {
+    font-size: 1rem;
+    font-weight: 600;
+    min-height: 52px;
+    border-width: 2px;
+}

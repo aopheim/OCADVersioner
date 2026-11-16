@@ -29,8 +29,11 @@ public sealed class MergeSession(MergeAnalysis analysis)
 
     public void Decide(MergeItem item, Choice choice) => Change(d => d.Decide(item, choice));
 
-    /// <summary>Back to the default for <paramref name="item"/>: accepted if clean, open if a conflict.</summary>
-    public void Forget(MergeItem item) => Change(d => d.Forget(item.Key));
+    /// <summary>
+    /// Back to the default for an item or overlap, by key: a clean change accepted,
+    /// a conflict open again.
+    /// </summary>
+    public void Forget(string key) => Change(d => d.Forget(key));
 
     public void DecideOverlap(OverlapGroup group, Choice choice) => Change(d => d.DecideOverlap(group.Key, choice));
 

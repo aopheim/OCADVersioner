@@ -106,6 +106,7 @@ public sealed class OrthogonalityTests
         ["leafletViewport.js"] = ["tilePump.js"],
         ["mapWorkspace.js"] = ["projectFolder.js", "mapTiles.js", "leafletViewport.js", "changeMask.js"],
         ["mergeOverlay.js"] = [],
+        ["fileSave.js"] = [],
         // The merge screen's composition root, the counterpart of mapWorkspace.js.
         ["mergeWorkspace.js"] = ["mapTiles.js", "leafletViewport.js", "mergeOverlay.js"],
     };

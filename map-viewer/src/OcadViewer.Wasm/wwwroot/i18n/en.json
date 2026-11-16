@@ -147,5 +147,19 @@
     "#_mergeSettingType": "Setting {{type}}",
     "#_mergeNothingHere": "Nothing here.",
     "#_mergeNoChanges": "Neither copy changed anything.",
-    "#_mergeOpenCount": "{{count}} open"
+    "#_mergeOpenCount": "{{count}} open",
+    "#_mergeTake": "Take {{name}}",
+    "#_mergeKeepBoth": "Keep both",
+    "#_mergeKeepBase": "Keep base",
+    "#_mergeReject": "Reject",
+    "#_mergeAccept": "Accept again",
+    "#_mergeRejected": "Rejected",
+    "#_mergeChange": "Change",
+    "#_mergeUndo": "Undo",
+    "#_mergeRedo": "Redo",
+    "#_mergeSave": "Save merged map…",
+    "#_mergeSaveBlocked": "Decide every conflict before saving.",
+    "#_mergeSaving": "Writing the merged map…",
+    "#_mergeSaved": "Saved as {{file}}. The files you picked are unchanged.",
+    "#_mergeMergedSuffix": "merged"
 }

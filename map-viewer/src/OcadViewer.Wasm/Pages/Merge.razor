@@ -1,9 +1,13 @@
 @page "/merge"
 @using OcadViewer.Merge
+@using Microsoft.JSInterop
 @using OcadViewer.Merge.Analysis
+@using OcadViewer.Merge.Decisions
+@using OcadViewer.Versioning
 @using OcadViewer.Wasm.Components
 @using OcadViewer.Wasm.Services
 @inherits BusyPage
+@inject IJSRuntime JS
 
 <PageTitle>@L["#_merge"] · @L["#_OCADVersioner"]</PageTitle>
 
@@ -23,6 +27,21 @@
         </span>
         <span class="flex-grow-1"></span>
         <span class="small text-muted">@ProgressText</span>
+        <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-secondary" disabled="@(Busy || !session.CanUndo)"
+                    @onclick="() => ApplyAsync(s => s.Undo())" title="@L["#_mergeUndo"]">
+                <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> @L["#_mergeUndo"]
+            </button>
+            <button type="button" class="btn btn-outline-secondary" disabled="@(Busy || !session.CanRedo)"
+                    @onclick="() => ApplyAsync(s => s.Redo())" title="@L["#_mergeRedo"]">
+                <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> @L["#_mergeRedo"]
+            </button>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" @onclick="SaveAsync"
+                disabled="@(Busy || !session.Resolution.IsComplete)"
+                title="@(session.Resolution.IsComplete ? null : L["#_mergeSaveBlocked"])">
+            @L["#_mergeSave"]
+        </button>
         <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="StartOver" disabled="@Busy">
             @L["#_mergeStartOver"]
         </button>
@@ -31,6 +50,8 @@
 
 @if (Status is not null) {
     <p class="@(Failed ? "text-danger" : "text-muted") mb-1">@Status</p>
+} else if (saved is not null) {
+    <p class="text-success mb-1">@L.Format("#_mergeSaved", ("file", saved))</p>
 }
 
 @if (session is null) {
@@ -68,7 +89,12 @@
 
         <div class="merge-side">
             <ChangePanel Session="session" LabelA="@start.LabelA" LabelB="@start.LabelB"
-                         @bind-Tab="tab" SelectedKey="@selected" OnSelect="SelectAndZoom" />
+                         @bind-Tab="tab" SelectedKey="@selected" OnSelect="SelectAndZoom">
+                <Actions Context="entry">
+                    <ChoiceButtons Source="entry.Source" Session="session" LabelA="@start.LabelA" LabelB="@start.LabelB"
+                                   Disabled="Busy" OnChoose="Choose" />
+                </Actions>
+            </ChangePanel>
         </div>
     </div>
 }
@@ -85,6 +111,7 @@
     private double fade = 0.45;
     private MergeTab tab;
     private string selected;
+    private string saved;
 
     private IEnumerable<(string Key, string Name)> Layers => [
         (ResultLayer, L["#_mergeResult"]),
@@ -136,6 +163,7 @@
     private Task ApplyAsync(Action<MergeSession> change)
         => RunWhenIdle(() => L["#_mergeDrawing"], async () => {
             change(session);
+            saved = null;
             await RefreshResultAsync();
         });
 
@@ -163,10 +191,23 @@
         await map.ZoomToAsync(MergePane, key);
     }
 
+    private Task Choose((object Source, Choice? Choice) chosen)
+        => ApplyAsync(s => MergeChoices.Apply(s, chosen.Source, chosen.Choice));
+
+    private Task SaveAsync()
+        => Run(() => L["#_mergeSaving"], async () => {
+            string fileName = $"{Path.GetFileNameWithoutExtension(start.Base.FileName)}-{L["#_mergeMergedSuffix"]}{FolderLayout.MapExtension}";
+            byte[] merged = session.Write(DateTime.Now);
+            await using IJSObjectReference saver = await JS.ImportAsync("./js/fileSave.js");
+            await saver.InvokeVoidAsync("download", fileName, merged);
+            saved = fileName;
+        });
+
     private void StartOver()
     {
         session = null;
         start = null;
+        saved = null;
         selected = null;
         layer = ResultLayer;
     }
