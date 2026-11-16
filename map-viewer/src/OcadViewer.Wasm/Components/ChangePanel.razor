@@ -1,0 +1,63 @@
+@using OcadViewer.Merge
+@using OcadViewer.Wasm.Services
+@inherits LocalisedComponent
+
+@*
+    The merge screen's side panel: what changed, by tab. Picking a row selects
+    it on the map. What each row may do about itself is the page's business,
+    passed in as Actions.
+*@
+<section class="merge-panel">
+    <nav class="merge-tabs" role="tablist">
+        @foreach (MergeTab tab in Enum.GetValues<MergeTab>()) {
+            int count = MergePanelEntries.Count(tab, Session, LabelA, LabelB, L);
+            <button type="button" role="tab" aria-selected="@(tab == Tab)"
+                    class="merge-tab @(tab == Tab ? "active" : null)" @onclick="() => TabChanged.InvokeAsync(tab)">
+                @TabName(tab)
+                @if (tab == MergeTab.Conflicts && OpenCount > 0) {
+                    <span class="badge rounded-pill text-bg-danger ms-1">@L.Format("#_mergeOpenCount", ("count", OpenCount))</span>
+                } else {
+                    <span class="badge rounded-pill text-bg-light ms-1">@count</span>
+                }
+            </button>
+        }
+    </nav>
+
+    <div class="merge-entries">
+        @{ IReadOnlyList<PanelEntry> entries = MergePanelEntries.For(Tab, Session, LabelA, LabelB, L); }
+        @if (entries.Count == 0) {
+            <p class="text-muted small m-2">@L["#_mergeNothingHere"]</p>
+        }
+        @foreach (PanelEntry entry in entries) {
+            <article class="merge-entry side-@entry.Side @(entry.Open ? "open" : null) @(entry.Key == SelectedKey ? "selected" : null)">
+                <button type="button" class="merge-entry-pick" @onclick="() => OnSelect.InvokeAsync(entry.Key)">
+                    <span class="merge-entry-title">@entry.Title</span>
+                    <span class="merge-entry-detail">@entry.Detail</span>
+                </button>
+                @Actions?.Invoke(entry)
+            </article>
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public MergeSession Session { get; set; }
+    [Parameter] public string LabelA { get; set; }
+    [Parameter] public string LabelB { get; set; }
+    [Parameter] public MergeTab Tab { get; set; }
+    [Parameter] public EventCallback<MergeTab> TabChanged { get; set; }
+    [Parameter] public string SelectedKey { get; set; }
+    [Parameter] public EventCallback<string> OnSelect { get; set; }
+
+    /// <summary>What a row offers, e.g. decision buttons. Rendered under the row.</summary>
+    [Parameter] public RenderFragment<PanelEntry> Actions { get; set; }
+
+    private int OpenCount => Session.Resolution.Unresolved.Count;
+
+    private string TabName(MergeTab tab) => tab switch {
+        MergeTab.Conflicts => L["#_mergeConflicts"],
+        MergeTab.A => LabelA,
+        MergeTab.B => LabelB,
+        _ => L["#_mergeSymbolsAndColours"],
+    };
+}

@@ -105,6 +105,9 @@ public sealed class OrthogonalityTests
         ["mapTiles.js"] = ["dotnetExports.js"],
         ["leafletViewport.js"] = ["tilePump.js"],
         ["mapWorkspace.js"] = ["projectFolder.js", "mapTiles.js", "leafletViewport.js", "changeMask.js"],
+        ["mergeOverlay.js"] = [],
+        // The merge screen's composition root, the counterpart of mapWorkspace.js.
+        ["mergeWorkspace.js"] = ["mapTiles.js", "leafletViewport.js", "mergeOverlay.js"],
     };
 
     [Test]
@@ -133,8 +136,8 @@ public sealed class OrthogonalityTests
         }
 
         Assert.That(violations, Is.Empty,
-            "Only mapWorkspace.js may know about more than one of these at a time: it is the "
-            + "composition root. In particular the Leaflet module must not reach the .NET runtime, "
+            "Only mapWorkspace.js and mergeWorkspace.js may know about more than one of these at a "
+            + "time: they are the composition roots. In particular the Leaflet module must not reach the .NET runtime, "
             + "or the viewport cannot be loaded, tested or reused without Blazor underneath it.");
     }
 

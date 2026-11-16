@@ -1,0 +1,47 @@
+.merge-setup {
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 24px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.merge-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.merge-card, .merge-checks {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 10px;
+    padding: 16px;
+    background: #fff;
+}
+
+.merge-card.role-a { border: 2px solid #0E8A93; }
+.merge-card.role-b { border: 2px solid #E26A0A; }
+
+.merge-card-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    margin-bottom: 8px;
+}
+
+.merge-file {
+    display: flex;
+    flex-direction: column;
+}
+
+.merge-check {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+}
+
+.merge-check.ok i { color: #1c6b3a; }
+.merge-check.warn i { color: #8a5a00; }

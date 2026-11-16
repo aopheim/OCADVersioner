@@ -1,0 +1,98 @@
+@using Microsoft.JSInterop
+@using OcadViewer.Wasm.Services
+@inherits LocalisedComponent
+@inject IJSRuntime JS
+
+@*
+    Leaflet panes for the merge: one on the merge screen, three in the conflict
+    walker. Everything about tiles and outlines happens in mergeWorkspace.js; this
+    component hands it bytes and features and reports what the user clicked.
+*@
+<div class="merge-panes" style="--merge-fade:@(Fade.ToString(System.Globalization.CultureInfo.InvariantCulture))">
+    @foreach (string pane in Panes) {
+        <div class="merge-pane-wrap">
+            @if (Captions?.TryGetValue(pane, out string caption) == true) {
+                <div class="merge-pane-caption">@caption</div>
+            }
+            <div class="merge-pane" @ref="elements[pane]"></div>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>The panes, by name. Fixed for the component's lifetime.</summary>
+    [Parameter] public IReadOnlyList<string> Panes { get; set; } = ["merge"];
+
+    [Parameter] public IReadOnlyDictionary<string, string> Captions { get; set; }
+
+    /// <summary>How visible the map under the outlines is, 0 to 1.</summary>
+    [Parameter] public double Fade { get; set; } = 0.45;
+
+    /// <summary>The key of the outline the user clicked.</summary>
+    [Parameter] public EventCallback<string> OnPick { get; set; }
+
+    private readonly Dictionary<string, ElementReference> elements = [];
+    private readonly TaskCompletionSource ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private IJSObjectReference module;
+    private IJSObjectReference workspace;
+    private DotNetObjectReference<MergeMap> self;
+
+    /// <summary>Completes once the panes exist and can be drawn on.</summary>
+    public Task Ready => ready.Task;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+        try {
+            module = await JS.ImportAsync("./js/mergeWorkspace.js");
+            self = DotNetObjectReference.Create(this);
+            workspace = await module.InvokeAsync<IJSObjectReference>("createMergeWorkspace", elements, self);
+            ready.TrySetResult();
+        }
+        catch (Exception ex) {
+            ready.TrySetException(ex);
+        }
+    }
+
+    /// <summary>Parses a file into the map store under <paramref name="key"/>.</summary>
+    public async Task LoadAsync(string key, string fileName, byte[] bytes)
+    {
+        await Ready;
+        await workspace.InvokeAsync<string>("load", key, fileName, bytes);
+    }
+
+    public async Task ShowAsync(string pane, string key)
+    {
+        await Ready;
+        await workspace.InvokeVoidAsync("show", pane, key);
+    }
+
+    public async Task SetFeaturesAsync(string pane, string json)
+    {
+        await Ready;
+        await workspace.InvokeVoidAsync("setFeatures", pane, json);
+    }
+
+    public async Task SelectAsync(string pane, string key)
+    {
+        await Ready;
+        await workspace.InvokeVoidAsync("select", pane, key);
+    }
+
+    public async Task ZoomToAsync(string pane, string key)
+    {
+        await Ready;
+        await workspace.InvokeAsync<bool>("zoomTo", pane, key);
+    }
+
+    [JSInvokable]
+    public Task Pick(string pane, string key) => OnPick.InvokeAsync(key);
+
+    protected override async ValueTask DisposeAsyncCore()
+    {
+        await workspace.ReleaseAsync("dispose");
+        await module.ReleaseAsync();
+        self?.Dispose();
+    }
+}

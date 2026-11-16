@@ -61,20 +61,6 @@ public sealed class MergeSessionTests
     }
 
     [Test]
-    public void ReportsEveryChange()
-    {
-        MergeSession session = Start();
-        int changes = 0;
-        session.Changed += () => changes++;
-
-        session.Decide(Forest(session), Choice.A);
-        session.DecideOverlap(session.Analysis.Overlaps[0], Choice.Both);
-        session.Undo();
-
-        Assert.That(changes, Is.EqualTo(3));
-    }
-
-    [Test]
     public void APreviewCanBeWrittenWhileConflictsAreOpen()
     {
         MergeSession session = Start();

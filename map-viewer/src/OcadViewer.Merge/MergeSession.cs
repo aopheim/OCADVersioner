@@ -9,8 +9,7 @@ namespace OcadViewer.Merge;
 /// What a merge screen holds, with no screen in it.
 /// </summary>
 /// <remarks>
-/// Every change goes through one door, so each is one undo step and every
-/// listener hears about it.
+/// Every change goes through one door, so each is one undo step.
 /// </remarks>
 public sealed class MergeSession(MergeAnalysis analysis)
 {
@@ -24,9 +23,6 @@ public sealed class MergeSession(MergeAnalysis analysis)
 
     /// <summary>The decisions applied to the analysis. Recomputed after each change.</summary>
     public MergeResolution Resolution => resolution ??= new MergeResolution(Analysis, Decisions);
-
-    /// <summary>Raised after every change to the decisions, undo and redo included.</summary>
-    public event Action Changed;
 
     public bool CanUndo => undo.Count > 0;
     public bool CanRedo => redo.Count > 0;
@@ -83,6 +79,5 @@ public sealed class MergeSession(MergeAnalysis analysis)
     {
         Decisions = decisions;
         resolution = null;
-        Changed?.Invoke();
     }
 }
