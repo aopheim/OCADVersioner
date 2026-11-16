@@ -6,18 +6,21 @@ namespace OcadViewer.Merge.Writing;
 /// <summary>Turns resolved choices into operations on base's file.</summary>
 public static class MergePlanner
 {
-    /// <exception cref="InvalidOperationException">A conflict or overlap is still undecided.</exception>
-    public static MergePlan Plan(MergeResolution resolution)
+    /// <param name="preview">Plan what the map looks like so far: undecided conflicts
+    /// stay as base. A preview is for showing, never for saving.</param>
+    /// <exception cref="InvalidOperationException">A conflict or overlap is still undecided
+    /// and this is not a preview.</exception>
+    public static MergePlan Plan(MergeResolution resolution, bool preview = false)
     {
-        if (!resolution.IsComplete)
+        if (!preview && !resolution.IsComplete)
             throw new InvalidOperationException(
                 $"{resolution.Unresolved.Count} conflict(s) still need a decision before the merged map can be written.");
 
         MergeAnalysis analysis = resolution.Analysis;
         return new MergePlan(
-            [.. analysis.Objects.SelectMany(i => For(i, resolution.ChoiceFor(i).Value))],
-            [.. analysis.Symbols.SelectMany(i => For(i, resolution.ChoiceFor(i).Value))],
-            [.. analysis.Settings.SelectMany(i => For(i, resolution.ChoiceFor(i).Value))]);
+            [.. analysis.Objects.SelectMany(i => For(i, resolution.ChoiceFor(i) ?? Choice.Base))],
+            [.. analysis.Symbols.SelectMany(i => For(i, resolution.ChoiceFor(i) ?? Choice.Base))],
+            [.. analysis.Settings.SelectMany(i => For(i, resolution.ChoiceFor(i) ?? Choice.Base))]);
     }
 
     private static IEnumerable<Operation<T>> For<T>(MergeItem<T> item, Choice choice) where T : class
