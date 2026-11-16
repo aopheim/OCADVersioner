@@ -9,13 +9,14 @@ namespace OcadViewer.ArchitectureTests;
 /// </summary>
 /// <remarks>
 /// The intended shape is a single chain pointing inward, from the hosts to the
-/// vendored renderer, with a domain project hanging off the side that depends on
+/// vendored renderer, with domain projects hanging off the side that depend on
 /// nothing:
 ///
 /// <code>
 ///   Graphics2D ← MapModel ← Map_SkiaStd ← OcadViewer.Core ← RenderCli
 ///                                              ↑
 ///                      OcadViewer.Versioning ← OcadViewer.Wasm
+///                      OcadViewer.Merge      ←┘
 /// </code>
 ///
 /// Nothing in the compiler keeps it that way: one <c>using</c> of
@@ -36,9 +37,11 @@ public sealed class ProjectDependencyTests
         ["Map_SkiaStd"] = ["Graphics2D", "MapModel"],
         ["OcadViewer.Core"] = ["Map_SkiaStd"],
         ["OcadViewer.Versioning"] = [],
+        ["OcadViewer.Merge"] = [],
         ["OcadViewer.RenderCli"] = ["OcadViewer.Core"],
         ["OcadViewer.Wasm"] = ["OcadViewer.Core", "OcadViewer.Versioning"],
         ["OcadViewer.ArchitectureTests"] = ["OcadViewer.Versioning"],
+        ["OcadViewer.Merge.Tests"] = ["OcadViewer.Merge"],
     };
 
     /// <summary>Packages that only a UI host has any business referencing.</summary>
@@ -119,16 +122,22 @@ public sealed class ProjectDependencyTests
         }
     }
 
-    [Test]
-    public void TheDomainProjectDependsOnNothingAtAll()
+    /// <summary>
+    /// The domain projects. Versioning states the contract this app shares with the
+    /// Angular app; Merge reads and writes OCAD files byte for byte. Both have to
+    /// stay testable without a browser, a renderer or a vendored assembly.
+    /// </summary>
+    [TestCase("OcadViewer.Versioning")]
+    [TestCase("OcadViewer.Merge")]
+    public void TheDomainProjectsDependOnNothingAtAll(string name)
     {
-        Project versioning = Find("OcadViewer.Versioning");
+        Project domain = Find(name);
 
         Assert.Multiple(() => {
-            Assert.That(versioning.ProjectReferences, Is.Empty,
-                "OcadViewer.Versioning states the contract this app shares with the Angular app. "
-                + "It has to stay testable without a browser, a renderer or a vendored assembly.");
-            Assert.That(versioning.PackageReferences, Is.Empty,
+            Assert.That(domain.ProjectReferences, Is.Empty,
+                $"{name} is domain code. It has to stay testable without a browser, a renderer "
+                + "or a vendored assembly.");
+            Assert.That(domain.PackageReferences, Is.Empty,
                 "Not even a package. Its only dependency is the framework.");
         });
     }
