@@ -12,7 +12,13 @@ namespace OcadViewer.Wasm.Components;
 public abstract class BusyPage : LocalisedComponent
 {
     /// <summary>True while an action started through <see cref="Run"/> is running.</summary>
-    protected bool Busy { get; private set; }
+    protected bool Busy => running > 0;
+
+    /// <summary>
+    /// True while an action is running that a newer one may not take over -
+    /// anything but an action started with <see cref="RunTakingOver"/>.
+    /// </summary>
+    protected bool Blocked => blocking > 0;
 
     /// <summary>What is happening, or why the last action failed; null when idle.</summary>
     protected string Status { get; private set; }
@@ -20,7 +26,15 @@ public abstract class BusyPage : LocalisedComponent
     /// <summary>Whether <see cref="Status"/> is an error.</summary>
     protected bool Failed { get; private set; }
 
-    /// <summary>Completes when the running action ends; already complete when idle.</summary>
+    /// <summary>
+    /// How far the running action is, 0 to 1, or null when it cannot say.
+    /// </summary>
+    protected double? Progress { get; private set; }
+
+    private int running;
+    private int blocking;
+
+    /// <summary>Completes when nothing is running; already complete when idle.</summary>
     private TaskCompletionSource idle = Completed();
 
     /// <summary>Runs an action with the progress bar, busy flag and error reporting.</summary>
@@ -31,32 +45,22 @@ public abstract class BusyPage : LocalisedComponent
     /// first interleaves with it: each sets one pane, and the two end up from
     /// different comparisons under a heading that names neither.
     /// </remarks>
-    protected async Task Run(string message, Func<Task> action)
-    {
-        if (Busy)
-            return;
+    protected Task Run(string message, Func<Task> action)
+        => Busy ? Task.CompletedTask : RunCore(message, action, takesOver: false);
 
-        Busy = true;
-        idle = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        Failed = false;
-        Status = message;
-        StateHasChanged();
-        await Task.Yield();
-
-        try {
-            await action();
-            Status = null;
-        }
-        catch (Exception ex) {
-            Failed = true;
-            Status = ex.Message;
-        }
-        finally {
-            Busy = false;
-            idle.TrySetResult();
-            StateHasChanged();
-        }
-    }
+    /// <summary>
+    /// Like <see cref="Run"/>, but also starts while another action of this kind
+    /// is running.
+    /// </summary>
+    /// <remarks>
+    /// For loads that make the one before them pointless - picking a version
+    /// while the last pick is still loading. The action itself has to make the
+    /// older run stand down at its next await, or the two interleave. Still
+    /// ignored while anything else runs: a refresh or a version being written
+    /// changes what the load would be reading.
+    /// </remarks>
+    protected Task RunTakingOver(string message, Func<Task> action)
+        => Blocked ? Task.CompletedTask : RunCore(message, action, takesOver: true);
 
     /// <summary>
     /// Like <see cref="Run"/>, but waits for the running action instead of
@@ -74,6 +78,52 @@ public abstract class BusyPage : LocalisedComponent
             await idle.Task;
 
         await Run(message, action);
+    }
+
+    /// <summary>Says what the running action is doing now, and how far it is.</summary>
+    protected void Report(string message, double? progress)
+    {
+        Status = message;
+        Progress = progress;
+        StateHasChanged();
+    }
+
+    /// <remarks>
+    /// Runs can overlap when one takes over another, so the page is busy until
+    /// the last has finished, not the first. A run that succeeds clears the
+    /// message only when nothing else is running and nothing has failed
+    /// meanwhile, so it never wipes out a successor's message or its error.
+    /// </remarks>
+    private async Task RunCore(string message, Func<Task> action, bool takesOver)
+    {
+        if (running++ == 0)
+            idle = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!takesOver)
+            blocking++;
+
+        Failed = false;
+        Report(message, null);
+        await Task.Yield();
+
+        try {
+            await action();
+
+            if (running == 1 && !Failed)
+                Status = null;
+        }
+        catch (Exception ex) {
+            Failed = true;
+            Status = ex.Message;
+        }
+        finally {
+            if (!takesOver)
+                blocking--;
+            if (--running == 0) {
+                Progress = null;
+                idle.TrySetResult();
+            }
+            StateHasChanged();
+        }
     }
 
     private static TaskCompletionSource Completed()

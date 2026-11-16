@@ -14,7 +14,7 @@
 *@
 <div class="container-fluid">
 
-<BusyBar Busy="Busy" />
+<BusyBar Busy="Busy" Progress="Progress" />
 
 <div class="d-flex justify-content-between align-items-center">
     <h3 class="my-2">@L["#_OCADVersioner"]</h3>
@@ -67,7 +67,7 @@
     <div class="row">
         <div class="col-md-2 d-flex flex-column">
             <VersionList Items="VersionItems()" SelectedNumber="selectedNumber"
-                         Disabled="Busy" OnSelected="SelectVersion" />
+                         Disabled="Blocked" OnSelected="SelectVersion" />
 
             <CreateVersionForm @ref="versionForm"
                                FileName="@Project.Project.CurrentFileName"
@@ -110,6 +110,13 @@
 
     private MapDiff diff = MapDiff.Empty;
     private string georeference;
+
+    /// <summary>
+    /// Which load is the current one. Each <see cref="ShowComparison"/> takes the
+    /// next number; an older one checks after every wait and stops quietly once
+    /// a newer one has started.
+    /// </summary>
+    private int loadGeneration;
 
     /// <summary>Which version is being compared, 0 meaning the working file.</summary>
     private int selectedNumber;
@@ -205,9 +212,13 @@
     /// Clicking the version already selected is the way back to the file OCAD is
     /// writing. That file is not in the list - it is not a version - so the row
     /// you left through has to be the way back, or there is none.
+    ///
+    /// A pick made while the last one is still loading takes over: the mapper
+    /// has already moved on, and waiting out a comparison they have left is
+    /// time spent on nothing.
     /// </remarks>
     private async Task SelectVersion(int number)
-        => await Run("Loading…", async () => {
+        => await RunTakingOver("Loading…", async () => {
             selectedNumber = number == selectedNumber ? 0 : number;
             await ShowComparison();
         });
@@ -236,22 +247,63 @@
             throw new InvalidOperationException("The map pair is not on the page yet.");
 
         (string newer, string older) = Comparison;
+        int mine = ++loadGeneration;
+        bool Superseded() => mine != loadGeneration;
 
         // Older on the left, newer on the right: time runs that way, and the
         // overlay - which is painted on the newer map - then sits where the eye
-        // ends up rather than where it starts.
-        MapSummary loaded = await mapPair.ShowAsync(MapSide.Right, Project.SourceFor(newer));
-        georeference = loaded.Georeference;
+        // ends up rather than where it starts. The newer map goes first, because
+        // it is the one being looked at.
+        (MapSide Side, string Version)[] maps = [(MapSide.Right, newer), (MapSide.Left, older)];
 
-        await mapPair.ShowAsync(MapSide.Left, Project.SourceFor(older));
+        try {
+            // The bar moves in equal steps - read, then draw, for each map. Not
+            // a measure of time, and it does not need to be: it says the app is
+            // working and roughly how much is left.
+            for (int i = 0; i < maps.Length; i++) {
+                (MapSide side, string version) = maps[i];
+                double share = 1.0 / maps.Length;
 
-        diff = await DiffSource.CompareAsync(older, newer);
+                Report($"Loading {Label(version)}…", i * share);
+                MapSummary info = await mapPair.ParseAsync(Project.SourceFor(version));
+                if (Superseded())
+                    return;
 
-        // The overlay belongs to a pair of versions, so a new comparison needs a
-        // new mask. Only paid for if the user has asked to see one. The pair is
-        // passed in because selectedNumber or the folder has only just changed,
-        // and the toggle has not been re-rendered with it yet. The toolbar renders
-        // in the same pass as the map pair, so the toggle is there by now.
-        await overlay.ApplyAsync(older, newer);
+                if (i == 0)
+                    georeference = info.Georeference;
+
+                Report($"Drawing {Label(version)}…", (i + 0.5) * share);
+                Task drawn = mapPair.DrawAsync(side, version);
+
+                // The diff is read from the parses, not the tiles, so the table
+                // can fill while the last pane draws.
+                if (i == maps.Length - 1) {
+                    diff = await DiffSource.CompareAsync(older, newer);
+                    if (Superseded())
+                        return;
+                    StateHasChanged();
+                }
+
+                await drawn;
+                if (Superseded())
+                    return;
+            }
+
+            // The overlay belongs to a pair of versions, so a new comparison needs
+            // a new mask. Only paid for if the user has asked to see one - and
+            // only once both panes are drawn, because building it renders both
+            // maps in full. How long that takes cannot be said, so the bar goes
+            // back to striped. The pair is passed in because selectedNumber or the
+            // folder has only just changed, and the toggle has not been
+            // re-rendered with it yet.
+            if (overlay.IsOn)
+                Report("Finding changes…", null);
+
+            await overlay.ApplyAsync(older, newer);
+        }
+        catch when (Superseded()) {
+            // The mapper has already moved on; what went wrong with a comparison
+            // nobody is waiting for is not worth telling them.
+        }
     }
 }

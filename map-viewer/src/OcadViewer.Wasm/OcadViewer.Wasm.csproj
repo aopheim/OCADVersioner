@@ -78,7 +78,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OcadViewer.Core\OcadViewer.Core.csproj" />
-    <ProjectReference Include="..\OcadViewer.Loading\OcadViewer.Loading.csproj" />
     <ProjectReference Include="..\OcadViewer.Versioning\OcadViewer.Versioning.csproj" />
   </ItemGroup>
 

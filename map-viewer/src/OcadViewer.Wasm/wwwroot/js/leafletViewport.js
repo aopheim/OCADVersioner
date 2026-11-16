@@ -205,12 +205,11 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             this._ocadKey = mapKey;
             this._ocadBounds = null;
 
-            /* Counted here rather than asked of Leaflet afterwards. Leaflet's own
-             * loading flag says whether anything is outstanding, not how much,
-             * and a progress bar needs the second number. */
+            /* How many tiles this layer has asked for and how many have finished,
+             * so that show() can say when the pane is drawn. */
             this._ocadAsked = 0;
             this._ocadDone = 0;
-            this._ocadReport = null;
+            this._ocadCheck = null;
         },
 
         createTile(coords, done) {
@@ -227,7 +226,7 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
                 if (counted) return;
                 counted = true;
                 this._ocadDone++;
-                this._ocadReport?.();
+                this._ocadCheck?.();
                 done(error, element);
             };
 
@@ -252,20 +251,6 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
 
     const handle = {
         /**
-         * Roughly how many tiles a pane will ask for.
-         *
-         * Leaflet decides the real number when the layer is attached, which is
-         * too late to weigh a load that has not started. The grid covers the
-         * pane plus a tile of overhang, and that is close enough to say what
-         * share of the wait the drawing is.
-         */
-        expectedTiles(side) {
-            const element = paneFor(side).getContainer();
-            return (Math.ceil(element.clientWidth / TILE_SIZE) + 1)
-                 * (Math.ceil(element.clientHeight / TILE_SIZE) + 1);
-        },
-
-        /**
          * Shows the named map on one side, and waits for it to be on screen.
          *
          * Attaching the layer is instant; the tiles behind it are rendered one
@@ -277,11 +262,10 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
          * @param side 'left' or 'right'
          * @param mapKey the name the tile source holds it under
          * @param bounds {minX, minY, maxX, maxY} in paper millimetres
-         * @param onTile called as tiles land, with (done, asked for)
          * @returns {Promise<void>} resolved when the pane is drawn, or when the
          *          pane is handed to another map and these tiles are abandoned
          */
-        show(side, mapKey, bounds, onTile) {
+        show(side, mapKey, bounds) {
             const map = paneFor(side);
 
             // Drop queued work for the layer being replaced, rather than letting
@@ -289,7 +273,7 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             const outgoing = layers[side];
             if (outgoing) {
                 pump.remove(tag => tag === outgoing);
-                outgoing._ocadReport = null;
+                outgoing._ocadCheck = null;
                 outgoing.remove();
             }
 
@@ -331,11 +315,9 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             return new Promise(resolve => {
                 pending[side] = resolve;
 
-                layer._ocadReport = () => {
-                    if (onTile) onTile(layer._ocadDone, layer._ocadAsked);
-
+                layer._ocadCheck = () => {
                     if (layer._ocadDone >= layer._ocadAsked) {
-                        layer._ocadReport = null;
+                        layer._ocadCheck = null;
                         settle(side);
                     }
                 };
@@ -343,11 +325,10 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
                 layer.addTo(map);
 
                 /* Leaflet creates the tiles for the current view inside addTo, so
-                 * the count is final by this line - and reported now, so the bar
-                 * learns the real number before the first tile lands. A pane that
-                 * asked for none - laid out at zero height, or scrolled off the
-                 * map entirely - is settled by the same check: nothing to wait for. */
-                layer._ocadReport();
+                 * the count is final by this line. A pane that asked for none -
+                 * laid out at zero height, or scrolled off the map - has nothing
+                 * to wait for and is settled here. */
+                layer._ocadCheck();
             });
         },
 

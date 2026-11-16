@@ -95,14 +95,18 @@
     }
 
     /// <summary>
-    /// Shows a version on one side.
+    /// Makes sure a version is parsed, reading its file only if it has to.
     /// </summary>
     /// <param name="source">
     /// Which version, where its file is, and whether it must be read again even
-    /// if it is already parsed. A release never changes, so showing one that is
-    /// already in memory costs no read and no parse.
+    /// if it is already parsed. A release never changes, so one that is already
+    /// in memory costs no read and no parse.
     /// </param>
-    public async Task<MapSummary> ShowAsync(MapSide side, MapSource source)
+    /// <remarks>
+    /// Separate from <see cref="DrawAsync"/> so the page can say which of the two
+    /// is happening, and can stop between them if the mapper has moved on.
+    /// </remarks>
+    public async Task<MapSummary> ParseAsync(MapSource source)
     {
         // The parent can get here before this component's own first render has
         // finished setting up - the renderer does not wait for a child's
@@ -111,7 +115,18 @@
         await (ready ??= InitialiseAsync());
 
         return await workspace.InvokeAsync<MapSummary>(
-            "show", side.JsName(), source.Name, source.Path, source.Reload);
+            "parse", source.Name, source.Path, source.Reload);
+    }
+
+    /// <summary>
+    /// Puts a parsed version in a pane, and waits until the pane has drawn it -
+    /// or until another map takes the pane, which drops the tiles it was
+    /// waiting for.
+    /// </summary>
+    public async Task DrawAsync(MapSide side, string versionName)
+    {
+        await (ready ??= InitialiseAsync());
+        await workspace.InvokeVoidAsync("draw", side.JsName(), versionName);
     }
 
     /// <summary>

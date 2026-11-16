@@ -153,13 +153,12 @@ public sealed class OrthogonalityTests
     public void OnlyTheFolderModuleTouchesTheFileSystemApi()
     {
         IReadOnlyList<SourceFile> offenders = Matching(
-            scripts, @"showDirectoryPicker|getDirectoryHandle|getFileHandle|createWritable|getFile\(");
+            scripts, @"showDirectoryPicker|getDirectoryHandle|getFileHandle|createWritable");
 
         Assert.That(NamesOf(offenders), Is.EquivalentTo(new[] { "projectFolder.js" }),
             "The File System Access API is Chromium-only and permission-bound. Keeping it behind "
             + "one module is what makes the rest of the viewer testable, and what will make "
-            + "another way of getting at files possible without touching anything else. How big "
-            + "a map file is comes from the same handles, so it is asked for here too.");
+            + "another way of getting at files possible without touching anything else.");
     }
 
     [Test]

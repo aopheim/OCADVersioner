@@ -68,19 +68,6 @@ export async function readBytes(path) {
 }
 
 /**
- * How many bytes a file is, without reading any of them.
- *
- * The size is in the directory entry, so this costs nothing, and it is the only
- * thing known about a load before it starts that says how long it will take.
- * What that is worth is decided in C#; this reports what the folder says.
- */
-export async function sizeOf(path) {
-    const file = await fileAt(path, false);
-    if (!file) throw new Error(`Could not find ${path}.`);
-    return (await file.getFile()).size;
-}
-
-/**
  * Several small text files at once.
  * @param paths may contain nulls, which come back as null
  * @returns {Promise<(string|null)[]>} null for anything missing or unreadable
