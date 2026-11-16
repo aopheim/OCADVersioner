@@ -24,6 +24,101 @@
     height: 80vh;
 }
 
+/* OcadMapPair ------------------------------------------------------------ */
+
+/* Whatever a page puts in a pane is positioned against the pane. */
+.mapPane {
+    position: relative;
+}
+
+/* Filling the parent rather than 80vh: half each when the panes stack below
+   Bootstrap's sm breakpoint, the whole height when they sit side by side or
+   only one is shown. No vertical gutter, so the halves add up to the parent. */
+.mapPair.fill {
+    height: 100%;
+    --bs-gutter-y: 0;
+}
+
+.mapPair.fill > div {
+    height: 50%;
+}
+
+@media (min-width: 576px) {
+    .mapPair.fill > div {
+        height: 100%;
+    }
+}
+
+.mapPair.fill.single > div {
+    height: 100%;
+}
+
+.mapPair.fill .mapPane,
+.mapPair.fill .mapDiv {
+    height: 100%;
+}
+
+/* With no gutter between stacked panes, a border is what tells them apart. */
+.mapPair.fill .mapDiv {
+    border: 1px solid var(--bs-border-color);
+}
+
+/* The /viewer page -------------------------------------------------------- */
+
+/* The page is exactly the screen: toolbar on top, the maps take the rest and
+   the page itself never scrolls - on a phone, scrolling the page and panning
+   a map would fight over the same finger. dvh follows the mobile browser's
+   collapsing address bar; vh is the fallback for browsers without it. */
+.viewerPage {
+    height: 100vh;
+    height: 100dvh;
+}
+
+.viewerMaps {
+    min-height: 0;
+}
+
+/* An empty pane is one big target: tap anywhere to choose a file. Above
+   Leaflet's panes (z-index up to 700) and below its controls (800+). */
+.paneEmpty {
+    position: absolute;
+    inset: 1px;
+    z-index: 750;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .25rem;
+    padding: 1rem;
+    text-align: center;
+    cursor: pointer;
+    background: var(--bs-body-bg);
+}
+
+/* A loaded pane keeps a small button for choosing again, in the corner a
+   thumb reaches and Leaflet's zoom control does not use. */
+.paneButton {
+    position: absolute;
+    top: .5rem;
+    right: .5rem;
+    z-index: 800;
+    max-width: calc(100% - 4rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Set by fileDrop.js while a file is dragged over the pane. Drawn as its own
+   layer because Leaflet's panes would paint over an outline on the pane. */
+.fileDropTarget::after {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    z-index: 900;
+    border: 3px dashed var(--bs-primary);
+    pointer-events: none;
+}
+
 /* From app-settings-modal.component.scss and about-page.component.scss --- */
 
 .pointer {

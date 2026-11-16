@@ -15,12 +15,23 @@
     each map 80vh on white. The comparison header above names both sides, which
     is where Angular says it.
 *@
-<div class="row g-1">
-    <div class="col-sm-6">
-        <div @ref="leftEl" class="mapDiv"></div>
+@*
+    Both panes are always on the page, even when only one is shown: Leaflet and
+    leaflet.sync are built over two elements once, and a hidden pane keeps its
+    map, so showing it again costs nothing and loses nothing.
+*@
+<div class="row g-1 mapPair @(Fill ? "fill" : "") @(SinglePane ? "single" : "")">
+    <div class="@ColumnClass">
+        <div class="mapPane">
+            <div @ref="leftEl" class="mapDiv"></div>
+            @PaneContent?.Invoke(MapSide.Left)
+        </div>
     </div>
-    <div class="col-sm-6">
-        <div @ref="rightEl" class="mapDiv"></div>
+    <div class="@ColumnClass" hidden="@SinglePane">
+        <div class="mapPane">
+            <div @ref="rightEl" class="mapDiv"></div>
+            @PaneContent?.Invoke(MapSide.Right)
+        </div>
     </div>
 </div>
 
@@ -29,6 +40,28 @@
     private ElementReference rightEl;
     private IJSObjectReference module;
     private IJSObjectReference workspace;
+
+    /// <summary>
+    /// Show the left pane only. The right one keeps its map, hidden, for when
+    /// the page asks for both again.
+    /// </summary>
+    [Parameter] public bool SinglePane { get; set; }
+
+    /// <summary>
+    /// Fill the parent's height instead of the fixed height the workspace uses:
+    /// half each when the panes stack on a narrow screen, all of it when they
+    /// sit side by side or only one is shown.
+    /// </summary>
+    [Parameter] public bool Fill { get; set; }
+
+    /// <summary>
+    /// Anything the page wants inside a pane, over its map - such as a way to
+    /// choose the file shown there. Rendered as a sibling of the map element,
+    /// inside the pane, so it can be positioned against the pane.
+    /// </summary>
+    [Parameter] public RenderFragment<MapSide> PaneContent { get; set; }
+
+    private string ColumnClass => SinglePane ? "col-12" : "col-sm-6";
 
     /// <summary>
     /// What the change overlay drew, for reporting.
@@ -79,6 +112,22 @@
 
         return await workspace.InvokeAsync<MapSummary>(
             "show", side.JsName(), source.Name, source.Path, source.Reload);
+    }
+
+    /// <summary>
+    /// Shows the file chosen in a file input on one side.
+    /// </summary>
+    /// <param name="mapName">What to hold the map under. Read again every time.</param>
+    /// <param name="input">
+    /// The <c>&lt;input type="file"&gt;</c> holding the file. The element, not the
+    /// file, crosses the boundary: the bytes go from the browser to the renderer
+    /// without passing through .NET.
+    /// </param>
+    public async Task<MapSummary> ShowFileAsync(MapSide side, string mapName, ElementReference input)
+    {
+        await (ready ??= InitialiseAsync());
+
+        return await workspace.InvokeAsync<MapSummary>("showFile", side.JsName(), mapName, input);
     }
 
     /// <summary>

@@ -1,0 +1,157 @@
+@*
+    The change overlay's switch: the button, the same switch on the keyboard, and
+    how much of the map it is lighting up.
+
+    Owned here rather than by each page because the rules are the same wherever two
+    maps are compared - off on arrival, rebuilt for each new pair, switched off
+    again if building it fails - and two copies of those rules could disagree.
+    Which two maps are being compared is the page's business; it says so through
+    Older and Newer, and calls ApplyAsync when either changes.
+*@
+
+<button class="btn text-nowrap @(Large ? "" : "btn-sm") @(showChanges ? "btn-primary" : "btn-outline-secondary")"
+        @onclick="ToggleAsync" disabled="@(Busy || !Available)"
+        title="Show what changed since @(OlderLabel ?? Older) (@OverlayKey.ToUpperInvariant())">
+    <i class="bi bi-layers"></i>
+    @if (Large) {
+        <span class="ms-1">Changes</span>
+    }
+</button>
+
+@* The same switch from the keyboard, because comparing two versions is looking
+   from one map to the other and back, and reaching for this button each time
+   takes the eye off the place being looked at. *@
+<KeyboardShortcut Key="@OverlayKey" OnPressed="ToggleAsync" />
+
+@if (ShowZoom) {
+    <button class="btn @(Large ? "" : "btn-sm") btn-outline-secondary" @onclick="ZoomAsync"
+            disabled="@(Busy || summary is not { Shown: true, ShownPixels: > 0 })"
+            title="Zoom to what the overlay is showing">
+        <i class="bi bi-crosshair"></i>
+    </button>
+}
+
+@* Just the number on a phone, where "of the map" would push the toolbar
+   off the screen. *@
+@if (Available && ChangedShare() is { } share) {
+    <span class="text-muted small text-nowrap">
+        @share<span class="d-none d-sm-inline"> of the map</span>
+    </span>
+}
+
+@code {
+    /// <summary>
+    /// The key that turns the overlay on and off. Named here once, so the
+    /// shortcut and the hint on the button cannot come to disagree.
+    /// </summary>
+    private const string OverlayKey = "c";
+
+    /// <summary>The panes the overlay is drawn on.</summary>
+    [Parameter, EditorRequired] public OcadMapPair MapPair { get; set; }
+
+    /// <summary>The name the older map is held under.</summary>
+    [Parameter, EditorRequired] public string Older { get; set; }
+
+    /// <summary>The name the newer map is held under; the overlay is painted on it.</summary>
+    [Parameter, EditorRequired] public string Newer { get; set; }
+
+    /// <summary>What to call the older map on screen, when its name means nothing to a person.</summary>
+    [Parameter] public string OlderLabel { get; set; }
+
+    /// <summary>False while there is nothing to compare, e.g. only one map is loaded.</summary>
+    [Parameter] public bool Available { get; set; } = true;
+
+    /// <summary>The page is doing something else; the controls wait.</summary>
+    [Parameter] public bool Busy { get; set; }
+
+    /// <summary>
+    /// How the page runs work - with its progress bar, busy flag and error
+    /// line. The toggle has none of its own, so a failure is reported where
+    /// every other failure on the page is.
+    /// </summary>
+    [Parameter, EditorRequired] public Func<string, Func<Task>, Task> Run { get; set; }
+
+    /// <summary>Also offer to zoom to what the overlay shows.</summary>
+    [Parameter] public bool ShowZoom { get; set; }
+
+    /// <summary>A full-size button with a label, for touch screens.</summary>
+    [Parameter] public bool Large { get; set; }
+
+    /// <summary>Whether the overlay is on.</summary>
+    private bool showChanges;
+
+    private OcadMapPair.ChangeSummary summary;
+
+    /// <summary>
+    /// Switches the overlay off and forgets what it showed, for a page that is
+    /// starting over - a different project, say.
+    /// </summary>
+    public void Reset()
+    {
+        showChanges = false;
+        summary = null;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Brings the overlay in line with the switch and the current pair of maps.
+    /// </summary>
+    /// <remarks>
+    /// Free when the overlay is off, and free again when it is switched back on
+    /// for a pair already measured - the mask and its image are kept per pair of
+    /// parses. Only a new pair costs a render.
+    ///
+    /// A failure turns the switch off. Left on, the button would claim an
+    /// overlay that is not there, and the next comparison would quietly build
+    /// one the user never saw appear.
+    /// </remarks>
+    public async Task ApplyAsync()
+    {
+        if (MapPair is null || !Available)
+            return;
+
+        try {
+            summary = await MapPair.ShowChangesAsync(Older, Newer, showChanges);
+        }
+        catch {
+            showChanges = false;
+            summary = null;
+            throw;
+        }
+        finally {
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>Turns the overlay on or off, from the button or from the keyboard.</summary>
+    private async Task ToggleAsync()
+    {
+        // A key press is not stopped by a disabled button.
+        if (!Available)
+            return;
+
+        await Run("Finding changes…", async () => {
+            showChanges = !showChanges;
+            await ApplyAsync();
+        });
+    }
+
+    /// <summary>Frames whatever the overlay is showing, however small it is.</summary>
+    private async Task ZoomAsync()
+        => await Run("Zooming…", async () => await MapPair.ZoomToChangesAsync());
+
+    /// <summary>
+    /// How much of the map the overlay is lighting up, or null.
+    /// </summary>
+    /// <remarks>
+    /// Both numbers are counted from the mask, where the overlay is drawn from,
+    /// so the percentage cannot disagree with the picture.
+    /// </remarks>
+    private string ChangedShare()
+    {
+        if (summary is not { Shown: true, TotalPixels: > 0 } s)
+            return null;
+
+        return $"{s.ShownPixels * 100.0 / s.TotalPixels:0.0}%";
+    }
+}
