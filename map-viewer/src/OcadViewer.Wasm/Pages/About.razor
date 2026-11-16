@@ -2,59 +2,164 @@
 @using OcadViewer.Wasm.Components
 @using OcadViewer.Wasm.Services
 @inherits LocalisedComponent
+@inject NavigationManager Navigation
+@inject AppSettingsService SettingsService
 
 @*
-    Uses the Angular translations where keys exist. The sections below have no key
-    because the Angular About page never said these things - they are about how
-    this app renders maps, which is new. They stay English until someone who
-    speaks Norwegian writes the translations; inventing them here would put bad
-    Norwegian into a file the Angular app also reads.
+    A port of ocad-versioner/src/app/pages/about-page. Same structure, Bootstrap
+    classes and screenshots; the body text, which Angular hardcodes in Norwegian,
+    comes from the shared translation files under #_about* keys.
 
-    Also the home of the third-party notices, which the BSD-3 licence on the
-    vendored renderer requires to travel with what is served to a browser.
+    The one addition is the credits section at the end. It is the home of the
+    third-party notices, which the BSD-3 licence on the vendored renderer requires
+    to travel with what is served to a browser.
 *@
 
-<PageTitle>@L["#_about"] @L["#_OCADVersioner"]</PageTitle>
+<PageTitle>@L["#_OCADVersioner"] - @L["#_about"]</PageTitle>
 
 <div class="container py-4">
+    <header class="pb-3 mb-4 border-bottom">
+        <div class="d-flex align-items-center justify-content-between text-body-emphasis text-decoration-none">
+            <span class="fs-4 pointer" @onclick="NavigateToMainPage">@L["#_OCADVersioner"]</span>
 
-<h1>@L["#_OCADVersioner"]</h1>
+            <div class="d-flex justify-content-end">
+                @* Flag paths verbatim from the Angular page. *@
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480"
+                     class="w-10 mx-2 pointer" @onclick='() => SelectLanguage("no")'>
+                    <path fill="#ed2939" d="M0 0h640v480H0z" />
+                    <path fill="#fff" d="M180 0h120v480H180z" />
+                    <path fill="#fff" d="M0 180h640v120H0z" />
+                    <path fill="#002664" d="M210 0h60v480h-60z" />
+                    <path fill="#002664" d="M0 210h640v60H0z" />
+                </svg>
 
-<p class="lead">@L["#_jumbo1Title"]</p>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480"
+                     class="w-10 pointer" @onclick='() => SelectLanguage("en")'>
+                    <path fill="#012169" d="M0 0h640v480H0z" />
+                    <path fill="#FFF" d="m75 0 244 181L562 0h78v62L400 241l240 178v61h-80L320 301 81 480H0v-60l239-178L0 64V0z" />
+                    <path fill="#C8102E" d="m424 281 216 159v40L369 281zm-184 20 6 35L54 480H0zM640 0v3L391 191l2-44L590 0zM0 0l239 176h-60L0 42z" />
+                    <path fill="#FFF" d="M241 0v480h160V0zM0 160v160h640V160z" />
+                    <path fill="#C8102E" d="M0 193v96h640v-96zM273 0v480h96V0z" />
+                </svg>
+            </div>
+        </div>
+    </header>
 
-<p>@L["#_projectDirectorySelectorText"]</p>
+    <div class="row p-5 mb-4 bg-body-tertiary rounded-3">
+        <div class="col-md-8 container-fluid py-5">
+            <h1 class="display-5 fw-bold">@L["#_jumbo1Title"]</h1>
+            <p class="col-md-8 fs-4">@L["#_aboutJumboText"]</p>
+        </div>
+        <div class="col-md-4">
+            <div class="bg-body-secondary">
+                <p>@L["#_aboutScreenshotPlaceholder"]</p>
+            </div>
+        </div>
+    </div>
 
-<h2 class="h5 mt-4">How the map is drawn</h2>
-<p>
-    Maps are parsed and rendered by Purple Pen's map engine, compiled to
-    WebAssembly and running entirely in your browser. There is no server:
-    <strong>your map files never leave your machine</strong> and are never
-    uploaded anywhere.
-</p>
+    <div class="row align-items-md-stretch">
+        <div class="col-md-6 my-3">
+            <div class="h-100 p-5 text-bg-primary rounded-3">
+                <div class="d-flex align-items-stretch">
+                    <h2 class="mx-2">
+                        <i class="bi bi-laptop"></i>
+                        @L["#_aboutLocalTitle"]
+                    </h2>
+                </div>
+                <p>@L["#_aboutLocalText"]</p>
+            </div>
+        </div>
+        <div class="col-md-6 my-3">
+            <div class="h-100 p-5 text-bg-dark rounded-3">
+                <div class="d-flex align-items-stretch">
+                    <h2 class="mx-2">
+                        <i class="bi bi-plus-slash-minus"></i>
+                        @L["#_aboutDiffTitle"]
+                    </h2>
+                </div>
+                <div class="d-flex">
+                    <div>
+                        <p>@L["#_aboutDiffText"]</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-@*
-    The paragraph above is about map files. This one says plainly that usage
-    data can leave the machine: usage data is not map data, but the distinction
-    belongs to the reader, not to us.
-*@
-<p class="text-muted small">
-    When this app is deployed with monitoring configured, anonymous usage and
-    error reports are sent to the maintainers so faults can be found and fixed.
-    That covers which pages were opened and what went wrong &mdash; never the
-    contents of your maps. Running it locally sends nothing at all.
-</p>
+    <div class="row p-5 mb-4 bg-body-tertiary rounded-3">
+        <h1>@L["#_aboutHowItWorksTitle"]</h1>
+        @foreach (var step in Steps) {
+            <div class="row">
+                <div class="col-md-6 d-flex align-items-center">
+                    <p>@((MarkupString)L[step.TextKey])</p>
+                </div>
+                <div class="col-md-6">
+                    @foreach (var image in step.Images) {
+                        <a href="@(ImageBase + image)">
+                            <img src="@(ImageBase + image)" class="my-3 w-100" />
+                        </a>
+                    }
+                </div>
+            </div>
+        }
+    </div>
 
-<h2 class="h5 mt-4">Credits and licences</h2>
-<p>
-    The OCAD parser and renderer come from
-    <a href="https://github.com/petergolde/PurplePen" target="_blank" rel="noopener">Purple Pen</a>
-    by Peter Golde, used under the BSD 3-Clause licence. The map viewport is
-    Leaflet. Full notices for every third-party component are in
-    <a href="third-party-notices.txt" target="_blank">third-party notices</a>.
-</p>
+    <div class="row p-5 my-4 bg-body-tertiary rounded-3">
+        <h1 id="supportedBrowsers">@L["#_supportedBrowsers"]</h1>
+        <p>@((MarkupString)L["#_aboutSupportedBrowsersText"])</p>
+    </div>
 
-<p class="text-muted small">
-    This project is not affiliated with or endorsed by Purple Pen or Peter Golde.
-</p>
+    @*
+        Not on the Angular page, and English only: these are about how this app
+        renders maps and reports faults, which Angular never said, and no
+        Norwegian translation has been written for them yet.
+    *@
+    <div class="row p-5 my-4 bg-body-tertiary rounded-3">
+        <h1>Credits and licences</h1>
+        <p>
+            Maps are parsed and rendered by Purple Pen's map engine, compiled to
+            WebAssembly and running entirely in your browser. The OCAD parser and
+            renderer come from
+            <a href="https://github.com/petergolde/PurplePen" target="_blank" rel="noopener">Purple Pen</a>
+            by Peter Golde, used under the BSD 3-Clause licence. The map viewport is
+            Leaflet. Full notices for every third-party component are in
+            <a href="third-party-notices.txt" target="_blank">third-party notices</a>.
+            This project is not affiliated with or endorsed by Purple Pen or Peter Golde.
+        </p>
+        @*
+            Map files never leave the machine; usage data can. The distinction
+            belongs to the reader, so it is said plainly.
+        *@
+        <p class="text-muted small mb-0">
+            When this app is deployed with monitoring configured, anonymous usage and
+            error reports are sent to the maintainers so faults can be found and fixed.
+            That covers which pages were opened and what went wrong &mdash; never the
+            contents of your maps. Running it locally sends nothing at all.
+        </p>
+    </div>
 
+    <footer class="pt-3 my-4 text-body-secondary border-top">
+        @L["#_OCADVersioner"]
+    </footer>
 </div>
+
+@code {
+    // The same hosted screenshots the Angular page links to.
+    private const string ImageBase = "https://ocadversioner.blob.core.windows.net/about-page-imgs/";
+
+    private static readonly (string TextKey, string[] Images)[] Steps =
+    [
+        ("#_aboutHowItWorks1", ["projectFolder.png", "userConfirmation.png"]),
+        ("#_aboutHowItWorks2", ["releases.png"]),
+        ("#_aboutHowItWorks3", ["v1.png"]),
+        ("#_aboutHowItWorks4", ["v1Folder.png"]),
+        ("#_aboutHowItWorks5", ["noDiff.png"]),
+        ("#_aboutHowItWorks6", ["diffTable.png"])
+    ];
+
+    // Angular's flags here only switch for the visit; these save the choice, as
+    // the settings dialog does, so it survives a reload.
+    private Task SelectLanguage(string languageCode) => SettingsService.SetLanguageAsync(languageCode);
+
+    private void NavigateToMainPage() => Navigation.NavigateTo("");
+}

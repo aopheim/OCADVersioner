@@ -1,0 +1,6 @@
+/* From about-page.component.scss. .pointer is shared with the settings dialog,
+   so it stays in app.css. */
+
+.w-10 {
+    width: 10%;
+}
