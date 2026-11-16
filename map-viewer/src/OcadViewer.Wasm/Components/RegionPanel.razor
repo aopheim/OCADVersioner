@@ -1,0 +1,82 @@
+@using OcadViewer.Merge
+@using OcadViewer.Merge.Analysis
+@using OcadViewer.Merge.Decisions
+@using OcadViewer.Merge.Regions
+@using OcadViewer.Wasm.Services
+@inherits LocalisedComponent
+
+@* The Regions tab (board C of the design): draw, suggest, and decide by area. *@
+<div class="region-panel">
+    <div class="region-tools">
+        <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@Disabled" @onclick="() => OnDraw.InvokeAsync(RegionShapes.Rectangle)">
+            <i class="bi bi-bounding-box" aria-hidden="true"></i> @L["#_mergeDrawRectangle"]
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@Disabled" @onclick="() => OnDraw.InvokeAsync(RegionShapes.Polygon)">
+            <i class="bi bi-pentagon" aria-hidden="true"></i> @L["#_mergeDrawPolygon"]
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@Disabled" @onclick="OnSuggest">
+            <i class="bi bi-stars" aria-hidden="true"></i> @L["#_mergeSuggestRegions"]
+        </button>
+    </div>
+    <p class="text-muted small mb-0">@L["#_mergeRegionsHelp"]</p>
+
+    @if (Regions.Count == 0) {
+        <p class="text-muted small">@L["#_mergeNoRegions"]</p>
+    }
+
+    @foreach (MergeRegion region in Regions) {
+        (IReadOnlyList<ObjectItem> inside, IReadOnlyList<ObjectItem> crossing) = RegionDecision.Contents(Session.Analysis, region.Region);
+        <article class="region-card @(region.Id == SelectedId ? "selected" : null) @SideClass(region)">
+            <div class="d-flex align-items-center gap-2">
+                <strong>@region.Name</strong>
+                <button type="button" class="btn btn-link btn-sm ms-auto p-0" disabled="@Disabled"
+                        @onclick="() => OnRemove.InvokeAsync(region)">@L["#_mergeRemoveRegion"]</button>
+            </div>
+            @if (inside.Count == 0) {
+                <span class="text-muted small">@L["#_mergeRegionEmpty"]</span>
+            } else {
+                <span class="text-muted small">
+                    @L.Format("#_mergeRegionCounts", ("a", LabelA), ("countA", inside.Count(i => i.Outcome == Outcome.OnlyA)),
+                              ("b", LabelB), ("countB", inside.Count(i => i.Outcome == Outcome.OnlyB)),
+                              ("conflicts", inside.Count(i => i.Outcome == Outcome.Conflict)))
+                </span>
+                @if (region.Suggested is Side side) {
+                    <span class="small">@L.Format("#_mergeRegionSuggests", ("name", side == Side.A ? LabelA : LabelB))</span>
+                } else if (inside.Any(i => i.Outcome == Outcome.OnlyA) && inside.Any(i => i.Outcome == Outcome.OnlyB)) {
+                    <span class="small">@L["#_mergeRegionMixed"]</span>
+                }
+                <ChoiceButtons Source="region" Session="Session" LabelA="@LabelA" LabelB="@LabelB"
+                               Disabled="Disabled" OnChoose="OnChoose" />
+            }
+            @if (crossing.Count > 0) {
+                <details class="small mt-1">
+                    <summary>@L.Format("#_mergeCrossing", ("count", crossing.Count))</summary>
+                    @foreach (ObjectItem item in crossing) {
+                        <button type="button" class="btn btn-link btn-sm p-0 d-block text-start"
+                                @onclick="() => OnSelectItem.InvokeAsync(item.Key)">@MergeText.Title(Session.Analysis, item, L)</button>
+                    }
+                </details>
+            }
+        </article>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public MergeSession Session { get; set; }
+    [Parameter, EditorRequired] public IReadOnlyList<MergeRegion> Regions { get; set; }
+    [Parameter] public string LabelA { get; set; }
+    [Parameter] public string LabelB { get; set; }
+    [Parameter] public string SelectedId { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback<string> OnDraw { get; set; }
+    [Parameter] public EventCallback OnSuggest { get; set; }
+    [Parameter] public EventCallback<(object Source, Choice? Choice)> OnChoose { get; set; }
+    [Parameter] public EventCallback<MergeRegion> OnRemove { get; set; }
+    [Parameter] public EventCallback<string> OnSelectItem { get; set; }
+
+    private static string SideClass(MergeRegion region) => region.Suggested switch {
+        Side.A => "side-a",
+        Side.B => "side-b",
+        _ => null,
+    };
+}

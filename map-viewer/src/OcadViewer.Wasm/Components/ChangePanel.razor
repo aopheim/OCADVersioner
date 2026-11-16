@@ -14,7 +14,9 @@
             <button type="button" role="tab" aria-selected="@(tab == Tab)"
                     class="merge-tab @(tab == Tab ? "active" : null)" @onclick="() => TabChanged.InvokeAsync(tab)">
                 @TabName(tab)
-                @if (tab == MergeTab.Conflicts && OpenCount > 0) {
+                @if (tab == MergeTab.Regions) {
+                    <span class="badge rounded-pill text-bg-light ms-1">@RegionCount</span>
+                } else if (tab == MergeTab.Conflicts && OpenCount > 0) {
                     <span class="badge rounded-pill text-bg-danger ms-1">@L.Format("#_mergeOpenCount", ("count", OpenCount))</span>
                 } else {
                     <span class="badge rounded-pill text-bg-light ms-1">@count</span>
@@ -24,8 +26,11 @@
     </nav>
 
     <div class="merge-entries">
+        @if (Tab == MergeTab.Regions) {
+            @RegionsContent
+        }
         @{ IReadOnlyList<PanelEntry> entries = MergePanelEntries.For(Tab, Session, LabelA, LabelB, L); }
-        @if (entries.Count == 0) {
+        @if (entries.Count == 0 && Tab != MergeTab.Regions) {
             <p class="text-muted small m-2">@L["#_mergeNothingHere"]</p>
         }
         @foreach (PanelEntry entry in entries) {
@@ -49,6 +54,11 @@
     [Parameter] public string SelectedKey { get; set; }
     [Parameter] public EventCallback<string> OnSelect { get; set; }
 
+    /// <summary>What the Regions tab shows.</summary>
+    [Parameter] public RenderFragment RegionsContent { get; set; }
+
+    [Parameter] public int RegionCount { get; set; }
+
     /// <summary>What a row offers, e.g. decision buttons. Rendered under the row.</summary>
     [Parameter] public RenderFragment<PanelEntry> Actions { get; set; }
 
@@ -56,6 +66,7 @@
 
     private string TabName(MergeTab tab) => tab switch {
         MergeTab.Conflicts => L["#_mergeConflicts"],
+        MergeTab.Regions => L["#_mergeRegions"],
         MergeTab.A => LabelA,
         MergeTab.B => LabelB,
         _ => L["#_mergeSymbolsAndColours"],

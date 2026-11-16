@@ -1,6 +1,7 @@
 using OcadViewer.Merge;
 using OcadViewer.Merge.Analysis;
 using OcadViewer.Merge.Decisions;
+using OcadViewer.Merge.Regions;
 
 namespace OcadViewer.Wasm.Services;
 
@@ -11,8 +12,9 @@ namespace OcadViewer.Wasm.Services;
 public sealed record ChoiceOption(Choice? Choice, string Label, string Side, bool Current);
 
 /// <summary>
-/// Which choices an item or overlap offers, and which of them is in force: the
-/// same buttons wherever a decision can be made - side panel, map, conflict walker.
+/// Which choices an item, overlap or region offers, and which of them is in force:
+/// the same buttons wherever a decision can be made - side panel, regions, conflict
+/// walker.
 /// </summary>
 public static class MergeChoices
 {
@@ -22,6 +24,9 @@ public static class MergeChoices
         switch (source) {
             case OverlapGroup group:
                 return Conflict(decisions.Overlaps.TryGetValue(group.Key, out Choice g) ? g : null, keepBoth: true);
+
+            case MergeRegion region:
+                return Conflict(MergeRegions.Current(session, region), keepBoth: true);
 
             case MergeItem item when item.Outcome == Outcome.Conflict:
                 return Conflict(decisions.Items.TryGetValue(item.Key, out Choice c) ? c : null,
@@ -55,6 +60,9 @@ public static class MergeChoices
         switch (source, choice) {
             case (OverlapGroup group, Choice c):
                 session.DecideOverlap(group, c);
+                break;
+            case (MergeRegion region, Choice c):
+                session.DecideAll(RegionDecision.For(session.Analysis, region.Region, c).Choices);
                 break;
             case (OverlapGroup group, null):
                 session.Forget(group.Key);

@@ -86,6 +86,13 @@ Copyright © 2013–2017 Bjørn Sandvik / Jan Pieter Waagmeester. Licensed under
 
 Keeps the two side-by-side maps in step.
 
+## Leaflet-Geoman (free edition) 2.19.2
+
+Copyright © 2017 Sumit Kumar. Licensed under the **MIT** licence
+(`map-viewer/src/OcadViewer.Wasm/wwwroot/lib/leaflet-geoman/LICENSE-leaflet-geoman.txt`).
+
+Draws and edits the regions on the merge screen.
+
 ## Bootstrap Icons
 
 Copyright © 2019–2024 The Bootstrap Authors. Licensed under the **MIT** licence
