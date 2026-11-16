@@ -5,8 +5,9 @@
  * putting it on a Leaflet map meet each other - each of which is a module that
  * knows nothing about the other two.
  *
- * Map bytes are read here and handed straight to the renderer; C# only says which
- * version it wants, where its file is, and whether to read it again.
+ * Map bytes are read here and handed straight to the renderer. C# only says which
+ * map it wants and where its bytes are: a path in the project folder (show), or
+ * a file input the user chose a file in (showFile).
  *
  * What is parsed is held in one place: the tile source's store. This module keeps
  * no record of its own of what was loaded. The only thing it caches is the change
@@ -21,7 +22,7 @@ import { paint, coverage, boundsOf } from './changeMask.js';
 
 /**
  * Builds the viewer over two elements.
- * @returns {Promise<{show: Function, showChanges: Function, zoomToChanges: Function,
+ * @returns {Promise<{show: Function, showFile: Function, showChanges: Function, zoomToChanges: Function,
  *                    reset: Function, showing: Function, stats: object, dispose: Function}>}
  */
 export async function createWorkspace(leftEl, rightEl) {
@@ -68,33 +69,76 @@ export async function createWorkspace(leftEl, rightEl) {
         return Object.keys(showing).find(side => showing[side] === versionName) ?? null;
     }
 
+    /**
+     * The one way a map gets into a pane, wherever its bytes come from.
+     *
+     * @param read async () => ({ fileName, bytes }); only called when the map
+     *             has to be (re)parsed
+     */
+    async function place(side, mapName, read, reload) {
+        let info;
+
+        if (reload || !tiles.isLoaded(mapName)) {
+            const { fileName, bytes } = await read();
+            info = tiles.load(mapName, fileName, bytes);
+
+            if (!info.ok)
+                throw new Error(info.error ?? `Could not read ${fileName}.`);
+
+            dropStaleChanges();
+        } else {
+            info = tiles.describe(mapName);
+        }
+
+        view.show(side, mapName, info);
+        return info;
+    }
+
     return {
         /**
-         * Shows a version on one side, reading and parsing it only if it has to.
+         * Shows a version from the project folder on one side, reading and
+         * parsing it only if it has to.
          *
-         * @param side 'left' or 'right'
+         * @param side a pane name, passed through to the viewport
          * @param versionName the name the map is held under
          * @param path where its file is, relative to the project folder
          * @param reload true when the file can have changed since it was read
          * @returns the parse summary
          */
-        async show(side, versionName, path, reload) {
-            let info;
+        show(side, versionName, path, reload) {
+            return place(side, versionName, async () => ({
+                fileName: path.split('/').pop(),
+                bytes: await readBytes(path)
+            }), reload);
+        },
 
-            if (reload || !tiles.isLoaded(versionName)) {
-                const bytes = await readBytes(path);
-                info = tiles.load(versionName, path.split('/').pop(), bytes);
+        /**
+         * Shows the file chosen in an <input type="file"> on one side.
+         *
+         * The element is passed rather than the file because a File cannot
+         * cross into .NET - and should not: map bytes go straight from the
+         * browser to the renderer. Always re-read, since the same input can
+         * hold a different file each time it is asked.
+         *
+         * @param mapName the name the map is held under
+         * @param input the file input element
+         * @returns the parse summary
+         */
+        showFile(side, mapName, input) {
+            const file = input?.files?.[0];
+            if (!file)
+                throw new Error('No file was chosen.');
 
-                if (!info.ok)
-                    throw new Error(info.error ?? `Could not read ${path}.`);
+            /* Emptied once the file is in hand, because a browser only fires
+             * 'change' when the choice differs from what the input holds - and
+             * choosing the same file again, after saving it in OCAD, is exactly
+             * how a user reloads it. */
+            input.value = '';
 
-                dropStaleChanges();
-            } else {
-                info = tiles.describe(versionName);
-            }
-
-            view.show(side, versionName, info);
-            return info;
+            return place(side, mapName, async () => ({
+                fileName: file.name,
+                bytes: new Uint8Array(await file.arrayBuffer())
+            }), true);
         },
 
         /**
