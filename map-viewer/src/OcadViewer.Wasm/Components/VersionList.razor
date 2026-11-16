@@ -12,8 +12,11 @@
                 disabled="@Disabled"
                 @onclick="() => OnSelected.InvokeAsync(item.Number)">
             <div class="d-flex w-100 justify-content-between">
-                <h6 class="mb-1 text-truncate">@DisplayTitle(item)</h6>
-                <small class="ms-2 flex-shrink-0">@DisplayDate(item)</small>
+                @* Angular's split: the title gets seven twelfths and wraps, the
+                   date five. Truncating the title instead let the date take the
+                   whole row in the narrow col-md-2 column, and the title vanished. *@
+                <h6 class="mb-1 col-7 pe-1 text-break">@DisplayTitle(item)</h6>
+                <small class="col-5">@DisplayDate(item)</small>
             </div>
 
             @if (!string.IsNullOrWhiteSpace(item.Description)) {
