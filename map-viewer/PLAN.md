@@ -9,6 +9,9 @@
 > views unchanged. See *Architecture*.
 >
 > The C# diff is **deferred, not scheduled** — see *The diff — deferred*.
+>
+> **Next feature: 3-way merge of OCAD maps** — decisions, architecture and
+> milestones in [MERGE-PLAN.md](MERGE-PLAN.md).
 
 ## Resuming in a new session
 
