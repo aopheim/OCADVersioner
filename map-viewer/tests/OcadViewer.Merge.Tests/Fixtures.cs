@@ -23,7 +23,7 @@ internal static class Fixtures
         byte[] record = obj.Record.ToArray();
         for (int i = 0; i < obj.Coords.Count; i++)
             change(obj.Coords[i]).Write(record.AsSpan(obj.Layout.ObjectHeaderSize + i * OcadCoord.Size));
-        return new OcadObject(obj.Layout, obj.Slot, obj.IndexEntry, record);
+        return obj.WithRecord(record);
     }
 
     /// <summary>OCAD's creation timestamps for the objects in base.ocd, by what they are.</summary>

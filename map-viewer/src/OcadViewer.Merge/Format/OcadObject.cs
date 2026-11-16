@@ -32,6 +32,9 @@ public sealed class OcadObject
 
     public FileLayout Layout => layout;
 
+    /// <summary>The same object with a different record, e.g. a new creation date.</summary>
+    public OcadObject WithRecord(ReadOnlyMemory<byte> record) => new(layout, Slot, IndexEntry, record);
+
     /// <summary>OCAD's symbol number times 1000, e.g. 109000 for 109.0.</summary>
     public int Symbol => BitConverter.ToInt32(Record.Span);
 
