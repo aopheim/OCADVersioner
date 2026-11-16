@@ -35,7 +35,7 @@ public sealed class MergeResolution
             return decided;
 
         if (groupOf.TryGetValue(item, out OverlapGroup group) && Decisions.Overlaps.TryGetValue(group.Key, out Choice forGroup))
-            return Apply(forGroup, item);
+            return GroupChoice.For(forGroup, item);
 
         return Default(item);
     }
@@ -60,15 +60,4 @@ public sealed class MergeResolution
         Outcome.OnlyB => Choice.B,
         _ => null,
     };
-
-    /// <summary>A group choice, as it applies to one clean change inside the group.</summary>
-    private static Choice Apply(Choice forGroup, MergeItem item)
-    {
-        Choice own = item.Outcome == Outcome.OnlyA ? Choice.A : Choice.B;
-        return forGroup switch {
-            Choice.Both => own,
-            Choice.Base => Choice.Base,
-            _ => forGroup == own ? own : Choice.Base,
-        };
-    }
 }
