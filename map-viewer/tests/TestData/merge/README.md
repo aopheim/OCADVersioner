@@ -1,63 +1,67 @@
 # 3-way merge fixtures
 
-Three small OCAD maps for testing the merge tool, drawn in OCAD 2020.8.6 and
-saved in **OCAD 2018 format** (version 2018.1544), ISOM 2017-2 symbol set at 1:10 000.
+Small OCAD maps for the merge engine's tests (`tests/OcadViewer.Merge.Tests`),
+drawn in OCAD 2020.8.6, ISOM 2017-2 symbol set at 1:10 000. Saved in **OCAD
+2018 format** unless the name says otherwise (OCAD 2019 and 2020 save as 2018).
 
 | File | What it is |
 | --- | --- |
 | `base.ocd` | The common ancestor. |
-| `kari.ocd` | A byte copy of `base.ocd`, then edited in OCAD as "Kari". |
-| `ola.ocd` | A byte copy of `base.ocd`, then edited in OCAD as "Ola". |
-| `dump.txt` | Every object in the three files, from `node ocddump.mjs base.ocd kari.ocd ola.ocd`. |
-| `ocddump.mjs` | Dumps an OCAD 12+/2018 file's objects: slot, symbol, type, status, creation and modification date, geometry hash. |
+| `kari.ocd`, `ola.ocd` | Byte copies of base, then edited in OCAD as "Kari" and "Ola". |
+| `kari_settings.ocd`, `ola_settings.ocd` | Byte copies of base: both renamed colour 5 (brown) differently and both duplicated symbol 101 into 101.004 with different descriptions. |
+| `identity_edits.ocd` | Base with the middle boulder cut and pasted, the east boulder copied and pasted, and the knoll duplicated. |
+| `base_v12.ocd`, `base_v11.ocd` | Base saved as OCAD 12 and OCAD 11. |
+| `dump.txt` | `node ocddump.mjs base.ocd kari.ocd ola.ocd`. |
+| `ocddump.mjs` | Dumps an OCAD 12/2018 file's objects: slot, symbol, type, status, dates, geometry hash. |
 
 ## Objects in base
 
-Identity is the **creation date** (millisecond precision); the slot number is not an identity.
+Identity is the **creation date** (millisecond precision). Slot numbers are not identities.
 
 | Slot | Symbol | Object | Created |
 | --- | --- | --- | --- |
 | 1 | 401 Open land | area, north-west | 22:32:13.139 |
-| 2 | 406 | *already deleted in base* (status 3), must be ignored | 22:33:27.139 |
+| 2 | 406 | *deleted while drawing* (index status 3), must be ignored | 22:33:27.139 |
 | 3 | 301 Uncrossable water | lake, south-west | 22:33:29.289 |
-| 4 | 406 Slow running | forest, middle | 22:33:47.519 |
+| 4 | 406 Slow running | forest, middle | 22:33:47.520 |
 | 5 | 507 Less distinct footpath | path, west to east | 22:34:05.870 |
 | 6 | 101 Contour | hill outline, east | 22:34:10.353 |
 | 7 | 204 Boulder | middle | 22:34:11.987 |
 | 8 | 204 Boulder | east | 22:34:12.570 |
-| 9 | 109 Small knoll | on the hill | 22:34:21.605 |
+| 9 | 109 Small knoll | on the hill | 22:34:21.606 |
 
-## What each branch changed, and what a merge should report
+## What Kari and Ola changed, and what the merge reports
 
-| Base object | Kari | Ola | Expected |
+| Base object | Kari | Ola | Reported |
 | --- | --- | --- | --- |
-| 1 Open land | — | NE vertex moved (extended east) | Clean: take Ola |
-| 3 Lake | NE vertex moved (enlarged) | — | Clean: take Kari |
-| 4 Slow running forest | NE vertex moved | S vertex moved | **Conflict: same object edited by both** |
-| 5 Footpath | — | Modification date bumped, geometry and symbol identical | No change (a date alone is not an edit) |
-| 7 Boulder (middle) | — | Deleted | Clean: delete |
-| 8 Boulder (east) | Deleted | Moved ~2 mm | **Conflict: edit vs delete** |
-| new | 508 Narrow ride, crosses the footpath (slot 10) | — | Clean add |
-| new | 101 Contour inside the hill (slot 11) | — | **Spatial overlap** with Ola's knolls |
-| new | — | 2 × 109 Small knoll on the hill (slots 10, 11) | **Spatial overlap** with Kari's contour |
-| Symbol 109 definition | Description → "Small knoll, min 1 m (Kari)" | Description → "Knoll, small (Ola)" | **Conflict: symbol definition changed by both** |
+| 1 Open land | — | NE vertex moved | Clean, Ola |
+| 3 Lake | NE vertex moved | — | Clean, Kari |
+| 4 Forest | NE vertex moved | S vertex moved | **Conflict: both edited** |
+| 5 Footpath | — | Modification date and colour field rewritten, nothing visible | Not a change |
+| 7 Middle boulder | — | Deleted | Clean, Ola |
+| 8 East boulder | Deleted | Moved ~2 mm | **Conflict: edit vs delete** |
+| new | 508 Narrow ride (slot 10) | — | Clean, Kari |
+| new | 101 Contour inside the hill (slot 11) | — | Clean, Kari |
+| new | — | 2 × 109 Small knoll on the hill (slots 10, 11) | Clean, Ola |
+| Symbol 109 | Description changed | Description changed differently | **Conflict: both edited** |
 
-Kari's slot 10 and Ola's slot 10 hold **different** new objects. A merge that
-pairs objects by slot gets this wrong.
+Overlaps (10 m buffer): Kari's contour with Ola's knolls on the hill; and the
+whole west half - Ola's open land, Kari's lake, Kari's ride and the boulder Ola
+deleted - because the fixture map is only ~400 m across and their extents touch.
 
-## What OCAD does to the file (observed while making these)
+Merging with the forest taken from Kari, the east boulder from Ola, symbol 109
+from Kari and both sides of each overlap gives a file OCAD opens and that shows
+exactly those choices (checked by hand in OCAD 2020).
 
-- **Editing** an object (moving vertices, moving a point) rewrites it in its own
-  slot, **keeps CreationDate** and updates ModificationDate.
-- **Deleting** leaves the object in its slot with index status 3. Readers must skip
-  status ≠ 1 (2 = hidden).
-- **New objects** take the next free slot, so slot numbers collide across branches.
-- ModificationDate can change with no real edit (base slot 5 in `ola.ocd`), so
-  "changed" must be decided from geometry, symbol and attributes, not from the date.
-- ServerObjectId is −1 on every object (no OCAD Server), so it is no help.
-- OCAD has **Object › Change Creation Date…**, so a user can break the identity by
-  hand. Duplicate creation dates should be handled, not assumed impossible.
+## What OCAD does to a file (observed while making these)
 
-Not yet covered: cut/paste and duplicate (whether a pasted object keeps its
-creation date), text objects, symbol graphics changes, and a symbol number added
-by both branches.
+- **Editing** rewrites an object in its own slot, keeps CreationDate, updates ModificationDate.
+- **Deleting** leaves the record in its slot with index status 3.
+- **New objects** take the next free slot, so slots collide across branches.
+- **Cut and paste, copy and paste, and Duplicate all keep the creation date.** A copy shares its original's date.
+- ModificationDate, and the colour field of objects that have a symbol, change with no visible edit.
+- Saving as **OCAD 12** drops deleted records and renumbers slots; dates are kept.
+- Saving as **OCAD 11** from OCAD 2020 writes **zero** creation dates.
+- The display-mode parameter string (type 1024) is rewritten whenever the file is saved.
+- ServerObjectId is −1 on every object without OCAD Server.
+- OCAD has **Object › Change Creation Date…**, so a user can change an identity by hand.
