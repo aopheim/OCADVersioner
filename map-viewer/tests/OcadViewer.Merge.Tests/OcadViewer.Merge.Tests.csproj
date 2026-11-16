@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Test-driven specification of the merge engine, run against real OCAD files
+    drawn in OCAD and kept in tests/TestData/merge. Their README states what a
+    merge of them must report; these tests are that table made executable.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+  </ItemGroup>
+
+  <!--
+    The engine's sources are compiled into this assembly rather than referenced as
+    OcadViewer.Merge.dll. The development machine runs a Windows application
+    control policy that refuses to load some freshly built, unsigned assemblies
+    (0x800711C7 - see PLAN.md on RenderCli); it blocks OcadViewer.Merge.dll but
+    lets the test assembly itself load. Compiling the same files in keeps the
+    suite runnable there and changes nothing about what is tested. The engine
+    still has exactly one home: src/OcadViewer.Merge.
+  -->
+  <ItemGroup>
+    <Compile Include="..\..\src\OcadViewer.Merge\**\*.cs" Exclude="..\..\src\OcadViewer.Merge\obj\**;..\..\src\OcadViewer.Merge\bin\**" Link="Engine\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\TestData\merge\*.ocd" Link="merge\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The 3-way merge of OCAD maps: read three files, work out what each branch
+    changed, detect conflicts, apply the user's decisions and write the result.
+
+    Like OcadViewer.Versioning it has no dependencies at all. It reads the OCAD
+    file format itself rather than going through PurplePen's MapModel, because the
+    merge has to write files back byte-faithfully: everything it does not touch
+    must come out exactly as it went in, and a drawing model that only keeps what
+    it can draw cannot promise that. See MERGE-PLAN.md.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

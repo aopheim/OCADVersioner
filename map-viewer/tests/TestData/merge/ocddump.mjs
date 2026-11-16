@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
-const delphi = d => d ? new Date(Date.UTC(1899, 11, 30) + d * 86400000).toISOString().replace('T', ' ').slice(0, 23) : '-';
+const delphi = d => d ? new Date(Date.UTC(1899, 11, 30) + Math.round(d * 86400000)).toISOString().replace('T', ' ').slice(0, 23) : '-';
 const showCoords = process.argv.includes('-c');
 
 for (const path of process.argv.slice(2).filter(a => a !== '-c')) {
