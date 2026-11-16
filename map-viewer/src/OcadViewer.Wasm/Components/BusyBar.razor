@@ -1,0 +1,14 @@
+@* A 2 px bar, present only while something is happening, as in the Angular app.
+   The space is kept when idle so the page does not jump. *@
+<div style="height:2px">
+    @if (Busy) {
+        <div class="progress" style="height:2px">
+            <div class="progress-bar progress-bar-striped progress-bar-animated"
+                 style="width:100%"></div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public bool Busy { get; set; }
+}

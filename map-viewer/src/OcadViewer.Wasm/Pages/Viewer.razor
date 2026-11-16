@@ -1,490 +1,238 @@
-@page "/"
-@using OcadViewer.Loading
+@page "/viewer"
 @using OcadViewer.Versioning
 @using OcadViewer.Wasm.Components
 @using OcadViewer.Wasm.Services
-@inherits LocalisedComponent
-@inject ProjectService Project
-@inject IDiffSource DiffSource
+@inherits BusyPage
+@implements IAsyncDisposable
+@inject IJSRuntime JS
 
 <PageTitle>@L["#_OCADVersioner"]</PageTitle>
 
 @*
-    container-fluid lives here rather than in the layout because that is where the
-    Angular app puts it: there is no shell, every page is its own container.
+    A plain viewer for map files from this device - a phone as much as a laptop.
+
+    No project folder: the File System Access API does not exist on phones, and
+    looking at a map someone sent you should not need one. Each pane takes a file
+    of its own, chosen or dropped, and with two maps loaded the change overlay
+    compares them exactly as the workspace compares two versions - the panes, the
+    overlay and its switch are the workspace's own components.
+
+    Nothing is remembered across a reload. A browser cannot reopen a file it was
+    handed once, so the files would be gone anyway, and a remembered mode with
+    empty panes would only be a surprise.
 *@
-<div class="container-fluid">
+<div class="container-fluid viewerPage d-flex flex-column">
 
-<LoadStrip @ref="loadStrip" Busy="busy" Failed="failed" Status="@status"
-           Plan="plan" StepNames="stepNames" />
+<BusyBar Busy="Busy" />
 
-<div class="d-flex justify-content-between align-items-center">
-    <h3 class="my-2">@L["#_OCADVersioner"]</h3>
-    <div>
-        <a href="about" target="_blank" title="@L["#_about"]">
-            <i class="bi bi-book cursorPointer mx-3 h4 noColor"></i>
+<div class="d-flex align-items-center gap-1 gap-sm-2 py-1 flex-nowrap">
+    <div class="btn-group" role="group" aria-label="How many maps">
+        <button class="btn @(single ? "btn-primary" : "btn-outline-secondary")"
+                @onclick="() => SetSingle(true)" disabled="@Busy" title="One map">
+            <i class="bi bi-square"></i>
+        </button>
+        <button class="btn @(single ? "btn-outline-secondary" : "btn-primary")"
+                @onclick="() => SetSingle(false)" disabled="@Busy" title="Two maps, compared">
+            <i class="bi bi-layout-split"></i>
+        </button>
+    </div>
+
+    @* Always on the page, even with one map, so its state and its keyboard
+       shortcut survive a trip to single-map mode and back. *@
+    <ChangeOverlayToggle @ref="overlay" MapPair="mapPair"
+                         Older="@KeyFor(Older)" Newer="@KeyFor(Newer)"
+                         OlderLabel="@files[Older]"
+                         Available="Comparing"
+                         Busy="Busy" Run="Run" Large="true" />
+
+    @* In the toolbar rather than a line of its own, so a message coming and
+       going does not resize the maps under the user's finger. *@
+    @if (Status is not null) {
+        <span class="small text-truncate @(Failed ? "text-danger" : "text-muted")"
+              title="@Status">@Status</span>
+    }
+
+    <div class="ms-auto d-flex align-items-center">
+        <a href="./" title="@L["#_OCADVersioner"]">
+            <i class="bi bi-house cursorPointer mx-1 h4 noColor"></i>
         </a>
-        @* Opened by Bootstrap itself, as in the Angular app, rather than by a
-           Blazor flag - that is what gets the backdrop and the escape key. *@
-        <i class="bi bi-sliders cursorPointer mx-3 h4" title="@L["#_settings"]"
-           data-bs-toggle="modal" data-bs-target="#appSettingsModal"></i>
+        <a href="about" title="@L["#_about"]">
+            <i class="bi bi-book cursorPointer mx-1 h4 noColor"></i>
+        </a>
     </div>
 </div>
 
-@* The start page. It opens itself and owns choosing the folder, the working file
-   and reporting why either failed - so none of that is duplicated here. *@
-<ProjectDirectorySelector @ref="selector" OnProjectLoaded="OnProjectLoaded" />
+<div class="flex-grow-1 viewerMaps pb-1">
+    <OcadMapPair @ref="mapPair" Fill="true" OnlySide="ShownAlone">
+        <PaneContent Context="side">
+            @* Visually hidden but still focusable, so the picker can be reached
+               with Tab and opened with Enter or Space; the label after it shows
+               the focus ring. Not display:none, which would take it out of the
+               tab order altogether. *@
+            <input type="file" id="@InputId(side)" class="visually-hidden paneFile"
+                   @ref="inputs[side]" @onchange="e => Choose(side, e)" />
 
-@if (Project.IsOpen) {
-    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-        <span class="text-muted small">
-            @Project.Project.ProjectName
-            @if (!string.IsNullOrEmpty(Project.Project.CurrentFileName)) {
-                <text> / @Project.Project.CurrentFileName</text>
+            @* A label, not a button: tapping it opens the input's picker natively,
+               which is the only way some mobile browsers allow it at all. *@
+            @if (files[side] is null) {
+                <label for="@InputId(side)" class="paneEmpty">
+                    <i class="bi bi-folder2-open display-6"></i>
+                    <span class="fw-medium">@PaneLabel(side)</span>
+                    <span class="text-muted small">Tap to choose a map, or drop an OCAD file here</span>
+                </label>
             }
-        </span>
-        <button class="btn btn-outline-secondary btn-sm" @onclick="Refresh" disabled="@busy"
-                title="Re-read the folder">
-            <i class="bi bi-arrow-clockwise"></i>
-        </button>
-        <button class="btn btn-outline-secondary btn-sm" @onclick="ChangeProject" disabled="@busy"
-                title="@L["#_chooseOcadDirectory"]">
-            <i class="bi bi-folder2-open"></i>
-        </button>
-
-        @* The change overlay, off on arrival because building it means rendering
-           both maps in full. *@
-        <div class="vr mx-1"></div>
-        <button class="btn btn-sm @(showChanges ? "btn-primary" : "btn-outline-secondary")"
-                @onclick="ToggleChanges" disabled="@busy"
-                title="Show what changed since @Comparison.Older (@OverlayKey.ToUpperInvariant())">
-            <i class="bi bi-layers"></i>
-        </button>
-
-        @* The same switch from the keyboard, because comparing two versions is
-           looking from one map to the other and back, and reaching for this
-           button each time takes the eye off the place being looked at. *@
-        <KeyboardShortcut Key="@OverlayKey" OnPressed="ToggleChanges" />
-
-        <button class="btn btn-outline-secondary btn-sm" @onclick="ZoomToChanges"
-                disabled="@(busy || changeSummary is not { Shown: true, ShownPixels: > 0 })"
-                title="Zoom to what the overlay is showing">
-            <i class="bi bi-crosshair"></i>
-        </button>
-
-        @if (ChangedShare() is { } share) {
-            <span class="text-muted small">@share</span>
-        }
-    </div>
-}
-
-@if (Project.IsOpen) {
-    <div class="row">
-        <div class="col-md-2 d-flex flex-column">
-            <VersionList Items="VersionItems()" SelectedNumber="selectedNumber"
-                         Disabled="blocking > 0" OnSelected="SelectVersion" />
-
-            <CreateVersionForm @ref="versionForm"
-                               FileName="@Project.Project.CurrentFileName"
-                               NextVersionName="@Project.NextVersionName()"
-                               Busy="busy"
-                               OnCreate="CreateVersion" />
-        </div>
-
-        <div class="col-md-10">
-            <div class="d-flex justify-content-center align-items-center gap-3 mb-1">
-                @if (IsHistory) {
-                    <i class="bi bi-book fs-4 text-primary" title="Comparing two past versions"></i>
-                }
-                @* In the order the maps are in, so a glance at the heading and a
-                   glance at the panes agree. *@
-                <span class="fw-medium">@Label(Comparison.Older)</span>
-                <i class="bi bi-arrows"></i>
-                <span class="fw-medium">@Label(Comparison.Newer)</span>
-            </div>
-
-            <OcadMapPair @ref="mapPair" />
-
-            <DiffTable Diff="diff" Available="DiffSource.IsAvailable"
-                       UnavailableReason="@DiffSource.UnavailableReason" />
-        </div>
-    </div>
-}
-
-<SettingsDialog Georeference="@georeference" />
+            else {
+                <label for="@InputId(side)" class="btn btn-light btn-sm border paneButton"
+                       title="Choose another map">
+                    <i class="bi bi-folder2-open"></i> @PaneLabel(side): @files[side]
+                </label>
+            }
+        </PaneContent>
+    </OcadMapPair>
+</div>
 
 </div>
 
 @code {
+    /// <summary>
+    /// Older on the left - on top when the panes stack - and newer on the right:
+    /// the workspace's order, so time reads the same way on both pages, and the
+    /// overlay lands on the pane the eye ends up on.
+    /// </summary>
+    private const MapSide Older = MapSide.Left;
+    private const MapSide Newer = MapSide.Right;
+
+    private static readonly MapSide[] Sides = [Older, Newer];
+
     private OcadMapPair mapPair;
-    private ProjectDirectorySelector selector;
-    private CreateVersionForm versionForm;
-    private LoadStrip loadStrip;
+    private ChangeOverlayToggle overlay;
 
-    /// <summary>Set when a project has just opened and the maps still need loading.</summary>
-    private bool comparisonPending;
-    private bool busy;
-    private string status;
-    private bool failed;
+    /// <summary>One map or two. Two on arrival, because comparing is the point.</summary>
+    private bool single;
 
-    /// <summary>How many <see cref="Run"/>s have started and not yet finished.</summary>
-    private int running;
+    /// <summary>The file each pane is showing, by name; null for an empty pane.</summary>
+    private readonly Dictionary<MapSide, string> files = Sides.ToDictionary(s => s, _ => (string)null);
+
+    private readonly Dictionary<MapSide, ElementReference> inputs = [];
+
+    private IJSObjectReference dropModule;
+    private readonly List<IJSObjectReference> drops = [];
 
     /// <summary>
-    /// How many of <see cref="running"/> are not a version pick, which a newer
-    /// pick can take over. While any are, nothing else may start.
+    /// How many times each pane has been given a file, so a load that had to
+    /// wait can tell whether a newer choice has replaced it meanwhile.
     /// </summary>
-    private int blocking;
+    private readonly Dictionary<MapSide, int> choices = Sides.ToDictionary(s => s, _ => 0);
+
+    private bool BothLoaded => Sides.All(s => files[s] is not null);
+
+    /// <summary>Whether the change overlay has two visible maps to compare.</summary>
+    private bool Comparing => !single && BothLoaded;
 
     /// <summary>
-    /// How much of the current load is done, or null when what is running has no
-    /// size anyone can know in advance.
-    /// </summary>
-    private LoadPlan plan;
-
-    /// <summary>What the steps of <see cref="plan"/> are called on screen, in load order.</summary>
-    private IReadOnlyList<string> stepNames = [];
-
-    /// <summary>
-    /// Which load is the current one.
+    /// The pane shown in single-map mode, or null with two maps.
     /// </summary>
     /// <remarks>
-    /// Picking a version means picking it, even if the last one is still coming:
-    /// a load lasts a few seconds now that it waits for the tiles, so a second
-    /// thought part-way through is ordinary rather than a corner case. Each load
-    /// takes a number, the newest number owns the screen, and an older load
-    /// checks after every wait and stops - saying nothing, not even an error.
-    ///
-    /// Only loads take a number. Anything else the page runs is not a newer
-    /// version of a load and supersedes nothing.
+    /// The older pane, unless only the newer one has a map - switching to one
+    /// map must not hide the only map there is.
     /// </remarks>
-    private int loadGeneration;
-
-    private MapDiff diff = MapDiff.Empty;
-    private string georeference;
-
-    /// <summary>Which version is being compared, 0 meaning the working file.</summary>
-    private int selectedNumber;
+    private MapSide? ShownAlone
+        => !single ? null
+         : files[Older] is null && files[Newer] is not null ? Newer
+         : Older;
 
     /// <summary>
-    /// The key that turns the change overlay on and off. Named here once, so the
-    /// shortcut and the hint on the button cannot come to disagree.
-    /// </summary>
-    private const string OverlayKey = "c";
-
-    /// <summary>Whether the change overlay is on.</summary>
-    private bool showChanges;
-
-    private OcadMapPair.ChangeSummary changeSummary;
-
-    /// <summary>
-    /// The two sides of the current comparison. Which version sits opposite which
-    /// is a rule about project folders, not about this page, so it is answered by
-    /// <see cref="ProjectService"/> - and tested without a browser.
-    /// </summary>
-    private (string Newer, string Older) Comparison => Project.ComparisonFor(selectedNumber);
-
-    /// <summary>True when looking at two past versions rather than the working file.</summary>
-    private bool IsHistory => selectedNumber != 0;
-
-    /// <summary>
-    /// The released versions, newest first.
+    /// The name a pane's map is held under.
     /// </summary>
     /// <remarks>
-    /// The working file is not one of them. It is the map OCAD is writing, not a
-    /// version of anything, and listing it among the releases would make the
-    /// newest release look like the second newest thing in the project.
+    /// One per pane rather than the file's own name: two files called the same
+    /// - "map.ocd" from two people - must not replace each other, and a file
+    /// chosen again has to be read again anyway, since it may have changed.
     /// </remarks>
-    private IReadOnlyList<VersionList.Item> VersionItems()
-        => [.. Project.Project.Versions
-                .OrderByDescending(v => v.Number)
-                .Select(v => new VersionList.Item(
-                    v.Number, v.Name, v.Metadata.Title, v.Metadata.Description,
-                    v.Metadata.VersionCreatedAt,
-                    v.Metadata.NumberOfAddedSymbols,
-                    v.Metadata.NumberOfEditedSymbols,
-                    v.Metadata.NumberOfDeletedSymbols))];
+    private static string KeyFor(MapSide side) => $"chosen:{side}";
 
-    /// <summary>
-    /// What one side of the comparison is called on screen.
-    /// </summary>
-    /// <remarks>
-    /// Releases answer to their own names. The working file has no name a mapper
-    /// would recognise - the folder format calls it "current" - so it says what
-    /// OCAD has open instead.
-    /// </remarks>
-    private string Label(string versionName)
-        => ProjectService.IsVolatile(versionName)
-            ? Project.Project.CurrentFileName ?? versionName
-            : versionName;
+    private static string InputId(MapSide side) => $"mapFile{side}";
 
-    /// <summary>
-    /// The folder is open and a working file is settled.
-    /// </summary>
-    /// <remarks>
-    /// The maps cannot be loaded here. Until this moment the workspace was not on
-    /// the page at all - it renders only once a project is open - so OcadMapPair
-    /// does not exist yet and its <c>@@ref</c> is still null. Asking for a render
-    /// and picking the work up afterwards is what makes the component available.
-    /// </remarks>
-    private void OnProjectLoaded()
-    {
-        selectedNumber = 0;
-        showChanges = false;
-        changeSummary = null;
-        comparisonPending = true;
-        StateHasChanged();
-    }
+    private string PaneLabel(MapSide side)
+        => single ? "Map" : side == Older ? "Older" : "Newer";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // Children render before their parent's OnAfterRenderAsync runs, so by now
-        // the map pair exists and has started its own JS module.
-        if (!comparisonPending || mapPair is null || busy)
+        if (!firstRender)
             return;
 
-        comparisonPending = false;
-
-        // A different folder may have been opened, and its releases share their
-        // names with the last one's, so nothing parsed before can be trusted.
-        await Run("Loading…", async () => {
-            await mapPair.ResetAsync();
-            await ShowComparison();
-        });
+        // Both inputs exist by now: the panes render before the page's own
+        // OnAfterRenderAsync, and the hidden one is rendered all the same.
+        dropModule = await JS.ImportAsync("./js/fileDrop.js");
+        foreach (MapSide side in Sides)
+            drops.Add(await dropModule.InvokeAsync<IJSObjectReference>("acceptDrops", inputs[side]));
     }
 
-    private async Task Refresh()
-        => await Run("Re-reading folder…", async () => {
-            await Project.RefreshAsync();
-            await ShowComparison();
-        });
-
-    /// <summary>Reopens the start dialog, to point the app at a different folder.</summary>
-    private async Task ChangeProject() => await selector.ShowAsync();
-
-    /// <summary>Looks at a version, or puts the working file back on screen.</summary>
-    /// <remarks>
-    /// Clicking the version already selected is the way back to the file OCAD is
-    /// writing. That file is not in the list - it is not a version - so the row
-    /// you left through has to be the way back, or there is none.
-    /// </remarks>
-    private async Task SelectVersion(int number)
-        => await Run("Loading…", async () => {
-            selectedNumber = number == selectedNumber ? 0 : number;
-            await ShowComparison();
-        }, takesOver: true);
-
-    private async Task CreateVersion((string Title, string Description) entry)
-        => await Run("Creating version…", async () => {
-            await Project.CreateVersionAsync(entry.Title, entry.Description);
-            versionForm?.Reset();
-            selectedNumber = 0;
-            await ShowComparison();
-        });
-
-    /// <summary>Puts both sides of the comparison on screen.</summary>
-    /// <remarks>
-    /// Each side is named, not numbered, and a release is only re-read when it is
-    /// not already parsed - so moving from "V4 against V3" to "V3 against V2"
-    /// parses V2 alone. Only the working file is reloaded every time, because only
-    /// the working file can have changed on disk.
-    /// </remarks>
-    private async Task ShowComparison()
+    /// <summary>A file was chosen in, or dropped on, a pane.</summary>
+    private async Task Choose(MapSide side, ChangeEventArgs e)
     {
-        // Not a guard against ordinary timing - the caller is responsible for
-        // waiting until the workspace has rendered. Silently returning here is how
-        // "the folder opened but no maps appeared" would look.
-        if (mapPair is null)
-            throw new InvalidOperationException("The map pair is not on the page yet.");
+        string name = FileNameOf(e.Value as string);
 
-        (string newer, string older) = Comparison;
-        int mine = ++loadGeneration;
+        // The picker was opened and closed again.
+        if (string.IsNullOrEmpty(name))
+            return;
 
-        // Until this load is weighed, the bar must not go on showing the last one.
-        plan = null;
+        int choice = ++choices[side];
 
-        // A newer load took the panes over. It owns what is on screen and what
-        // the page says about it; this one has nothing left to contribute.
-        bool Superseded() => mine != loadGeneration;
-
-        // Older on the left, newer on the right: time runs that way, and the
-        // overlay - which is painted on the newer map - then sits where the eye
-        // ends up rather than where it starts. The newer map is loaded first,
-        // because it is the one being looked at.
-        OcadMapPair.MapRequest[] maps = [
-            new(MapSide.Right, Project.SourceFor(newer)),
-            new(MapSide.Left, Project.SourceFor(older))
-        ];
-
-        try {
-            // Weighed before anything is read, so the bar can say how much of the
-            // whole wait is left rather than which step it is on.
-            IReadOnlyList<LoadStep> steps = await mapPair.PlanAsync(maps);
-            if (Superseded())
+        // Waits rather than being dropped if something else is running: a file
+        // dropped during a long parse is still what the user wants to see.
+        await RunWhenIdle($"Loading {name}…", async () => {
+            // A newer choice for this pane arrived while this one waited. The
+            // input holds that one now, and it will load it itself.
+            if (choice != choices[side])
                 return;
 
-            LoadPlan mapsPlan = plan = LoadPlan.For(steps);
-            stepNames = [.. maps.Select(map => Label(map.Source.Name))];
-            StateHasChanged();
+            // Checked here rather than filtered in the picker: some phones grey
+            // out every file whose type they do not recognise.
+            if (!FolderLayout.IsMapFile(name))
+                throw new InvalidOperationException(
+                    $"{name} is not an OCAD map ({FolderLayout.MapExtension}).");
 
-            for (int step = 0; step < maps.Length; step++) {
-                MapSummary info = await mapPair.ParseAsync(maps[step]);
-                if (Superseded())
-                    return;
+            await mapPair.ShowFileAsync(side, KeyFor(side), inputs[side]);
+            files[side] = name;
 
-                mapsPlan.Parsed(step);
-                loadStrip?.Refresh();
-
-                if (step == 0)
-                    georeference = info.Georeference;
-
-                int drawing = step;
-                Task drawn = mapPair.DrawAsync(maps[step], (tilesDrawn, tilesAsked) => {
-                    if (Superseded())
-                        return;
-
-                    mapsPlan.Drew(drawing, tilesDrawn, tilesAsked);
-                    loadStrip?.Refresh();
-                });
-
-                // Both maps are parsed, and the diff is read from what the parses
-                // kept - it needs nothing from the tiles. So the table is filled
-                // now, while the last pane draws, rather than after it.
-                if (step == maps.Length - 1) {
-                    diff = await DiffSource.CompareAsync(older, newer);
-                    if (Superseded())
-                        return;
-
-                    StateHasChanged();
-                }
-
-                await drawn;
-                if (Superseded())
-                    return;
-
-                mapsPlan.Finished(step);
-                loadStrip?.Refresh();
-            }
-
-            // The overlay belongs to a pair of versions, so a new comparison needs
-            // a new mask. Only paid for if the user has asked to see one - and only
-            // once both panes are drawn, because building it renders both maps in
-            // full and would hold up the tiles.
-            await ApplyChangeOverlay();
-        }
-        catch when (Superseded()) {
-            // The mapper has already moved on. What went wrong with a comparison
-            // nobody is waiting for any more is not worth telling them.
-        }
-    }
-
-    /// <summary>Turns the overlay on or off, from the button or from the keyboard.</summary>
-    private async Task ToggleChanges()
-        => await Run("Finding changes…", async () => {
-            showChanges = !showChanges;
-            await ApplyChangeOverlay();
+            // Rebuilt for the new pair if it is on; free if it is off. Read from
+            // fields, not from the toggle's parameters, which predate this load.
+            if (Comparing)
+                await overlay.ApplyAsync(KeyFor(Older), KeyFor(Newer));
         });
-
-    /// <summary>
-    /// Brings the overlay in line with the switch and the current comparison.
-    /// </summary>
-    /// <remarks>
-    /// Free when the overlay is off, and free again when it is switched back on
-    /// for a comparison already measured - the mask and its image are kept per
-    /// pair of versions. Only a new comparison costs a render.
-    ///
-    /// A failure turns the switch off. Left on, the button would claim an
-    /// overlay that is not there, and the next comparison would quietly build
-    /// one the user never saw appear.
-    /// </remarks>
-    private async Task ApplyChangeOverlay()
-    {
-        if (mapPair is null)
-            return;
-
-        (string newer, string older) = Comparison;
-
-        try {
-            changeSummary = await mapPair.ShowChangesAsync(older, newer, showChanges);
-        }
-        catch {
-            showChanges = false;
-            changeSummary = null;
-            throw;
-        }
     }
 
-    /// <summary>Frames whatever the overlay is showing, however small it is.</summary>
-    private async Task ZoomToChanges()
-        => await Run("Zooming…", async () => await mapPair.ZoomToChangesAsync());
-
-    /// <summary>
-    /// How much of the map the overlay is lighting up, or null.
-    /// </summary>
-    /// <remarks>
-    /// Both numbers are counted from the mask, where the overlay is drawn from,
-    /// so the percentage cannot disagree with the picture.
-    /// </remarks>
-    private string ChangedShare()
+    private async Task SetSingle(bool value)
     {
-        if (changeSummary is not { Shown: true, TotalPixels: > 0 } summary)
-            return null;
-
-        return $"{summary.ShownPixels * 100.0 / summary.TotalPixels:0.0}% of the map";
-    }
-
-    /// <summary>Runs an action with the progress bar, busy flag and error reporting.</summary>
-    /// <remarks>
-    /// Anything else asked for while something is running is ignored. Buttons
-    /// are disabled while busy, but a key press is not stopped by markup, and
-    /// work started on top of a load would act on panes that are about to change.
-    ///
-    /// The one exception is <paramref name="takesOver"/>: picking a version
-    /// while the last pick is still loading. The new load abandons the old one
-    /// (see <see cref="ShowComparison"/>), so the two never interleave, and the
-    /// mapper is not made to wait for a comparison they have already left. It
-    /// still waits for anything that is not such a load - a refresh, a version
-    /// being written - because those change what the pick would be read from.
-    ///
-    /// So runs can overlap, and the page is busy until the last of them has
-    /// finished, not the first. Every error that reaches here is shown: a load
-    /// that was overtaken keeps its own errors to itself, so nothing arriving
-    /// here is stale. A run that succeeds clears the message only when nothing
-    /// else is running and nothing has failed meanwhile, so it never wipes out a
-    /// successor's message or someone else's error.
-    /// </remarks>
-    private async Task Run(string message, Func<Task> action, bool takesOver = false)
-    {
-        if (takesOver ? blocking > 0 : running > 0)
+        if (single == value)
             return;
 
-        running++;
-        if (!takesOver)
-            blocking++;
-        busy = true;
-        failed = false;
-        status = message;
-        StateHasChanged();
-        await Task.Yield();
+        single = value;
 
-        try {
-            await action();
+        // A file chosen while in single-map mode made the overlay's mask stale,
+        // and the workspace took it off the screen. Back to two maps, the switch
+        // may still say it is on, so bring the picture back in line with it.
+        if (Comparing)
+            await Run("Finding changes…", () => overlay.ApplyAsync(KeyFor(Older), KeyFor(Newer)));
+    }
 
-            if (running == 1 && !failed)
-                status = null;
-        }
-        catch (Exception ex) {
-            failed = true;
-            status = ex.Message;
-        }
-        finally {
-            running--;
-            if (!takesOver)
-                blocking--;
-            busy = running > 0;
-            if (!busy)
-                plan = null;
-            StateHasChanged();
-        }
+    /// <summary>
+    /// The file's name, from the input's value.
+    /// </summary>
+    /// <remarks>
+    /// Browsers report a chosen file as <c>C:\fakepath\name</c> whatever the
+    /// platform, and .NET in WebAssembly does not treat a backslash as a
+    /// separator, so the split is done by hand.
+    /// </remarks>
+    private static string FileNameOf(string value)
+        => value?.Split('\\', '/').LastOrDefault();
+
+    public async ValueTask DisposeAsync()
+    {
+        foreach (IJSObjectReference drop in drops)
+            await drop.ReleaseAsync("dispose");
+
+        await dropModule.ReleaseAsync();
     }
 }

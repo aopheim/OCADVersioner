@@ -5,8 +5,9 @@
  * putting it on a Leaflet map meet each other - each of which is a module that
  * knows nothing about the other two.
  *
- * Map bytes are read here and handed straight to the renderer; C# only says which
- * version it wants, where its file is, and whether to read it again.
+ * Map bytes are read here and handed straight to the renderer. C# only says which
+ * map it wants and where its bytes are: a path in the project folder (show), or
+ * a file input the user chose a file in (showFile).
  *
  * What is parsed is held in one place: the tile source's store. This module keeps
  * no record of its own of what was loaded. The only thing it caches is the change
@@ -14,15 +15,15 @@
  * so it goes stale by itself when either is read again.
  */
 
-import { readBytes, sizeOf } from './projectFolder.js';
+import { readBytes } from './projectFolder.js';
 import { createTileSource } from './mapTiles.js';
 import { createSyncedMaps } from './leafletViewport.js';
 import { paint, coverage, boundsOf } from './changeMask.js';
 
 /**
  * Builds the viewer over two elements.
- * @returns {Promise<{plan: Function, parse: Function, draw: Function, showChanges: Function,
- *                    zoomToChanges: Function, reset: Function, showing: Function, stats: object, dispose: Function}>}
+ * @returns {Promise<{show: Function, showFile: Function, showChanges: Function, zoomToChanges: Function,
+ *                    reset: Function, showing: Function, stats: object, dispose: Function}>}
  */
 export async function createWorkspace(leftEl, rightEl) {
     const tiles = await createTileSource();
@@ -33,18 +34,6 @@ export async function createWorkspace(leftEl, rightEl) {
      * computing it means rendering both whole maps, while turning the overlay
      * off and on again should cost nothing. */
     let changes = null;
-
-    /** Whether this map has to be read off disk before it can be shown. */
-    function needsParse(request) {
-        return request.reload || !tiles.isLoaded(request.versionName);
-    }
-
-    function summaryOf(versionName) {
-        const info = tiles.describe(versionName);
-        if (!info.ok)
-            throw new Error(`No parse result for "${versionName}".`);
-        return info;
-    }
 
     function forgetChanges() {
         if (changes?.url) URL.revokeObjectURL(changes.url);
@@ -80,70 +69,76 @@ export async function createWorkspace(leftEl, rightEl) {
         return Object.keys(showing).find(side => showing[side] === versionName) ?? null;
     }
 
+    /**
+     * The one way a map gets into a pane, wherever its bytes come from.
+     *
+     * @param read async () => ({ fileName, bytes }); only called when the map
+     *             has to be (re)parsed
+     */
+    async function place(side, mapName, read, reload) {
+        let info;
+
+        if (reload || !tiles.isLoaded(mapName)) {
+            const { fileName, bytes } = await read();
+            info = tiles.load(mapName, fileName, bytes);
+
+            if (!info.ok)
+                throw new Error(info.error ?? `Could not read ${fileName}.`);
+
+            dropStaleChanges();
+        } else {
+            info = tiles.describe(mapName);
+        }
+
+        view.show(side, mapName, info);
+        return info;
+    }
+
     return {
         /**
-         * What a load is about to cost, before any of it is done.
+         * Shows a version from the project folder on one side, reading and
+         * parsing it only if it has to.
          *
-         * Facts only: how many bytes have to be parsed, and how many tiles each
-         * pane will ask for. What they are worth against each other is decided
-         * in C#, where it can be tested.
-         *
-         * @param requests [{side, versionName, path, reload}], in the order they
-         *                 will be loaded
-         * @returns [{bytesToParse, tilesToDraw}] in the same order; bytesToParse
-         *          is zero for a map already in memory
-         */
-        async plan(requests) {
-            const steps = [];
-
-            for (const request of requests) {
-                steps.push({
-                    bytesToParse: needsParse(request) ? await sizeOf(request.path) : 0,
-                    tilesToDraw: view.expectedTiles(request.side)
-                });
-            }
-
-            return steps;
-        },
-
-        /**
-         * Makes sure a version is parsed, reading and parsing it only if it has to.
-         *
-         * One map at a time, and nothing about which load asked: the order of a
-         * comparison and whether a load has been overtaken are decided in C#,
-         * between these calls.
-         *
-         * @param request {side, versionName, path, reload}; path is where the
-         *                file is, relative to the project folder, and reload is
-         *                true when the file can have changed since it was read
+         * @param side a pane name, passed through to the viewport
+         * @param versionName the name the map is held under
+         * @param path where its file is, relative to the project folder
+         * @param reload true when the file can have changed since it was read
          * @returns the parse summary
          */
-        async parse(request) {
-            if (needsParse(request)) {
-                const bytes = await readBytes(request.path);
-                const summary = tiles.load(
-                    request.versionName, request.path.split('/').pop(), bytes);
-
-                if (!summary.ok)
-                    throw new Error(summary.error ?? `Could not read ${request.path}.`);
-
-                dropStaleChanges();
-            }
-
-            return summaryOf(request.versionName);
+        show(side, versionName, path, reload) {
+            return place(side, versionName, async () => ({
+                fileName: path.split('/').pop(),
+                bytes: await readBytes(path)
+            }), reload);
         },
 
         /**
-         * Puts a parsed version in its pane, and waits until the pane has drawn it.
+         * Shows the file chosen in an <input type="file"> on one side.
          *
-         * @param request {side, versionName}
-         * @param report a .NET object told (drawn, asked for) as tiles land, or null
-         * @returns resolved when the pane is drawn, or when another map takes the
-         *          pane first
+         * The element is passed rather than the file because a File cannot
+         * cross into .NET - and should not: map bytes go straight from the
+         * browser to the renderer. Always re-read, since the same input can
+         * hold a different file each time it is asked.
+         *
+         * @param mapName the name the map is held under
+         * @param input the file input element
+         * @returns the parse summary
          */
-        async draw(request, report) {
-            await view.show(request.side, request.versionName, summaryOf(request.versionName),
-                (drawn, asked) => report?.invokeMethodAsync('Tiles', drawn, asked)?.catch(() => { }));
+        showFile(side, mapName, input) {
+            const file = input?.files?.[0];
+            if (!file)
+                throw new Error('No file was chosen.');
+
+            /* Emptied once the file is in hand, because a browser only fires
+             * 'change' when the choice differs from what the input holds - and
+             * choosing the same file again, after saving it in OCAD, is exactly
+             * how a user reloads it. */
+            input.value = '';
+
+            return place(side, mapName, async () => ({
+                fileName: file.name,
+                bytes: new Uint8Array(await file.arrayBuffer())
+            }), true);
         },
 
         /**

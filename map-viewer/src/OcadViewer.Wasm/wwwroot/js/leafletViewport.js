@@ -80,21 +80,38 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
      * Only react to an actual size change. Calling invalidateSize unconditionally
      * re-enters the observer - invalidateSize touches layout, which fires the
      * observer, which calls it again - and the resulting loop pins the view so the
-     * map silently refuses to zoom. */
-    const lastSize = new WeakMap();
+     * map silently refuses to zoom.
+     *
+     * "Changed" is measured against the size Leaflet believes, not against the
+     * last size this observer saw. A pane can be hidden, and anything that
+     * invalidates a hidden map - a show(), a window resize - leaves Leaflet
+     * believing it is 0x0. When the pane reappears at its old size, a cache of
+     * our own would call that "no change" and the map would draw nothing. */
     const resizeObserver = new ResizeObserver(entries => {
         for (const entry of entries) {
             const el = entry.target;
             const w = el.clientWidth, h = el.clientHeight;
             if (w === 0 || h === 0) continue;
 
-            const previous = lastSize.get(el);
-            if (previous && previous.w === w && previous.h === h) continue;
-            lastSize.set(el, { w, h });
+            const side = SIDES.find(s => maps[s].getContainer() === el);
+            if (!side) continue;
 
-            for (const side of SIDES) {
-                if (maps[side].getContainer() === el)
-                    maps[side].invalidateSize({ animate: false, pan: false });
+            const map = maps[side];
+            const believed = map.getSize();
+            if (believed.x === w && believed.y === h) continue;
+
+            const wasHidden = believed.x === 0 || believed.y === 0;
+            map.invalidateSize({ animate: false, pan: false });
+
+            /* A hidden map is still synced, but leaflet.sync places it using its
+             * 0x0 size, and invalidateSize({pan: false}) keeps that wrong pixel
+             * origin - so it comes back looking at a different place from its
+             * partner. Put it back where the visible map is. */
+            if (wasHidden) {
+                const partner = maps[SIDES.find(s => s !== side)];
+                const partnerSize = partner.getSize();
+                if (partnerSize.x > 0 && partnerSize.y > 0)
+                    map.setView(partner.getCenter(), partner.getZoom(), { animate: false });
             }
         }
     });
