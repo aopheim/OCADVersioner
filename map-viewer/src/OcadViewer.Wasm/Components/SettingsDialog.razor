@@ -1,8 +1,7 @@
 @using OcadViewer.Wasm.Services
 @inject AppSettingsService SettingsService
-@inject Localiser L
+@inherits LocalisedComponent
 @inject IJSRuntime JS
-@implements IAsyncDisposable
 
 @*
     Settings, as the Angular app's app-settings-modal: a real Bootstrap modal,
@@ -92,7 +91,7 @@
                            can actually show today. *@
                         @if (!string.IsNullOrWhiteSpace(Georeference)) {
                             <p class="text-muted small mt-2 mb-0">
-                                This map declares <code>@Georeference</code>
+                                @L["#_mapDeclares"] <code>@Georeference</code>
                             </p>
                         }
                     </div>
@@ -157,7 +156,7 @@
         StateHasChanged();
     }
 
-    public async ValueTask DisposeAsync()
+    protected override async ValueTask DisposeAsyncCore()
     {
         await ui.ReleaseAsync();
         self?.Dispose();

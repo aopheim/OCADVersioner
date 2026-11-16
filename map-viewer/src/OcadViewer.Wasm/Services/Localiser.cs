@@ -7,11 +7,11 @@ namespace OcadViewer.Wasm.Services;
 /// Looks up UI strings by the keys the Angular app already uses.
 /// </summary>
 /// <remarks>
-/// Deliberately not Blazor's .resx localisation. The translations exist, they are
-/// maintained, and the Angular app is still live - copying them into .resx would
-/// mean two copies drifting apart for as long as both apps run. An MSBuild target
-/// copies <c>src/assets/i18n/*.json</c> into this app's wwwroot, so there is one
-/// source of truth until Angular is deleted.
+/// Deliberately not Blazor's .resx localisation. The translations are the Angular
+/// app's own JSON files, now kept here in <c>wwwroot/i18n</c> as the original.
+/// The Angular app keeps a copy in <c>src/assets/i18n</c> until it is deleted,
+/// because its production deploy builds that folder on its own; the architecture
+/// tests fail if the two copies differ, so they stay one set of strings.
 ///
 /// Keys keep their <c>#_</c> prefix for the same reason: so a string can be traced
 /// to the Angular component it came from without translating names as well.
@@ -70,7 +70,8 @@ public sealed class Localiser(HttpClient http)
     /// where a blank space would just look like a layout bug.
     /// </remarks>
     public string this[string key]
-        => strings.TryGetValue(key, out string value) ? value : key;
+        => key is null ? string.Empty
+         : strings.TryGetValue(key, out string value) ? value : key;
 
     /// <summary>
     /// The string for <paramref name="key"/> with <c>{{name}}</c> placeholders

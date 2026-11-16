@@ -75,8 +75,10 @@ public interface IDiffSource
     /// <summary>Whether this source can actually produce a comparison.</summary>
     bool IsAvailable { get; }
 
-    /// <summary>Why no comparison is available, for the UI to show plainly.</summary>
-    string UnavailableReason { get; }
+    /// <summary>
+    /// Why no comparison is available, as a translation key the UI looks up.
+    /// </summary>
+    string UnavailableReasonKey { get; }
 
     Task<MapDiff> CompareAsync(string olderVersion, string newerVersion);
 }
@@ -89,9 +91,7 @@ public sealed class NoDiffSource : IDiffSource
 {
     public bool IsAvailable => false;
 
-    public string UnavailableReason =>
-        "Comparing versions is not implemented yet, so this table stays empty. "
-        + "The viewer and version management above are fully working.";
+    public string UnavailableReasonKey => "#_diffNotImplemented";
 
     public Task<MapDiff> CompareAsync(string olderVersion, string newerVersion)
         => Task.FromResult(MapDiff.Empty);

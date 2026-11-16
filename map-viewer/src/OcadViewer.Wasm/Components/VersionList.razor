@@ -1,4 +1,4 @@
-@using OcadViewer.Wasm.Services
+@inherits LocalisedComponent
 
 @*
     The list of versions down the left side. Mirrors Angular's ocad-version-list:
@@ -12,8 +12,11 @@
                 disabled="@Disabled"
                 @onclick="() => OnSelected.InvokeAsync(item.Number)">
             <div class="d-flex w-100 justify-content-between">
-                <h6 class="mb-1 text-truncate">@DisplayTitle(item)</h6>
-                <small class="ms-2 flex-shrink-0">@DisplayDate(item)</small>
+                @* Angular's split: the title gets seven twelfths and wraps, the
+                   date five. Truncating the title instead let the date take the
+                   whole row in the narrow col-md-2 column, and the title vanished. *@
+                <h6 class="mb-1 col-7 pe-1 text-break">@DisplayTitle(item)</h6>
+                <small class="col-5">@DisplayDate(item)</small>
             </div>
 
             @if (!string.IsNullOrWhiteSpace(item.Description)) {
@@ -21,13 +24,13 @@
             }
 
             <div class="d-flex justify-content-around small">
-                <span title="Added symbols">
+                <span title="@L["#_addedSymbols"]">
                     <i class="bi bi-plus-square mx-1"></i>@item.Added
                 </span>
-                <span title="Edited symbols">
+                <span title="@L["#_editedSymbols"]">
                     <i class="bi bi-pencil mx-1"></i>@item.Edited
                 </span>
-                <span title="Deleted symbols">
+                <span title="@L["#_deletedSymbols"]">
                     <i class="bi bi-trash mx-1"></i>@item.Deleted
                 </span>
             </div>
