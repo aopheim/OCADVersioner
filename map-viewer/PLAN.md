@@ -88,10 +88,9 @@ The Angular app has the same limitation, so it is not a regression.
 
 ### Benchmark map
 
-`ocad-versioner/src/assets/tests/large_map.ocd` — 9.8 MB, OCAD 2018, deliberately
-**untracked**: `angular.json` ships all of `src/assets` to production, so committing
-it there would add 9.8 MB to every user's download. Every timing in this document
-was measured on it.
+`map-viewer/testdata/large_map.ocd` — 9.8 MB, OCAD 2018, deliberately
+**untracked** and git-ignored, to keep 9.8 MB out of the repository's history. Get
+it from whoever has a copy. Every timing in this document was measured on it.
 
 
 ## Context
@@ -207,8 +206,8 @@ Real OCAD maps name Arial and Times New Roman. Roboto's glyph advances differ, s
 > working copy. The same files are vendored under `map-viewer/vendor/PurplePen/`.
 
 - PurplePen: [TestFiles/marymoor.ocd](C:/repos/PurplePen/src/MapModel/TestFiles/marymoor.ocd) (599 KB) and `Lake Sammamish.ocd` (391 KB) are the largest real maps available; `TestFiles/ocadimport/` has version-specific files (`nonrenderable6/9/12.ocd`, `missingfont6/9.ocd`) for parser coverage across OCAD 6–12.
-- OCADVersioner: `ocad-versioner/src/assets/tests/*.ocd` are small synthetic fixtures (1 knoll, point/line/area) — fine for correctness, useless for performance.
-- `ocad-versioner/src/assets/tests/large_map.ocd` (9.8 MB, OCAD 2018) is the
+- OCADVersioner: `map-viewer/testdata/*.ocd` are small synthetic fixtures (1 knoll, point/line/area) — fine for correctness, useless for performance.
+- `map-viewer/testdata/large_map.ocd` (9.8 MB, OCAD 2018) is the
   benchmark. Untracked on purpose — see *Resuming in a new session*.
 
 ### Recreating the test project folder
@@ -220,10 +219,10 @@ metadata:
 ```bash
 P="$TEMP/ocad-testproject"
 mkdir -p "$P/Releases/V1" "$P/Releases/V2"
-cp ocad-versioner/src/assets/tests/large_map.ocd "$P/mymap.ocd"
+cp map-viewer/testdata/large_map.ocd "$P/mymap.ocd"
 # any two .ocd files will do for the releases:
-cp ocad-versioner/src/assets/tests/point_line_area.ocd "$P/Releases/V1/V1.ocd"
-cp ocad-versioner/src/assets/tests/1knoll.ocd          "$P/Releases/V2/V2.ocd"
+cp map-viewer/testdata/point_line_area.ocd "$P/Releases/V1/V1.ocd"
+cp map-viewer/testdata/1knoll.ocd          "$P/Releases/V2/V2.ocd"
 
 cat > "$P/Releases/V1/V1.json" <<'JSON'
 {"numberOfAddedSymbols":12,"numberOfDeletedSymbols":3,"numberOfEditedSymbols":7,"versionCreatedAt":"2026-09-01T09:15:00.000Z","versionNumber":1,"description":"First survey pass","title":"Spring survey"}
@@ -287,7 +286,6 @@ Cost is ~600 KB Brotli. Vendor it. Its coupling is narrow — only `internal cla
 
 ```
 C:\repos\OCADVersioner\
-  ocad-versioner\                       # Angular app — frozen, then deleted at Stage 9
   THIRD-PARTY-NOTICES.md                # served by the app, not just committed
   map-viewer\                           # .NET root
     MapViewer.slnx
@@ -581,7 +579,7 @@ is git-ignored, and anything left there would be included in `dotnet publish`:
 
 ```bash
 mkdir -p map-viewer/src/OcadViewer.Wasm/wwwroot/testmaps
-cp ocad-versioner/src/assets/tests/large_map.ocd map-viewer/src/OcadViewer.Wasm/wwwroot/testmaps/
+cp map-viewer/testdata/large_map.ocd map-viewer/src/OcadViewer.Wasm/wwwroot/testmaps/
 # rebuild, then in the page console:
 #   fetch('/testmaps/large_map.ocd') -> File -> DataTransfer -> input.files -> dispatch 'change'
 ```
@@ -939,9 +937,15 @@ Retirement is a deliberate, reversible sequence:
    format is shared, so this is low-risk.
 3. Switch the production domain to the Blazor app, keeping Angular reachable.
 4. Delete `ocad-versioner/` and its workflows, drop `ocad2geojson-test`, and fold
-   the third-party notices into the Blazor app.
+   the third-party notices into the Blazor app. — **DONE.** The Angular app, its
+   PROD (icy-pond) and DEV workflows, its PR build job, its Prettier config and the
+   translation-copy test are gone; the four small `.ocd` fixtures moved to
+   `map-viewer/testdata/`. Nothing deploys to icy-pond any more, so it keeps
+   serving the last Angular build until step 3 moves the domain.
 
-**Done when:** `ocad-versioner/` is gone and nothing references it.
+**Done when:** `ocad-versioner/` is gone and nothing references it. References
+to Angular left in comments and earlier sections of this plan are history: they
+record why something is the shape it is.
 
 ## Architecture, and the tests that hold it in place
 

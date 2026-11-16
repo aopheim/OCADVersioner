@@ -65,11 +65,6 @@ Copyright © Google Inc. Licensed under **Apache License 2.0**
 Bundled with the viewer because a browser provides no system fonts to the
 rendering engine.
 
-## ocad2geojson
-
-Used by the existing Angular application. Copyright © Per Liedman. Licensed under
-the **GNU Affero General Public License v3.0**.
-
 ## Leaflet
 
 Copyright © 2010–2023 Volodymyr Agafonkin. Licensed under **BSD 2-Clause**
