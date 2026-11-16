@@ -82,6 +82,9 @@
     /// <summary>Whether the overlay is on.</summary>
     private bool showChanges;
 
+    /// <summary>Whether the overlay is on, so <see cref="ApplyAsync"/> has work to do.</summary>
+    public bool IsOn => showChanges;
+
     private OcadMapPair.ChangeSummary summary;
 
     /// <summary>

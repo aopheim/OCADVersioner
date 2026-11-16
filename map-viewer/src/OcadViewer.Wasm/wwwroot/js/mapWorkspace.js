@@ -6,7 +6,7 @@
  * knows nothing about the other two.
  *
  * Map bytes are read here and handed straight to the renderer. C# only says which
- * map it wants and where its bytes are: a path in the project folder (show), or
+ * map it wants and where its bytes are: a path in the project folder (parse), or
  * a file input the user chose a file in (showFile).
  *
  * What is parsed is held in one place: the tile source's store. This module keeps
@@ -22,8 +22,8 @@ import { paint, coverage, boundsOf } from './changeMask.js';
 
 /**
  * Builds the viewer over two elements.
- * @returns {Promise<{show: Function, showFile: Function, showChanges: Function, zoomToChanges: Function,
- *                    reset: Function, showing: Function, stats: object, dispose: Function}>}
+ * @returns {Promise<{parse: Function, draw: Function, showFile: Function, showChanges: Function,
+ *                    zoomToChanges: Function, reset: Function, showing: Function, stats: object, dispose: Function}>}
  */
 export async function createWorkspace(leftEl, rightEl) {
     const tiles = await createTileSource();
@@ -70,47 +70,58 @@ export async function createWorkspace(leftEl, rightEl) {
     }
 
     /**
-     * The one way a map gets into a pane, wherever its bytes come from.
+     * Makes sure a map is parsed, wherever its bytes come from.
      *
      * @param read async () => ({ fileName, bytes }); only called when the map
      *             has to be (re)parsed
+     * @returns the parse summary
      */
-    async function place(side, mapName, read, reload) {
-        let info;
+    async function parseFrom(mapName, read, reload) {
+        if (!reload && tiles.isLoaded(mapName))
+            return tiles.describe(mapName);
 
-        if (reload || !tiles.isLoaded(mapName)) {
-            const { fileName, bytes } = await read();
-            info = tiles.load(mapName, fileName, bytes);
+        const { fileName, bytes } = await read();
+        const info = tiles.load(mapName, fileName, bytes);
 
-            if (!info.ok)
-                throw new Error(info.error ?? `Could not read ${fileName}.`);
+        if (!info.ok)
+            throw new Error(info.error ?? `Could not read ${fileName}.`);
 
-            dropStaleChanges();
-        } else {
-            info = tiles.describe(mapName);
-        }
-
-        view.show(side, mapName, info);
+        dropStaleChanges();
         return info;
+    }
+
+    /** Puts a parsed map in a pane; resolves once the pane has drawn it. */
+    function draw(side, mapName) {
+        return view.show(side, mapName, tiles.describe(mapName));
     }
 
     return {
         /**
-         * Shows a version from the project folder on one side, reading and
-         * parsing it only if it has to.
+         * Makes sure a version from the project folder is parsed, reading it
+         * only if it has to. Parsing and drawing are separate calls so the page
+         * can say which is happening, and can stop between them when the mapper
+         * has already picked something else.
          *
-         * @param side a pane name, passed through to the viewport
          * @param versionName the name the map is held under
          * @param path where its file is, relative to the project folder
          * @param reload true when the file can have changed since it was read
          * @returns the parse summary
          */
-        show(side, versionName, path, reload) {
-            return place(side, versionName, async () => ({
+        parse(versionName, path, reload) {
+            return parseFrom(versionName, async () => ({
                 fileName: path.split('/').pop(),
                 bytes: await readBytes(path)
             }), reload);
         },
+
+        /**
+         * Puts a parsed map in a pane.
+         *
+         * @param side a pane name, passed through to the viewport
+         * @returns resolved when the pane has drawn it, or when another map
+         *          takes the pane first
+         */
+        draw,
 
         /**
          * Shows the file chosen in an <input type="file"> on one side.
@@ -124,7 +135,7 @@ export async function createWorkspace(leftEl, rightEl) {
          * @param input the file input element
          * @returns the parse summary
          */
-        showFile(side, mapName, input) {
+        async showFile(side, mapName, input) {
             const file = input?.files?.[0];
             if (!file)
                 throw new Error('No file was chosen.');
@@ -135,10 +146,13 @@ export async function createWorkspace(leftEl, rightEl) {
              * how a user reloads it. */
             input.value = '';
 
-            return place(side, mapName, async () => ({
+            const info = await parseFrom(mapName, async () => ({
                 fileName: file.name,
                 bytes: new Uint8Array(await file.arrayBuffer())
             }), true);
+
+            draw(side, mapName);
+            return info;
         },
 
         /**
