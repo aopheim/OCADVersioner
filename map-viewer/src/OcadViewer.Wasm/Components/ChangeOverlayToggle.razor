@@ -5,8 +5,10 @@
     Owned here rather than by each page because the rules are the same wherever two
     maps are compared - off on arrival, rebuilt for each new pair, switched off
     again if building it fails - and two copies of those rules could disagree.
-    Which two maps are being compared is the page's business; it says so through
-    Older and Newer, and calls ApplyAsync when either changes.
+    Which two maps are being compared is the page's business. It says so through
+    Older and Newer for the switch itself, and passes the pair to ApplyAsync when
+    it changes - explicitly, because a page usually changes the pair and applies
+    it in one action, before it has re-rendered and handed new parameters down.
 *@
 
 <button class="btn text-nowrap @(Large ? "" : "btn-sm") @(showChanges ? "btn-primary" : "btn-outline-secondary")"
@@ -94,8 +96,10 @@
     }
 
     /// <summary>
-    /// Brings the overlay in line with the switch and the current pair of maps.
+    /// Brings the overlay in line with the switch, for the pair of maps given.
     /// </summary>
+    /// <param name="older">The name the older map is held under now.</param>
+    /// <param name="newer">The name the newer map is held under now.</param>
     /// <remarks>
     /// Free when the overlay is off, and free again when it is switched back on
     /// for a pair already measured - the mask and its image are kept per pair of
@@ -104,14 +108,19 @@
     /// A failure turns the switch off. Left on, the button would claim an
     /// overlay that is not there, and the next comparison would quietly build
     /// one the user never saw appear.
+    ///
+    /// The pair is an argument, not <see cref="Older"/> and <see cref="Newer"/>:
+    /// those are only as new as the page's last render, and the caller has
+    /// usually just changed what is being compared. Whether there is anything
+    /// to compare is the caller's call for the same reason.
     /// </remarks>
-    public async Task ApplyAsync()
+    public async Task ApplyAsync(string older, string newer)
     {
-        if (MapPair is null || !Available)
+        if (MapPair is null)
             return;
 
         try {
-            summary = await MapPair.ShowChangesAsync(Older, Newer, showChanges);
+            summary = await MapPair.ShowChangesAsync(older, newer, showChanges);
         }
         catch {
             showChanges = false;
@@ -132,7 +141,8 @@
 
         await Run("Finding changes…", async () => {
             showChanges = !showChanges;
-            await ApplyAsync();
+            // A click or key press comes after a render, so these are current.
+            await ApplyAsync(Older, Newer);
         });
     }
 

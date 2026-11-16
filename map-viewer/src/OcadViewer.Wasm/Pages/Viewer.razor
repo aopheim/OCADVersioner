@@ -42,7 +42,7 @@
     <ChangeOverlayToggle @ref="overlay" MapPair="mapPair"
                          Older="@KeyFor(Older)" Newer="@KeyFor(Newer)"
                          OlderLabel="@files[Older]"
-                         Available="@(!single && BothLoaded)"
+                         Available="Comparing"
                          Busy="Busy" Run="Run" Large="true" />
 
     @* In the toolbar rather than a line of its own, so a message coming and
@@ -63,9 +63,13 @@
 </div>
 
 <div class="flex-grow-1 viewerMaps pb-1">
-    <OcadMapPair @ref="mapPair" Fill="true" SinglePane="single">
+    <OcadMapPair @ref="mapPair" Fill="true" OnlySide="ShownAlone">
         <PaneContent Context="side">
-            <input type="file" id="@InputId(side)" class="d-none"
+            @* Visually hidden but still focusable, so the picker can be reached
+               with Tab and opened with Enter or Space; the label after it shows
+               the focus ring. Not display:none, which would take it out of the
+               tab order altogether. *@
+            <input type="file" id="@InputId(side)" class="visually-hidden paneFile"
                    @ref="inputs[side]" @onchange="e => Choose(side, e)" />
 
             @* A label, not a button: tapping it opens the input's picker natively,
@@ -114,7 +118,28 @@
     private IJSObjectReference dropModule;
     private readonly List<IJSObjectReference> drops = [];
 
+    /// <summary>
+    /// How many times each pane has been given a file, so a load that had to
+    /// wait can tell whether a newer choice has replaced it meanwhile.
+    /// </summary>
+    private readonly Dictionary<MapSide, int> choices = Sides.ToDictionary(s => s, _ => 0);
+
     private bool BothLoaded => Sides.All(s => files[s] is not null);
+
+    /// <summary>Whether the change overlay has two visible maps to compare.</summary>
+    private bool Comparing => !single && BothLoaded;
+
+    /// <summary>
+    /// The pane shown in single-map mode, or null with two maps.
+    /// </summary>
+    /// <remarks>
+    /// The older pane, unless only the newer one has a map - switching to one
+    /// map must not hide the only map there is.
+    /// </remarks>
+    private MapSide? ShownAlone
+        => !single ? null
+         : files[Older] is null && files[Newer] is not null ? Newer
+         : Older;
 
     /// <summary>
     /// The name a pane's map is held under.
@@ -152,7 +177,16 @@
         if (string.IsNullOrEmpty(name))
             return;
 
-        await Run($"Loading {name}…", async () => {
+        int choice = ++choices[side];
+
+        // Waits rather than being dropped if something else is running: a file
+        // dropped during a long parse is still what the user wants to see.
+        await RunWhenIdle($"Loading {name}…", async () => {
+            // A newer choice for this pane arrived while this one waited. The
+            // input holds that one now, and it will load it itself.
+            if (choice != choices[side])
+                return;
+
             // Checked here rather than filtered in the picker: some phones grey
             // out every file whose type they do not recognise.
             if (!FolderLayout.IsMapFile(name))
@@ -162,9 +196,10 @@
             await mapPair.ShowFileAsync(side, KeyFor(side), inputs[side]);
             files[side] = name;
 
-            // Rebuilt for the new pair if it is on; free if it is off.
-            if (BothLoaded)
-                await overlay.ApplyAsync();
+            // Rebuilt for the new pair if it is on; free if it is off. Read from
+            // fields, not from the toggle's parameters, which predate this load.
+            if (Comparing)
+                await overlay.ApplyAsync(KeyFor(Older), KeyFor(Newer));
         });
     }
 
@@ -178,8 +213,8 @@
         // A file chosen while in single-map mode made the overlay's mask stale,
         // and the workspace took it off the screen. Back to two maps, the switch
         // may still say it is on, so bring the picture back in line with it.
-        if (!single && BothLoaded)
-            await Run("Finding changes…", overlay.ApplyAsync);
+        if (Comparing)
+            await Run("Finding changes…", () => overlay.ApplyAsync(KeyFor(Older), KeyFor(Newer)));
     }
 
     /// <summary>

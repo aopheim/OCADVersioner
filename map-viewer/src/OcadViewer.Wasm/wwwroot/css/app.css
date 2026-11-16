@@ -78,12 +78,14 @@
     min-height: 0;
 }
 
-/* An empty pane is one big target: tap anywhere to choose a file. Above
-   Leaflet's panes (z-index up to 700) and below its controls (800+). */
+/* An empty pane is one big target: tap anywhere to choose a file. Above all
+   of Leaflet, its zoom control (1000) included - an empty map has nothing to
+   zoom, and a tap near the corner must open the picker, not change the zoom the
+   first map will be fitted at. */
 .paneEmpty {
     position: absolute;
     inset: 1px;
-    z-index: 750;
+    z-index: 1001;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -108,13 +110,20 @@
     white-space: nowrap;
 }
 
+/* The file input is visually hidden but focusable; its label shows the focus. */
+.paneFile:focus-visible + .paneEmpty,
+.paneFile:focus-visible + .paneButton {
+    outline: 3px solid var(--bs-primary);
+    outline-offset: -3px;
+}
+
 /* Set by fileDrop.js while a file is dragged over the pane. Drawn as its own
    layer because Leaflet's panes would paint over an outline on the pane. */
 .fileDropTarget::after {
     content: "";
     position: absolute;
     inset: 4px;
-    z-index: 900;
+    z-index: 1002;
     border: 3px dashed var(--bs-primary);
     pointer-events: none;
 }

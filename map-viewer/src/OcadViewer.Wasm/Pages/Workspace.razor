@@ -248,10 +248,10 @@
         diff = await DiffSource.CompareAsync(older, newer);
 
         // The overlay belongs to a pair of versions, so a new comparison needs a
-        // new mask. Only paid for if the user has asked to see one. Null on the
-        // very first comparison, before the toolbar has rendered - and the
-        // overlay starts off anyway.
-        if (overlay is not null)
-            await overlay.ApplyAsync();
+        // new mask. Only paid for if the user has asked to see one. The pair is
+        // passed in because selectedNumber or the folder has only just changed,
+        // and the toggle has not been re-rendered with it yet. The toolbar renders
+        // in the same pass as the map pair, so the toggle is there by now.
+        await overlay.ApplyAsync(older, newer);
     }
 }

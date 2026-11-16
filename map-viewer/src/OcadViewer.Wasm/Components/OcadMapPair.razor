@@ -20,14 +20,14 @@
     leaflet.sync are built over two elements once, and a hidden pane keeps its
     map, so showing it again costs nothing and loses nothing.
 *@
-<div class="row g-1 mapPair @(Fill ? "fill" : "") @(SinglePane ? "single" : "")">
-    <div class="@ColumnClass">
+<div class="row g-1 mapPair @(Fill ? "fill" : "") @(OnlySide is null ? "" : "single")">
+    <div class="@ColumnClass" hidden="@(OnlySide == MapSide.Right)">
         <div class="mapPane">
             <div @ref="leftEl" class="mapDiv"></div>
             @PaneContent?.Invoke(MapSide.Left)
         </div>
     </div>
-    <div class="@ColumnClass" hidden="@SinglePane">
+    <div class="@ColumnClass" hidden="@(OnlySide == MapSide.Left)">
         <div class="mapPane">
             <div @ref="rightEl" class="mapDiv"></div>
             @PaneContent?.Invoke(MapSide.Right)
@@ -42,10 +42,10 @@
     private IJSObjectReference workspace;
 
     /// <summary>
-    /// Show the left pane only. The right one keeps its map, hidden, for when
-    /// the page asks for both again.
+    /// Show this pane only, or both when null. The other keeps its map, hidden,
+    /// for when the page asks for both again.
     /// </summary>
-    [Parameter] public bool SinglePane { get; set; }
+    [Parameter] public MapSide? OnlySide { get; set; }
 
     /// <summary>
     /// Fill the parent's height instead of the fixed height the workspace uses:
@@ -61,7 +61,7 @@
     /// </summary>
     [Parameter] public RenderFragment<MapSide> PaneContent { get; set; }
 
-    private string ColumnClass => SinglePane ? "col-12" : "col-sm-6";
+    private string ColumnClass => OnlySide is null ? "col-sm-6" : "col-12";
 
     /// <summary>
     /// What the change overlay drew, for reporting.

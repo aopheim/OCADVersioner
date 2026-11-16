@@ -5,8 +5,9 @@
  * putting it on a Leaflet map meet each other - each of which is a module that
  * knows nothing about the other two.
  *
- * Map bytes are read here and handed straight to the renderer; C# only says which
- * version it wants, where its file is, and whether to read it again.
+ * Map bytes are read here and handed straight to the renderer. C# only says which
+ * map it wants and where its bytes are: a path in the project folder (show), or
+ * a file input the user chose a file in (showFile).
  *
  * What is parsed is held in one place: the tile source's store. This module keeps
  * no record of its own of what was loaded. The only thing it caches is the change
@@ -127,6 +128,12 @@ export async function createWorkspace(leftEl, rightEl) {
             const file = input?.files?.[0];
             if (!file)
                 throw new Error('No file was chosen.');
+
+            /* Emptied once the file is in hand, because a browser only fires
+             * 'change' when the choice differs from what the input holds - and
+             * choosing the same file again, after saving it in OCAD, is exactly
+             * how a user reloads it. */
+            input.value = '';
 
             return place(side, mapName, async () => ({
                 fileName: file.name,

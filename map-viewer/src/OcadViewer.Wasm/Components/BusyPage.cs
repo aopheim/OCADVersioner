@@ -20,6 +20,9 @@ public abstract class BusyPage : LocalisedComponent
     /// <summary>Whether <see cref="Status"/> is an error.</summary>
     protected bool Failed { get; private set; }
 
+    /// <summary>Completes when the running action ends; already complete when idle.</summary>
+    private TaskCompletionSource idle = Completed();
+
     /// <summary>Runs an action with the progress bar, busy flag and error reporting.</summary>
     /// <remarks>
     /// Ignores the request while another action is running. Buttons are
@@ -34,6 +37,7 @@ public abstract class BusyPage : LocalisedComponent
             return;
 
         Busy = true;
+        idle = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Failed = false;
         Status = message;
         StateHasChanged();
@@ -49,7 +53,33 @@ public abstract class BusyPage : LocalisedComponent
         }
         finally {
             Busy = false;
+            idle.TrySetResult();
             StateHasChanged();
         }
+    }
+
+    /// <summary>
+    /// Like <see cref="Run"/>, but waits for the running action instead of
+    /// being ignored.
+    /// </summary>
+    /// <remarks>
+    /// For requests that cannot simply be pressed again: a dropped or chosen
+    /// file is a one-off event, and ignoring it would lose it without a word.
+    /// The loop matters - several waiters wake together, the first starts its
+    /// action and the rest find the page busy again and go back to waiting.
+    /// </remarks>
+    protected async Task RunWhenIdle(string message, Func<Task> action)
+    {
+        while (Busy)
+            await idle.Task;
+
+        await Run(message, action);
+    }
+
+    private static TaskCompletionSource Completed()
+    {
+        var done = new TaskCompletionSource();
+        done.SetResult();
+        return done;
     }
 }
