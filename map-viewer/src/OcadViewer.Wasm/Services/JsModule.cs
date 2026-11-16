@@ -32,9 +32,10 @@ public static class JsModule
     /// Calls a method on a JS object and then releases it, for teardown work such
     /// as <c>dispose()</c>.
     /// </summary>
-    public static async ValueTask ReleaseAsync(this IJSObjectReference reference, string disposeMethod)
+    public static async ValueTask ReleaseAsync(
+        this IJSObjectReference reference, string disposeMethod, params object[] args)
     {
-        await IfStillThereAsync(reference, module => module.InvokeVoidAsync(disposeMethod));
+        await IfStillThereAsync(reference, module => module.InvokeVoidAsync(disposeMethod, args));
         await reference.ReleaseAsync();
     }
 
