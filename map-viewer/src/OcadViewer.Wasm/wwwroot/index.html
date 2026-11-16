@@ -10,16 +10,17 @@
 
     <!--
         The same stylesheets the Angular app loads, in the same order: Bootstrap,
-        Bootstrap Icons, Leaflet. app.css holds only what the Angular app keeps in
-        component styles - there is no theme of our own.
+        Bootstrap Icons, Leaflet. app.css and the scoped bundle hold only what the
+        Angular app keeps in component styles - there is no theme of our own.
     -->
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="lib/bootstrap-icons/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="lib/leaflet/leaflet.css" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
-    <!-- No scoped-CSS bundle: there are no .razor.css files left, and linking the
-         bundle anyway is a 404 on every load. -->
+    <!-- The scoped-CSS bundle: every component's .razor.css, rewritten by Blazor so
+         each rule only matches that component's own elements. -->
+    <link rel="stylesheet" href="OcadViewer.Wasm#[.{fingerprint}].styles.css" />
     <script type="importmap"></script>
 
     <!--

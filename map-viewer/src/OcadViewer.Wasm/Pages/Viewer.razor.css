@@ -1,0 +1,68 @@
+/* Scoped to the /viewer page. The pane content (.paneFile, .paneEmpty,
+   .paneButton) is written in this page's PaneContent, so it carries this
+   page's scope even though OcadMapPair renders it. */
+
+/* The page is exactly the screen: toolbar on top, the maps take the rest and
+   the page itself never scrolls - on a phone, scrolling the page and panning
+   a map would fight over the same finger. dvh follows the mobile browser's
+   collapsing address bar; vh is the fallback for browsers without it. */
+.viewerPage {
+    height: 100vh;
+    height: 100dvh;
+}
+
+.viewerMaps {
+    min-height: 0;
+}
+
+/* An empty pane is one big target: tap anywhere to choose a file. Above all
+   of Leaflet, its zoom control (1000) included - an empty map has nothing to
+   zoom, and a tap near the corner must open the picker, not change the zoom the
+   first map will be fitted at. */
+.paneEmpty {
+    position: absolute;
+    inset: 1px;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .25rem;
+    padding: 1rem;
+    text-align: center;
+    cursor: pointer;
+    background: var(--bs-body-bg);
+}
+
+/* A loaded pane keeps a small button for choosing again, in the corner a
+   thumb reaches and Leaflet's zoom control does not use. */
+.paneButton {
+    position: absolute;
+    top: .5rem;
+    right: .5rem;
+    z-index: 800;
+    max-width: calc(100% - 4rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The file input is visually hidden but focusable; its label shows the focus. */
+.paneFile:focus-visible + .paneEmpty,
+.paneFile:focus-visible + .paneButton {
+    outline: 3px solid var(--bs-primary);
+    outline-offset: -3px;
+}
+
+/* Set by fileDrop.js on the pane while a file is dragged over it. The pane is
+   OcadMapPair's element, not this page's, hence ::deep from this page's own
+   wrapper. Drawn as its own layer because Leaflet's panes would paint over an
+   outline on the pane. */
+.viewerMaps ::deep .fileDropTarget::after {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    z-index: 1002;
+    border: 3px dashed var(--bs-primary);
+    pointer-events: none;
+}
