@@ -2,59 +2,171 @@
 @using OcadViewer.Wasm.Components
 @using OcadViewer.Wasm.Services
 @inherits LocalisedComponent
+@inject AppSettingsService SettingsService
+@inject NavigationManager Navigation
 
 @*
-    Uses the Angular translations where keys exist. The sections below have no key
-    because the Angular About page never said these things - they are about how
-    this app renders maps, which is new. They stay English until someone who
-    speaks Norwegian writes the translations; inventing them here would put bad
-    Norwegian into a file the Angular app also reads.
+    A port of ocad-versioner/src/app/pages/about-page. Same structure, Bootstrap
+    classes and screenshots; the body text, which Angular hardcodes in Norwegian,
+    comes from #_about* keys in wwwroot/i18n.
 
-    Also the home of the third-party notices, which the BSD-3 licence on the
-    vendored renderer requires to travel with what is served to a browser.
+    Deliberate differences:
+    - A credits section at the end. It is the home of the third-party notices,
+      which the BSD-3 licence on the vendored renderer requires to travel with
+      what is served to a browser.
+    - The title is a link and the flags are buttons, so both work from the
+      keyboard; Angular uses a clickable span and bare SVGs.
+    - The flags save the language, as the settings dialog does.
+    - The screenshots carry their size and alt text.
+    - Opening the page at #supportedBrowsers scrolls to that heading, which
+      Angular's page does not do.
 *@
 
-<PageTitle>@L["#_about"] @L["#_OCADVersioner"]</PageTitle>
+<PageTitle>@L["#_OCADVersioner"] - @L["#_about"]</PageTitle>
 
 <div class="container py-4">
+    <header class="pb-3 mb-4 border-bottom">
+        <div class="d-flex align-items-center justify-content-between text-body-emphasis text-decoration-none">
+            <a href="" class="fs-4 text-reset text-decoration-none">@L["#_OCADVersioner"]</a>
 
-<h1>@L["#_OCADVersioner"]</h1>
+            <div class="d-flex justify-content-end">
+                @foreach (var (language, index) in Localiser.Languages.Select((l, i) => (l, i))) {
+                    @* Angular spaces the first flag from the second with mx-2. *@
+                    <button type="button" class="flag w-10 @(index == 0 ? "mx-2" : "")"
+                            title="@language.Name" aria-label="@language.Name"
+                            aria-pressed="@(L.Language == language.Code ? "true" : "false")"
+                            @onclick="() => SelectLanguage(language.Code)">
+                        <LanguageFlag Code="@language.Code" class="d-block w-100" aria-hidden="true" />
+                    </button>
+                }
+            </div>
+        </div>
+    </header>
 
-<p class="lead">@L["#_jumbo1Title"]</p>
+    <div class="row p-5 mb-4 bg-body-tertiary rounded-3">
+        <div class="col-md-8 container-fluid py-5">
+            <h1 class="display-5 fw-bold">@L["#_jumbo1Title"]</h1>
+            <p class="col-md-8 fs-4">@L["#_aboutJumboText"]</p>
+        </div>
+        <div class="col-md-4">
+            <div class="bg-body-secondary">
+                <p>@L["#_aboutScreenshotPlaceholder"]</p>
+            </div>
+        </div>
+    </div>
 
-<p>@L["#_projectDirectorySelectorText"]</p>
+    <div class="row align-items-md-stretch">
+        <div class="col-md-6 my-3">
+            <div class="h-100 p-5 text-bg-primary rounded-3">
+                <div class="d-flex align-items-stretch">
+                    <h2 class="mx-2">
+                        <i class="bi bi-laptop"></i>
+                        @L["#_aboutLocalTitle"]
+                    </h2>
+                </div>
+                <p>@L["#_aboutLocalText"]</p>
+            </div>
+        </div>
+        <div class="col-md-6 my-3">
+            <div class="h-100 p-5 text-bg-dark rounded-3">
+                <div class="d-flex align-items-stretch">
+                    <h2 class="mx-2">
+                        <i class="bi bi-plus-slash-minus"></i>
+                        @L["#_aboutDiffTitle"]
+                    </h2>
+                </div>
+                <div class="d-flex">
+                    <div>
+                        <p>@L["#_aboutDiffText"]</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-<h2 class="h5 mt-4">How the map is drawn</h2>
-<p>
-    Maps are parsed and rendered by Purple Pen's map engine, compiled to
-    WebAssembly and running entirely in your browser. There is no server:
-    <strong>your map files never leave your machine</strong> and are never
-    uploaded anywhere.
-</p>
+    <div class="row p-5 mb-4 bg-body-tertiary rounded-3">
+        <h1>@L["#_aboutHowItWorksTitle"]</h1>
+        @foreach (var step in Steps) {
+            <div class="row">
+                <div class="col-md-6 d-flex align-items-center">
+                    <p>@((MarkupString)L[step.TextKey])</p>
+                </div>
+                <div class="col-md-6">
+                    @foreach (var image in step.Images) {
+                        @*
+                            Width and height reserve the space before the image
+                            arrives, so a link to #supportedBrowsers still lands
+                            on the heading once the screenshots above it load.
+                        *@
+                        <a href="@(ImageBase + image.File)">
+                            <img src="@(ImageBase + image.File)" class="my-3 w-100"
+                                 width="@image.Width" height="@image.Height" alt="@L[image.AltKey]" />
+                        </a>
+                    }
+                </div>
+            </div>
+        }
+    </div>
 
-@*
-    The paragraph above is about map files. This one says plainly that usage
-    data can leave the machine: usage data is not map data, but the distinction
-    belongs to the reader, not to us.
-*@
-<p class="text-muted small">
-    When this app is deployed with monitoring configured, anonymous usage and
-    error reports are sent to the maintainers so faults can be found and fixed.
-    That covers which pages were opened and what went wrong &mdash; never the
-    contents of your maps. Running it locally sends nothing at all.
-</p>
+    <div class="row p-5 my-4 bg-body-tertiary rounded-3">
+        <h1 id="supportedBrowsers" tabindex="-1" @ref="supportedBrowsersHeading">@L["#_supportedBrowsers"]</h1>
+        <p>@((MarkupString)L["#_aboutSupportedBrowsersText"])</p>
+    </div>
 
-<h2 class="h5 mt-4">Credits and licences</h2>
-<p>
-    The OCAD parser and renderer come from
-    <a href="https://github.com/petergolde/PurplePen" target="_blank" rel="noopener">Purple Pen</a>
-    by Peter Golde, used under the BSD 3-Clause licence. The map viewport is
-    Leaflet. Full notices for every third-party component are in
-    <a href="third-party-notices.txt" target="_blank">third-party notices</a>.
-</p>
+    <div class="row p-5 my-4 bg-body-tertiary rounded-3">
+        <h1>@L["#_aboutCreditsTitle"]</h1>
+        <p>@((MarkupString)L["#_aboutCreditsText"])</p>
+        @*
+            Map files never leave the machine; usage data can. The distinction
+            belongs to the reader, so it is said plainly.
+        *@
+        <p class="text-muted small mb-0">@((MarkupString)L["#_aboutTelemetryText"])</p>
+    </div>
 
-<p class="text-muted small">
-    This project is not affiliated with or endorsed by Purple Pen or Peter Golde.
-</p>
-
+    <footer class="pt-3 my-4 text-body-secondary border-top">
+        @L["#_OCADVersioner"]
+    </footer>
 </div>
+
+@code {
+    // The same hosted screenshots the Angular page links to.
+    private const string ImageBase = "https://ocadversioner.blob.core.windows.net/about-page-imgs/";
+
+    private sealed record Screenshot(string File, int Width, int Height, string AltKey);
+
+    private static readonly (string TextKey, Screenshot[] Images)[] Steps =
+    [
+        ("#_aboutHowItWorks1", [
+            new("projectFolder.png", 673, 213, "#_aboutImgProjectFolder"),
+            new("userConfirmation.png", 444, 141, "#_aboutImgUserConfirmation")
+        ]),
+        ("#_aboutHowItWorks2", [new("releases.png", 668, 233, "#_aboutImgReleases")]),
+        ("#_aboutHowItWorks3", [new("v1.png", 321, 327, "#_aboutImgV1")]),
+        ("#_aboutHowItWorks4", [new("v1Folder.png", 643, 218, "#_aboutImgV1Folder")]),
+        ("#_aboutHowItWorks5", [new("noDiff.png", 975, 439, "#_aboutImgNoDiff")]),
+        ("#_aboutHowItWorks6", [new("diffTable.png", 967, 381, "#_aboutImgDiffTable")])
+    ];
+
+    private ElementReference supportedBrowsersHeading;
+
+    /// <summary>
+    /// Brings the heading into view when the page is opened at #supportedBrowsers,
+    /// as the unsupported-browser message on the start page links it.
+    /// </summary>
+    /// <remarks>
+    /// Neither the browser nor the router does this here: the heading does not
+    /// exist until the page renders, after the browser has looked for it, and the
+    /// router does not scroll to fragments. Focusing scrolls it into view and
+    /// tells a screen reader where the reader has landed. The screenshots above
+    /// it reserve their height, so it stays put while they load.
+    /// </remarks>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && new Uri(Navigation.Uri).Fragment == "#supportedBrowsers")
+            await supportedBrowsersHeading.FocusAsync();
+    }
+
+    // Angular's flags here only switch for the visit; these save the choice, as
+    // the settings dialog does, so it survives a reload.
+    private Task SelectLanguage(string languageCode) => SettingsService.SetLanguageAsync(languageCode);
+}

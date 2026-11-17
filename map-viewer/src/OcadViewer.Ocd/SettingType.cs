@@ -19,4 +19,8 @@ public static class SettingType
     public const int View = 1030;
     /// <summary>The map scale and georeferencing.</summary>
     public const int Scale = 1039;
+    /// <summary>A terrain model (DEM).</summary>
+    public const int TerrainModel = 1045;
+    /// <summary>A point cloud (LAS data).</summary>
+    public const int PointCloud = 1078;
 }
