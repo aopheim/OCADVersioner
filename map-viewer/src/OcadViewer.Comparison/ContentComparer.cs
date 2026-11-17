@@ -8,7 +8,8 @@ namespace OcadViewer.Comparison;
 /// </summary>
 /// <remarks>
 /// Content is compared, except for what OCAD rewrites without the user changing
-/// anything: an object's dates; the colour field of an object that has a symbol
+/// anything: an object's dates and the reserved byte OCAD sets when a map is
+/// opened for App Data Exchange; the colour field of an object that has a symbol
 /// (only graphic objects are drawn in it, yet OCAD sets it on symbol objects too);
 /// a symbol's selection flag, symbol-box status and own file position; and in
 /// parameter strings, whether a background map is shown and whether a terrain
@@ -18,7 +19,8 @@ namespace OcadViewer.Comparison;
 /// </remarks>
 public sealed class ContentComparer(int toleranceUnits)
 {
-    private const ObjectFields Dates = ObjectFields.CreationDate | ObjectFields.ModificationDate;
+    /// <summary>What OCAD rewrites on every object by itself: the dates, and the reserved byte App Data Exchange sets.</summary>
+    private const ObjectFields Dates = ObjectFields.CreationDate | ObjectFields.ModificationDate | ObjectFields.Reserved;
     private const SymbolFields VolatileSymbolFields = SymbolFields.Selected | SymbolFields.BoxStatus | SymbolFields.FilePosition;
 
     /// <summary>Per type of parameter string, the fields OCAD rewrites by itself.</summary>

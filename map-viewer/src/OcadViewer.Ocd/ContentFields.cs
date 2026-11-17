@@ -35,6 +35,12 @@ public enum ObjectFields
     /// cannot be compared byte for byte.
     /// </summary>
     Other = 512,
+    /// <summary>
+    /// The unnamed byte after the object-string type (OCAD 12 and later), which
+    /// PurplePen reads and discards. OCAD sets it on every object when the map is
+    /// opened for App Data Exchange, with nothing exported or edited.
+    /// </summary>
+    Reserved = 1024,
 }
 
 /// <summary>Fields of a symbol record that a content comparison can be told to ignore.</summary>

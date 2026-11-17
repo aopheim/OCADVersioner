@@ -115,7 +115,11 @@ internal sealed class FileLayout
          : In(offset, ObjectCreatedOffset, 8) ? ObjectFields.CreationDate
          : In(offset, ObjectModifiedOffset, 8) ? ObjectFields.ModificationDate
          : In(offset, ObjectColorOffset, 4) ? ObjectFields.Color
+         : In(offset, ObjectReservedOffset, 1) ? ObjectFields.Reserved
          : ObjectFields.Other;
+
+    /// <summary>The reserved byte after the object-string type, or -1 for versions without one.</summary>
+    private int ObjectReservedOffset => ObjectExtraStringCountsOffset < 0 ? -1 : ObjectExtraStringCountsOffset + 5;
 
     private static bool In(int offset, int start, int length) => start >= 0 && offset >= start && offset < start + length;
 
