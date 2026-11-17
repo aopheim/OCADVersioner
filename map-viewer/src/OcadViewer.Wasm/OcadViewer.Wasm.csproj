@@ -80,6 +80,7 @@
     <ProjectReference Include="..\OcadViewer.Core\OcadViewer.Core.csproj" />
     <ProjectReference Include="..\OcadViewer.Versioning\OcadViewer.Versioning.csproj" />
     <ProjectReference Include="..\OcadViewer.Merge\OcadViewer.Merge.csproj" />
+    <ProjectReference Include="..\OcadViewer.Ocd\OcadViewer.Ocd.csproj" />
   </ItemGroup>
 
   <ItemGroup>

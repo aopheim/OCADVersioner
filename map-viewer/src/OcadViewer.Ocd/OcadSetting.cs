@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text;
 
-namespace OcadViewer.Merge.Format;
+namespace OcadViewer.Ocd;
 
 /// <summary>
 /// One OCAD parameter string: colours, background maps, georeferencing, print
@@ -9,36 +9,15 @@ namespace OcadViewer.Merge.Format;
 /// </summary>
 /// <remarks>
 /// A string is a first field followed by tab-separated fields, each led by a
-/// one-letter code: <c>Black\tn0\tc0\tm0\ty0\tk100</c>.
+/// one-letter code: <c>Black\tn0\tc0\tm0\ty0\tk100</c>. <see cref="SettingType"/>
+/// names the types callers refer to.
 /// </remarks>
 public sealed class OcadSetting
 {
-    /// <summary>OCAD's string type for a colour.</summary>
-    public const int ColorType = 9;
-    /// <summary>OCAD's string type for a background map (template).</summary>
-    public const int TemplateType = 8;
-    /// <summary>OCAD's string type for the scale and georeferencing parameters.</summary>
-    public const int ScaleType = 1039;
-
-    /// <summary>The 0-based entry in the string index.</summary>
-    public int Entry { get; }
-
     public int Type { get; }
 
-    /// <summary>The object entry the string belongs to, or 0 for map-wide settings.</summary>
-    public int ObjectIndex { get; }
-
-    /// <summary>The string's characters, without the padding OCAD reserves after them.</summary>
-    public ReadOnlyMemory<byte> Content { get; }
-
-    internal OcadSetting(int entry, int type, int objectIndex, ReadOnlyMemory<byte> reserved)
-    {
-        Entry = entry;
-        Type = type;
-        ObjectIndex = objectIndex;
-        int end = reserved.Span.IndexOf((byte)0);
-        Content = end < 0 ? reserved : reserved[..end];
-    }
+    /// <summary>Whether the string belongs to the whole map rather than to one object.</summary>
+    public bool IsMapWide => ObjectIndex == 0;
 
     public string Text => Encoding.Latin1.GetString(Content.Span);
 
@@ -50,6 +29,28 @@ public sealed class OcadSetting
             int tab = text.IndexOf('\t');
             return tab < 0 ? text : text[..tab];
         }
+    }
+
+    /// <summary>The file the string was read from.</summary>
+    internal OcadFile File { get; }
+
+    /// <summary>The 0-based entry in the string index.</summary>
+    internal int Entry { get; }
+
+    /// <summary>The object entry the string belongs to, or 0 for map-wide settings.</summary>
+    internal int ObjectIndex { get; }
+
+    /// <summary>The string's characters, without the padding OCAD reserves after them.</summary>
+    internal ReadOnlyMemory<byte> Content { get; }
+
+    internal OcadSetting(OcadFile file, int entry, int type, int objectIndex, ReadOnlyMemory<byte> reserved)
+    {
+        File = file;
+        Entry = entry;
+        Type = type;
+        ObjectIndex = objectIndex;
+        int end = reserved.Span.IndexOf((byte)0);
+        Content = end < 0 ? reserved : reserved[..end];
     }
 
     /// <summary>The value of the field led by <paramref name="code"/>, or null.</summary>
@@ -67,6 +68,10 @@ public sealed class OcadSetting
         => double.TryParse(Field(code), NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
             ? value
             : null;
+
+    /// <summary>Whether <paramref name="other"/> is the same type with exactly the same text.</summary>
+    public bool SameContent(OcadSetting other)
+        => Type == other.Type && Content.Span.SequenceEqual(other.Content.Span);
 
     public override string ToString() => $"{Type}: {Text}";
 }

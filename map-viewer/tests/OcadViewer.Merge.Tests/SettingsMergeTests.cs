@@ -1,6 +1,6 @@
 using OcadViewer.Merge.Analysis;
 using OcadViewer.Merge.Decisions;
-using OcadViewer.Merge.Format;
+using OcadViewer.Ocd;
 using OcadViewer.Merge.Writing;
 
 namespace OcadViewer.Merge.Tests;
@@ -24,7 +24,7 @@ public sealed class SettingsMergeTests
         SettingItem brown = Analysis.Settings.Single();
 
         Assert.Multiple(() => {
-            Assert.That(brown.Type, Is.EqualTo(OcadSetting.ColorType));
+            Assert.That(brown.Type, Is.EqualTo(SettingType.Color));
             Assert.That(brown.Key, Is.EqualTo("set:9:n5"));
             Assert.That(brown.Conflict, Is.EqualTo(ConflictKind.BothEdited));
         });
@@ -60,7 +60,7 @@ public sealed class SettingsMergeTests
         OcadFile merged = OcadFile.Read(MergeWriter.Write(new MergeResolution(analysis, decisions), DateTime.Now));
 
         Assert.Multiple(() => {
-            Assert.That(merged.Settings.Single(s => s.Type == OcadSetting.ColorType && s.Field('n') == "5").FirstField,
+            Assert.That(merged.Settings.Single(s => s.Type == SettingType.Color && s.Field('n') == "5").FirstField,
                         Is.EqualTo("Brown - points (Ola)"));
             Assert.That(merged.Symbols.Single(s => s.Number == 101004).Description, Is.EqualTo("Contour, copy (Kari)"));
             Assert.That(merged.Symbols, Has.Count.EqualTo(Fixtures.Base.Symbols.Count + 1));

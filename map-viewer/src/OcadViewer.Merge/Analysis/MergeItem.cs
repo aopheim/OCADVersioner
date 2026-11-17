@@ -1,4 +1,4 @@
-using OcadViewer.Merge.Format;
+using OcadViewer.Ocd;
 
 namespace OcadViewer.Merge.Analysis;
 
@@ -58,7 +58,7 @@ public sealed class ObjectItem(string key, OcadObject @base, OcadObject a, OcadO
 
     /// <summary>Where the item is in any of its versions.</summary>
     public Bounds Bounds => new[] { Base, A, B }.Where(o => o is not null)
-                                               .Aggregate(Format.Bounds.Empty, (u, o) => u.Union(o.Bounds));
+                                               .Aggregate(Ocd.Bounds.Empty, (u, o) => u.Union(o.Bounds));
 
     /// <summary>The symbol of the newest version: a branch's if it has one, else base's.</summary>
     public int Symbol => (A ?? B ?? Base).Symbol;
