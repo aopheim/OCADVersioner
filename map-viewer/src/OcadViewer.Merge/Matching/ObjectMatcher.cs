@@ -1,4 +1,4 @@
-using OcadViewer.Merge.Format;
+using OcadViewer.Ocd;
 
 namespace OcadViewer.Merge.Matching;
 
@@ -45,9 +45,9 @@ public static class ObjectMatcher
     private static void PairByCreationDate(IReadOnlyList<OcadObject> baseObjects, IReadOnlyList<OcadObject> branchObjects,
                                            Dictionary<OcadObject, OcadObject> pairs, HashSet<OcadObject> used)
     {
-        ILookup<long, OcadObject> branchByDate = branchObjects.Where(HasDate).ToLookup(DateKey);
+        ILookup<DateTime, OcadObject> branchByDate = branchObjects.Where(HasDate).ToLookup(DateKey);
 
-        foreach (IGrouping<long, OcadObject> group in baseObjects.Where(HasDate).GroupBy(DateKey)) {
+        foreach (IGrouping<DateTime, OcadObject> group in baseObjects.Where(HasDate).GroupBy(DateKey)) {
             OcadObject[] candidates = [.. branchByDate[group.Key]];
             if (candidates.Length == 0)
                 continue;
@@ -88,7 +88,7 @@ public static class ObjectMatcher
 
     private static bool HasDate(OcadObject o) => o.CreatedAt is not null;
 
-    private static long DateKey(OcadObject o) => BitConverter.DoubleToInt64Bits(o.CreationDate);
+    private static DateTime DateKey(OcadObject o) => o.CreatedAt.Value;
 
     private static double Cost(OcadObject a, OcadObject b)
     {

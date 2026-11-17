@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using OcadViewer.Merge.Analysis;
 using OcadViewer.Merge.Decisions;
-using OcadViewer.Merge.Format;
+using OcadViewer.Ocd;
 using OcadViewer.Merge.Writing;
 
 namespace OcadViewer.Merge.Tests;
