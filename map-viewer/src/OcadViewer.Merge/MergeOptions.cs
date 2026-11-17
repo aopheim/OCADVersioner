@@ -16,9 +16,18 @@ public sealed record MergeOptions
     /// <summary>A Kari change and an Ola change closer than this are a spatial-overlap conflict.</summary>
     public double OverlapBufferMeters { get; init; } = 10;
 
+    /// <summary>
+    /// An area added, deleted or restyled is near what lies inside it, if it is no larger
+    /// across than this. Larger areas count by their outline only, so one big polygon
+    /// does not join everything in it into one overlap.
+    /// </summary>
+    public double OverlapInsideAreaMeters { get; init; } = 100;
+
     public int ToleranceUnits(double scale) => ToUnits(ToleranceMeters, scale);
 
     public int OverlapBufferUnits(double scale) => ToUnits(OverlapBufferMeters, scale);
+
+    public int OverlapInsideAreaUnits(double scale) => ToUnits(OverlapInsideAreaMeters, scale);
 
     /// <summary>Metres on the ground to hundredths of a millimetre on paper.</summary>
     public static int ToUnits(double meters, double scale)

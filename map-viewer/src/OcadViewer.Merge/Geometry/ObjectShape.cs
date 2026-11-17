@@ -23,25 +23,11 @@ public static class ObjectShape
 
     public static Shape Of(OcadObject o)
     {
-        List<List<(double, double)>> parts = [[]];
-        foreach (OcadCoord c in o.Coords) {
-            if (c.IsControlPoint)
-                continue;
-            if (c.StartsHole && parts[^1].Count > 0)
-                parts.Add([]);
-            parts[^1].Add(Millimetres(c));
-        }
-
-        ShapeKind kind = o.Type switch {
-            ObjectType.Area or ObjectType.Rectangle => ShapeKind.Area,
-            ObjectType.Line or ObjectType.LineText => ShapeKind.Line,
-            _ => ShapeKind.Point,
-        };
-
-        if (kind == ShapeKind.Point)
-            parts = [[.. parts[0].Take(1)]];
-
-        return new Shape(kind, parts.Where(p => p.Count > 0).Select(p => (IReadOnlyList<(double, double)>)p).ToArray());
+        ShapeKind kind = ObjectRings.KindOf(o);
+        IReadOnlyList<(double, double)>[] parts = [.. ObjectRings.Of(o)
+            .Select(ring => (IReadOnlyList<(double, double)>)[.. ring.Where(c => !c.IsControlPoint).Select(Millimetres)])
+            .Where(part => part.Count > 0)];
+        return new Shape(kind, parts);
     }
 
     public static (double X, double Y) Millimetres(OcadCoord c) => (c.X * MillimetresPerUnit, c.Y * MillimetresPerUnit);

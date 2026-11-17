@@ -97,6 +97,12 @@ public sealed class MergeResolution
     /// <summary>Conflicting items and overlap groups still waiting for a decision.</summary>
     public IReadOnlyList<object> Unresolved => unresolved.Value;
 
+    /// <summary>
+    /// How many decisions the merge needs in all, decided or not: every item that
+    /// needs one and every overlap group. Progress is this less <see cref="Unresolved"/>.
+    /// </summary>
+    public int DecisionsNeeded => Analysis.AllItems.Count(NeedsDecision) + Analysis.Overlaps.Count;
+
     /// <summary>Whether the merged map can be written.</summary>
     public bool IsComplete => Unresolved.Count == 0;
 

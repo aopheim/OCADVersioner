@@ -90,7 +90,7 @@
         </main>
 
         <div class="merge-side">
-            <ChangePanel Session="session" LabelA="@start.LabelA" LabelB="@start.LabelB"
+            <ChangePanel Listing="Listing" LabelA="@start.LabelA" LabelB="@start.LabelB" Disabled="Busy"
                          @bind-Tab="tab" SelectedKey="@selected" OnSelect="SelectAndZoom" RegionCount="regions.Count">
                 <RegionsContent>
                     <RegionPanel Session="session" Regions="regions" LabelA="@start.LabelA" LabelB="@start.LabelB"
@@ -122,6 +122,13 @@
     private string selectedRegion;
     private int suggestions;
     private string saved;
+    private MergePanelListing listing;
+
+    /// <summary>Completes when the map component has rendered, so the page can draw on it.</summary>
+    private TaskCompletionSource<MergeMap> mapRendered = NewMapRendered();
+
+    /// <summary>How long the map component may take to appear before the merge gives up.</summary>
+    private static readonly TimeSpan MapTimeout = TimeSpan.FromSeconds(30);
 
     private IEnumerable<(string Key, string Name)> Layers => [
         (ResultLayer, L["#_mergeResult"]),
@@ -133,7 +140,7 @@
     private string ProgressText
     {
         get {
-            int total = session.Analysis.AllItems.Count(session.Resolution.NeedsDecision) + session.Analysis.Overlaps.Count;
+            int total = session.Resolution.DecisionsNeeded;
             int open = session.Resolution.Unresolved.Count;
             return L.Format("#_mergeResolvedOf", ("resolved", total - open), ("total", total));
         }
@@ -147,8 +154,8 @@
 
             Report(() => L["#_mergeDrawing"], null);
             StateHasChanged();
-            while (map is null)
-                await Task.Delay(10);
+            MergeMap shown = await mapRendered.Task.WaitAsync(MapTimeout);
+            await shown.Ready;
 
             await map.LoadAsync("base", chosen.Base.FileName, chosen.Base.Bytes);
             await map.LoadAsync("a", chosen.A.FileName, chosen.A.Bytes);
@@ -187,11 +194,9 @@
     private async Task Select(string key)
     {
         selected = key;
-        MergeTab? holding = Enum.GetValues<MergeTab>()
-            .Cast<MergeTab?>()
-            .FirstOrDefault(t => MergePanelEntries.For(t.Value, session, start.LabelA, start.LabelB, L).Any(e => e.Key == key));
-        if (holding is MergeTab found)
-            tab = found;
+        // Stay on the tab if it lists the pick (a shared change is under both copies).
+        if (!Listing[tab].Any(e => e.Key == key) && Listing.TabOf(key) is MergeTab holding)
+            tab = holding;
         await map.SelectAsync(MergePane, key);
     }
 
@@ -263,6 +268,22 @@
         selectedRegion = null;
         selected = null;
         layer = ResultLayer;
+        listing = null;
+        mapRendered = NewMapRendered();
     }
+
+    /// <summary>The side panel's rows, rebuilt only when the decisions or the language changed.</summary>
+    private MergePanelListing Listing
+        => listing is not null && ReferenceEquals(listing.Resolution, session.Resolution) && listing.Language == L.Language
+            ? listing
+            : listing = MergePanelEntries.For(session, start.LabelA, start.LabelB, L);
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (map is not null)
+            mapRendered.TrySetResult(map);
+    }
+
+    private static TaskCompletionSource<MergeMap> NewMapRendered() => new(TaskCreationOptions.RunContinuationsAsynchronously);
 
 }

@@ -87,6 +87,18 @@ export function createChangeOverlay(map, onPick) {
         for (const f of features.filter(f => f.kind !== 'box')) draw(f);
     }
 
+    /* Redraws one key's outlines only: selecting must not rebuild every layer of a
+     * large merge. A box goes back underneath the changes it surrounds. */
+    function redrawKey(key) {
+        if (key === null) return;
+        for (const layer of drawn.get(key) ?? []) group.removeLayer(layer);
+        drawn.delete(key);
+        for (const f of features.filter(f => f.key === key)) {
+            draw(f);
+            if (f.kind === 'box') for (const layer of drawn.get(key)) layer.bringToBack();
+        }
+    }
+
     return {
         setFeatures(next) {
             features = next;
@@ -99,8 +111,10 @@ export function createChangeOverlay(map, onPick) {
         },
 
         select(key) {
+            const previous = selectedKey;
             selectedKey = key;
-            redraw();
+            redrawKey(previous);
+            if (key !== previous) redrawKey(key);
         },
 
         /** Zooms to a feature's extent, padded so its surroundings show. */
