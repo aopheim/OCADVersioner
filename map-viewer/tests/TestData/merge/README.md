@@ -51,9 +51,10 @@ Identity is the **creation date** (millisecond precision). Slot numbers are not 
 | new | — | 2 × 109 Small knoll on the hill (slots 10, 11) | Clean, Ola |
 | Symbol 109 | Description changed | Description changed differently | **Conflict: both edited** |
 
-Overlaps (10 m buffer): Kari's contour with Ola's knolls on the hill; and the
-whole west half - Ola's open land, Kari's lake, Kari's ride and the boulder Ola
-deleted - because the fixture map is only ~400 m across and their extents touch.
+Overlaps (within 10 m of what changed): Kari's contour with Ola's knolls on the
+hill; and Kari's new ride with the corner of the open land Ola moved. The lake's
+moved corner and the middle boulder Ola deleted are more than 10 m from anything
+the other mapper changed, though all their extents touch.
 
 Merging with the forest taken from Kari, the east boulder from Ola, symbol 109
 from Kari and both sides of each overlap gives a file OCAD opens and that shows

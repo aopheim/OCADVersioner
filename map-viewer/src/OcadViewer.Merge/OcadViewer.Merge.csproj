@@ -19,4 +19,9 @@
     <ProjectReference Include="..\OcadViewer.Ocd\OcadViewer.Ocd.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Its tests check the internal geometry (ChangedStretch) directly. Tests only. -->
+    <InternalsVisibleTo Include="OcadViewer.Merge.Tests" />
+  </ItemGroup>
+
 </Project>
