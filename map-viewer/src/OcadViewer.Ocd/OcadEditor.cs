@@ -35,22 +35,22 @@ public sealed class OcadEditor
     /// <summary>The edited file.</summary>
     public byte[] ToArray() => file.ToArray();
 
-    public void Replace(OcadObject target, OcadObject with) => PlaceObject(EntryOf(target), Compatible(with));
+    public void Replace(OcadObject target, OcadObject with) => PlaceObject(EntryOf(target), Compatible(with, with.File));
 
-    public void Add(OcadObject obj) => PlaceObject(objectEntries.Allocate(), Compatible(obj));
+    public void Add(OcadObject obj) => PlaceObject(objectEntries.Allocate(), Compatible(obj, obj.File));
 
     public void Delete(OcadObject target)
         => file.Bytes[EntryOf(target) + FileLayout.IndexStatusOffset] = (byte)ObjectStatus.Deleted;
 
-    public void Replace(OcadSymbol target, OcadSymbol with) => PlaceSymbol(EntryOf(target), with);
+    public void Replace(OcadSymbol target, OcadSymbol with) => PlaceSymbol(EntryOf(target), Compatible(with, with.File));
 
-    public void Add(OcadSymbol symbol) => PlaceSymbol(symbolEntries.Allocate(), symbol);
+    public void Add(OcadSymbol symbol) => PlaceSymbol(symbolEntries.Allocate(), Compatible(symbol, symbol.File));
 
     public void Delete(OcadSymbol target) => file.WriteInt(EntryOf(target), 0);
 
-    public void Replace(OcadSetting target, OcadSetting with) => PlaceSetting(EntryOf(target), with);
+    public void Replace(OcadSetting target, OcadSetting with) => PlaceSetting(EntryOf(target), Compatible(with, with.File));
 
-    public void Add(OcadSetting setting) => PlaceSetting(stringEntries.Allocate(), setting);
+    public void Add(OcadSetting setting) => PlaceSetting(stringEntries.Allocate(), Compatible(setting, setting.File));
 
     public void Delete(OcadSetting target)
     {
@@ -97,11 +97,16 @@ public sealed class OcadEditor
             ? entry
             : throw new ArgumentException("Only what was read from the file being edited can be replaced or deleted.");
 
-    private OcadObject Compatible(OcadObject source)
-        => source.Layout.Version == basis.Version
+    /// <summary>
+    /// Records are written exactly as their file had them, and objects, symbols and
+    /// strings are laid out differently in each OCAD version, so they must come from
+    /// a file of the basis's version.
+    /// </summary>
+    private T Compatible<T>(T source, OcadFile from)
+        => from.Version == basis.Version
             ? source
             : throw new ArgumentException(
-                $"An object from an OCAD {source.Layout.Version} file cannot be written into an OCAD {basis.Version} file.");
+                $"{typeof(T).Name} from an OCAD {from.Version} file cannot be written into an OCAD {basis.Version} file.");
 
     private static int Int(ReadOnlySpan<byte> bytes, int offset) => BitConverter.ToInt32(bytes[offset..]);
 

@@ -137,11 +137,20 @@ public sealed class OcadEditorTests
     }
 
     [Test]
-    public void ObjectsFromAnotherOcadVersionAreRefused()
+    public void AnythingFromAnotherOcadVersionIsRefused()
     {
+        // Records are written as their file had them, and each version lays them out differently.
         OcadFile @base = Fixtures.Base, v12 = Fixtures.Read("base_v12.ocd");
+        OcadEditor editor = new(@base);
 
-        Assert.Throws<ArgumentException>(() => new OcadEditor(@base).Add(Knoll(v12)));
+        Assert.Multiple(() => {
+            Assert.Throws<ArgumentException>(() => editor.Add(Knoll(v12)));
+            Assert.Throws<ArgumentException>(() => editor.Replace(Lake(@base), Lake(v12)));
+            Assert.Throws<ArgumentException>(() => editor.Add(v12.Symbols[0]));
+            Assert.Throws<ArgumentException>(() => editor.Replace(@base.Symbols[0], v12.Symbols[0]));
+            Assert.Throws<ArgumentException>(() => editor.Add(v12.Settings[0]));
+            Assert.Throws<ArgumentException>(() => editor.Replace(@base.Settings[0], v12.Settings[0]));
+        });
     }
 
     [Test]

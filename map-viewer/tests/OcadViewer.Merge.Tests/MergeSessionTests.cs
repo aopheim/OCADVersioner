@@ -118,4 +118,22 @@ public sealed class MergeSessionTests
 
         Assert.That(second.Resolution.ChoiceFor(Forest(second)), Is.EqualTo(Choice.B));
     }
+
+    [Test]
+    public void RestoringDropsDecisionsTheMergeCannotCarryOut()
+    {
+        // Leaving out symbol 101.004, which both added and Kari drew with: open again.
+        MergeSession session = new(MergeAnalyzer.Analyze(
+            Fixtures.Base, SymbolDependencyTests.KariSettingsWithAnObjectUsing(101004), Fixtures.Read("ola_settings.ocd")));
+        SymbolItem added = session.Analysis.Symbols.Single(s => s.Number == 101004);
+        MergeDecisions saved = new();
+        saved.Decide(added, Choice.Base);
+
+        session.Restore(saved.ToSnapshot());
+
+        Assert.Multiple(() => {
+            Assert.That(session.Decisions.Items, Does.Not.ContainKey(added.Key));
+            Assert.That(session.Resolution.Unresolved, Does.Contain(added));
+        });
+    }
 }

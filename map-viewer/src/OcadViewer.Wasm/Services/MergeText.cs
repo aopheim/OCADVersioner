@@ -26,15 +26,20 @@ public static class MergeText
     };
 
     /// <summary>
-    /// Why a symbol is kept against the user's choice, or what goes with it if its
-    /// deletion is taken; null when objects do not decide for it.
+    /// What objects decide for a symbol: what goes with it if its deletion is taken,
+    /// that it is kept against the user's choice, or that one of two added versions
+    /// must be taken; null when objects do not decide for it.
     /// </summary>
     public static string SymbolUse(SymbolItem symbol, MergeResolution resolution, Localiser l)
     {
         int users = resolution.UsersOf(symbol.Number).Count;
-        if (symbol.Conflict == ConflictKind.SymbolInUse)
+        if (resolution.ConflictOf(symbol) == ConflictKind.SymbolInUse)
             return l.Format("#_mergeSymbolGoesWith", ("count", users));
-        return MergeChoices.LockedByObjects(symbol, resolution) ? l.Format("#_mergeSymbolKeptForObjects", ("count", users)) : null;
+        if (!MergeChoices.LockedByObjects(symbol, resolution))
+            return null;
+        return symbol.Conflict == ConflictKind.BothAdded
+            ? l.Format("#_mergeSymbolPickOne", ("count", users))
+            : l.Format("#_mergeSymbolKeptForObjects", ("count", users));
     }
 
     /// <summary>What a branch did, in a word: added, edited, deleted, or nothing.</summary>

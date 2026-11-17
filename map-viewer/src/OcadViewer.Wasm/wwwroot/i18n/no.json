@@ -155,6 +155,7 @@
     "#_mergeReject": "Forkast",
     "#_mergeSymbolKeptForObjects": "Beholdes fordi objekter i sammenslåingen bruker det ({{count}})",
     "#_mergeSymbolGoesWith": "Å ta slettingen fjerner også objektene som bruker det ({{count}})",
+    "#_mergeSymbolPickOne": "Objekter i sammenslåingen bruker det: ta en av de to versjonene ({{count}})",
     "#_mergeAccept": "Godta igjen",
     "#_mergeRejected": "Forkastet",
     "#_mergeChange": "Endre",

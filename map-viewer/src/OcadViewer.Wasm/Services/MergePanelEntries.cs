@@ -23,7 +23,7 @@ public static class MergePanelEntries
 
         return tab switch {
             MergeTab.Conflicts => [
-                .. analysis.AllItems.Where(i => i.Outcome == Outcome.Conflict)
+                .. analysis.AllItems.Where(resolution.NeedsDecision)
                                     .Select(i => Entry(i, "conflict", !resolution.IsResolved(i))),
                 .. analysis.Overlaps.Select(g => new PanelEntry(
                     g.Key, l["#_mergeOverlap"], l.Format("#_mergeOverlapCount", ("count", g.Items.Count)),
@@ -35,7 +35,7 @@ public static class MergePanelEntries
                                               .Select(i => Entry(i, i.Outcome == Outcome.BothSame ? "both" : "a", false))],
             MergeTab.B => [.. analysis.Objects.Where(i => i.Outcome == Outcome.OnlyB).Select(i => Entry(i, "b", false))],
             _ => [.. analysis.Symbols.Cast<MergeItem>().Concat(analysis.Settings)
-                             .Where(i => i.Outcome != Outcome.Conflict)
+                             .Where(i => !resolution.NeedsDecision(i))
                              .Select(i => Entry(i, i.Outcome == Outcome.OnlyB ? "b" : i.Outcome == Outcome.OnlyA ? "a" : "both", false))],
         };
 
@@ -49,8 +49,8 @@ public static class MergePanelEntries
 
         string What(MergeItem item)
         {
-            if (item.Outcome == Outcome.Conflict)
-                return MergeText.Conflict(item.Conflict, l);
+            if (resolution.NeedsDecision(item))
+                return MergeText.Conflict(resolution.ConflictOf(item), l);
             if (item.Outcome == Outcome.BothSame)
                 return l["#_mergeSameChange"];
             return string.Join(" · ", new[] {

@@ -142,7 +142,7 @@
     ];
 
     private int ConflictCount
-        => session.Analysis.AllItems.Count(i => i.Outcome == Outcome.Conflict) + session.Analysis.Overlaps.Count;
+        => session.Analysis.AllItems.Count(session.Resolution.NeedsDecision) + session.Analysis.Overlaps.Count;
 
     private string ProgressText
         => L.Format("#_mergeResolvedOf", ("resolved", ConflictCount - session.Resolution.Unresolved.Count), ("total", ConflictCount));
