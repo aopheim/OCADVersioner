@@ -28,7 +28,7 @@ public sealed record MergeProgress(
 
     public static MergeProgress Of(MergeStart start, MergeSession session, IEnumerable<MergeRegion> regions)
     {
-        int total = session.Analysis.AllItems.Count(i => i.Outcome == Outcome.Conflict) + session.Analysis.Overlaps.Count;
+        int total = session.Analysis.AllItems.Count(session.Resolution.NeedsDecision) + session.Analysis.Overlaps.Count;
         return new MergeProgress(
             KeyFor(start), DateTimeOffset.Now, start.Base.FileName, start.LabelA, start.LabelB,
             total - session.Resolution.Unresolved.Count, total,
