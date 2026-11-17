@@ -34,13 +34,6 @@ public sealed class MergeSession(MergeAnalysis analysis)
 
     public void DecideOverlap(OverlapGroup group, Choice choice) => Change(d => d.DecideOverlap(group.Key, choice));
 
-    /// <summary>Several decisions as one undo step - a region, say.</summary>
-    public void DecideAll(IEnumerable<(MergeItem Item, Choice Choice)> choices)
-        => Change(d => {
-            foreach ((MergeItem item, Choice choice) in choices)
-                d.Decide(item, choice);
-        });
-
     public void Undo() => Step(undo, redo);
 
     public void Redo() => Step(redo, undo);

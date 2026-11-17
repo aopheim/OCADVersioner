@@ -64,6 +64,20 @@ public sealed class MergeResolutionTests
     }
 
     [Test]
+    public void TheDecisionsNeededStayTheSameAsTheyAreMade()
+    {
+        MergeDecisions decisions = new();
+        Decide(decisions);
+        MergeResolution decided = new(analysis, decisions);
+
+        Assert.Multiple(() => {
+            Assert.That(new MergeResolution(analysis, new MergeDecisions()).DecisionsNeeded, Is.EqualTo(5));
+            Assert.That(decided.DecisionsNeeded, Is.EqualTo(5));
+            Assert.That(decided.Unresolved, Is.Empty);
+        });
+    }
+
+    [Test]
     public void TakingASideInAnOverlapRejectsTheOtherSidesChangesThere()
     {
         OverlapGroup hill = analysis.Overlaps.Single(g => g.Items.Any(i => i.A?.Symbol == 101000));

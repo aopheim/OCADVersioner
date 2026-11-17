@@ -170,6 +170,8 @@
     "#_mergeSameChange": "Begge gjorde samme endring",
     "#_mergeColour": "Farge: {{name}}",
     "#_mergeSettingType": "Innstilling {{type}}",
+    "#_mergeSettingNamed": "Innstilling {{type}}: {{name}}",
+    "#_mergeBackgroundMap": "Bakgrunnskart: {{name}}",
     "#_mergeNothingHere": "Ingenting her.",
     "#_mergeNoChanges": "Ingen av kopiene endret noe.",
     "#_mergeOpenCount": "{{count}} åpne"
