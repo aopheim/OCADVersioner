@@ -1,5 +1,5 @@
 using OcadViewer.Merge.Analysis;
-using OcadViewer.Merge.Format;
+using OcadViewer.Ocd;
 
 namespace OcadViewer.Merge.Tests;
 

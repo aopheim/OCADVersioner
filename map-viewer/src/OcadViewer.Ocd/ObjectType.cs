@@ -1,4 +1,4 @@
-namespace OcadViewer.Merge.Format;
+namespace OcadViewer.Ocd;
 
 /// <summary>OCAD's object types, as stored in each object record.</summary>
 public enum ObjectType : byte
