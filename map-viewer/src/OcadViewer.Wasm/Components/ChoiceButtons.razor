@@ -1,0 +1,43 @@
+@using OcadViewer.Merge
+@using OcadViewer.Merge.Decisions
+@using OcadViewer.Wasm.Services
+@inherits LocalisedComponent
+
+@* The decision buttons for one item or overlap, wherever a decision can be made. *@
+<div class="choice-buttons @(Large ? "large" : null)">
+    @foreach (ChoiceOption option in MergeChoices.For(Source, Session, LabelA, LabelB, L)) {
+        <button type="button" disabled="@(Disabled || !option.Enabled)" aria-pressed="@option.Current"
+                class="btn @(Large ? null : "btn-sm") choice @(option.Side is null ? null : "side-" + option.Side) @(option.Current ? "chosen" : null)"
+                @onclick="() => OnChoose.InvokeAsync((Source, option.Choice))">
+            @option.Label
+            @if (Shortcuts && option.Choice is Choice choice) {
+                <kbd class="ms-2">@Shortcut(choice)</kbd>
+            }
+        </button>
+    }
+</div>
+
+@code {
+    /// <summary>The <see cref="OcadViewer.Merge.Analysis.MergeItem"/> or overlap group decided about.</summary>
+    [Parameter, EditorRequired] public object Source { get; set; }
+    [Parameter, EditorRequired] public MergeSession Session { get; set; }
+    [Parameter] public string LabelA { get; set; }
+    [Parameter] public string LabelB { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Big buttons, as in the conflict walker.</summary>
+    [Parameter] public bool Large { get; set; }
+
+    /// <summary>Show the walker's keyboard shortcuts on the buttons.</summary>
+    [Parameter] public bool Shortcuts { get; set; }
+
+    [Parameter] public EventCallback<(object Source, Choice? Choice)> OnChoose { get; set; }
+
+    /// <summary>The walker's keys: 1 and 2 take a side, 3 keeps both, 4 keeps base.</summary>
+    public static string Shortcut(Choice choice) => choice switch {
+        Choice.A => "1",
+        Choice.B => "2",
+        Choice.Both => "3",
+        _ => "4",
+    };
+}

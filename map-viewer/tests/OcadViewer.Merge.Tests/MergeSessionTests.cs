@@ -49,6 +49,33 @@ public sealed class MergeSessionTests
     }
 
     [Test]
+    public void ForgettingAnOverlapDecisionOpensItAgain()
+    {
+        MergeSession session = Start();
+        OverlapGroup group = session.Analysis.Overlaps[0];
+        session.DecideOverlap(group, Choice.Both);
+
+        session.Forget(group.Key);
+
+        Assert.Multiple(() => {
+            Assert.That(session.Resolution.IsResolved(group), Is.False);
+            Assert.That(session.CanUndo, Is.True);
+        });
+    }
+
+    [Test]
+    public void ForgettingARejectionAcceptsTheCleanChangeAgain()
+    {
+        MergeSession session = Start();
+        ObjectItem lake = session.Analysis.Objects.Single(i => i.Base?.CreatedAt == Fixtures.Created.Lake);
+        session.Decide(lake, Choice.Base);
+
+        session.Forget(lake.Key);
+
+        Assert.That(session.Resolution.ChoiceFor(lake), Is.EqualTo(Choice.A));
+    }
+
+    [Test]
     public void APreviewCanBeWrittenWhileConflictsAreOpen()
     {
         MergeSession session = Start();
@@ -78,5 +105,23 @@ public sealed class MergeSessionTests
         second.Restore(first.Decisions.ToSnapshot());
 
         Assert.That(second.Resolution.ChoiceFor(Forest(second)), Is.EqualTo(Choice.B));
+    }
+
+    [Test]
+    public void RestoringDropsDecisionsTheMergeCannotCarryOut()
+    {
+        // Leaving out symbol 101.004, which both added and Kari drew with: open again.
+        MergeSession session = new(MergeAnalyzer.Analyze(
+            Fixtures.Base, SymbolDependencyTests.KariSettingsWithAnObjectUsing(101004), Fixtures.Read("ola_settings.ocd")));
+        SymbolItem added = session.Analysis.Symbols.Single(s => s.Number == 101004);
+        MergeDecisions saved = new();
+        saved.Decide(added, Choice.Base);
+
+        session.Restore(saved.ToSnapshot());
+
+        Assert.Multiple(() => {
+            Assert.That(session.Decisions.Items, Does.Not.ContainKey(added.Key));
+            Assert.That(session.Resolution.Unresolved, Does.Contain(added));
+        });
     }
 }

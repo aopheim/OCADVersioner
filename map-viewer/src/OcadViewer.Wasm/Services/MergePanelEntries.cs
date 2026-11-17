@@ -77,6 +77,11 @@ public static class MergePanelEntries
             => new(item.Key, MergeText.Title(symbols, item, l), Detail(item), side, open, item);
 
         string Detail(MergeItem item)
+            => item is SymbolItem symbol && MergeText.SymbolUse(symbol, resolution, l) is string note
+                ? $"{What(item)} · {note}"
+                : What(item);
+
+        string What(MergeItem item)
         {
             if (resolution.NeedsDecision(item))
                 return MergeText.Conflict(resolution.ConflictOf(item), l);

@@ -1,4 +1,5 @@
 using OcadViewer.Merge.Analysis;
+using OcadViewer.Merge.Decisions;
 using OcadViewer.Ocd;
 
 namespace OcadViewer.Wasm.Services;
@@ -46,6 +47,23 @@ public static class MergeText
 
     private static string SymbolName(IReadOnlyDictionary<int, string> symbols, int number)
         => symbols.TryGetValue(number, out string name) ? name : $"{number / 1000.0:0.###}";
+
+    /// <summary>
+    /// What objects decide for a symbol: what goes with it if its deletion is taken,
+    /// that it is kept against the user's choice, or that one of two added versions
+    /// must be taken; null when objects do not decide for it.
+    /// </summary>
+    public static string SymbolUse(SymbolItem symbol, MergeResolution resolution, Localiser l)
+    {
+        int users = resolution.UsersOf(symbol.Number).Count;
+        if (resolution.ConflictOf(symbol) == ConflictKind.SymbolInUse)
+            return l.Format("#_mergeSymbolGoesWith", ("count", users));
+        if (!MergeChoices.LockedByObjects(symbol, resolution))
+            return null;
+        return symbol.Conflict == ConflictKind.BothAdded
+            ? l.Format("#_mergeSymbolPickOne", ("count", users))
+            : l.Format("#_mergeSymbolKeptForObjects", ("count", users));
+    }
 
     /// <summary>What a branch did, in a word: added, edited, deleted, or nothing.</summary>
     public static string Change(ChangeKind change, Localiser l) => change switch {

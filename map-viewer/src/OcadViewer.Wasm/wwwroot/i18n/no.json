@@ -174,5 +174,22 @@
     "#_mergeBackgroundMap": "Bakgrunnskart: {{name}}",
     "#_mergeNothingHere": "Ingenting her.",
     "#_mergeNoChanges": "Ingen av kopiene endret noe.",
-    "#_mergeOpenCount": "{{count}} åpne"
+    "#_mergeOpenCount": "{{count}} åpne",
+    "#_mergeTake": "Ta {{name}}",
+    "#_mergeKeepBoth": "Behold begge",
+    "#_mergeKeepBase": "Behold utgangspunktet",
+    "#_mergeReject": "Forkast",
+    "#_mergeSymbolKeptForObjects": "Beholdes fordi objekter i sammenslåingen bruker det ({{count}})",
+    "#_mergeSymbolGoesWith": "Å ta slettingen fjerner også objektene som bruker det ({{count}})",
+    "#_mergeSymbolPickOne": "Objekter i sammenslåingen bruker det: ta en av de to versjonene ({{count}})",
+    "#_mergeAccept": "Godta igjen",
+    "#_mergeRejected": "Forkastet",
+    "#_mergeChange": "Endre",
+    "#_mergeUndo": "Angre",
+    "#_mergeRedo": "Gjør om",
+    "#_mergeSave": "Lagre sammenslått kart…",
+    "#_mergeSaveBlocked": "Bestem alle konflikter før du lagrer.",
+    "#_mergeSaving": "Skriver det sammenslåtte kartet…",
+    "#_mergeSaved": "Lagret som {{file}}. Filene du valgte er uendret.",
+    "#_mergeMergedSuffix": "sammenslått"
 }

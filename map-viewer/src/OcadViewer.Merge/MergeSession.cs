@@ -29,8 +29,11 @@ public sealed class MergeSession(MergeAnalysis analysis)
 
     public void Decide(MergeItem item, Choice choice) => Change(d => d.Decide(item, choice));
 
-    /// <summary>Back to the default for <paramref name="item"/>: accepted if clean, open if a conflict.</summary>
-    public void Forget(MergeItem item) => Change(d => d.Forget(item.Key));
+    /// <summary>
+    /// Back to the default for an item or overlap, by key: a clean change accepted,
+    /// a conflict open again.
+    /// </summary>
+    public void Forget(string key) => Change(d => d.Forget(key));
 
     public void DecideOverlap(OverlapGroup group, Choice choice) => Change(d => d.DecideOverlap(group.Key, choice));
 
@@ -38,12 +41,20 @@ public sealed class MergeSession(MergeAnalysis analysis)
 
     public void Redo() => Step(redo, undo);
 
-    /// <summary>Replaces the decisions with saved ones, starting a fresh history.</summary>
+    /// <summary>
+    /// Replaces the decisions with saved ones, starting a fresh history. Saved
+    /// decisions the merge cannot carry out (see <see cref="MergeResolution.IsOverruled"/>)
+    /// are dropped, so those items are simply open again.
+    /// </summary>
     public void Restore(MergeDecisionsSnapshot snapshot)
     {
         undo.Clear();
         redo.Clear();
-        Set(MergeDecisions.FromSnapshot(snapshot));
+        MergeDecisions restored = MergeDecisions.FromSnapshot(snapshot);
+        MergeResolution check = new(Analysis, restored);
+        foreach (string key in restored.Items.Keys.Where(k => Analysis.Item(k) is MergeItem item && check.IsOverruled(item)).ToList())
+            restored.Forget(key);
+        Set(restored);
     }
 
     /// <exception cref="InvalidOperationException">A conflict or overlap is still undecided.</exception>
