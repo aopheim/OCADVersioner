@@ -29,7 +29,7 @@ public static class MergeChoices
             case MergeRegion region:
                 return Conflict(MergeRegions.Current(session, region), keepBoth: true);
 
-            case MergeItem item when item.Outcome == Outcome.Conflict:
+            case MergeItem item when session.Resolution.NeedsDecision(item):
                 return Conflict(decisions.Items.TryGetValue(item.Key, out Choice c) ? c : null,
                                 keepBoth: item.Kind == ItemKind.Object, keepBase: !Locked(item));
 

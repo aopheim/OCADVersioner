@@ -133,7 +133,7 @@
     private string ProgressText
     {
         get {
-            int total = session.Analysis.AllItems.Count(i => i.Outcome == Outcome.Conflict) + session.Analysis.Overlaps.Count;
+            int total = session.Analysis.AllItems.Count(session.Resolution.NeedsDecision) + session.Analysis.Overlaps.Count;
             int open = session.Resolution.Unresolved.Count;
             return L.Format("#_mergeResolvedOf", ("resolved", total - open), ("total", total));
         }

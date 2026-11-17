@@ -16,7 +16,8 @@ public sealed class KeepBothTests
 
     private static void DecideTheRest(MergeAnalysis analysis, MergeDecisions decisions)
     {
-        foreach (MergeItem item in analysis.AllItems.Where(i => i.Outcome == Outcome.Conflict && !decisions.Items.ContainsKey(i.Key)))
+        MergeResolution open = new(analysis, decisions);
+        foreach (MergeItem item in analysis.AllItems.Where(i => open.NeedsDecision(i) && !decisions.Items.ContainsKey(i.Key)))
             decisions.Decide(item, Choice.A);
         foreach (OverlapGroup group in analysis.Overlaps.Where(g => !decisions.Overlaps.ContainsKey(g.Key)))
             decisions.DecideOverlap(group.Key, Choice.Both);

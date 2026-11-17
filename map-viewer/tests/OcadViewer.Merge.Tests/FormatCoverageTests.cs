@@ -18,7 +18,8 @@ public sealed class FormatCoverageTests
     {
         MergeAnalysis analysis = MergeAnalyzer.Analyze(@base, a, b);
         MergeDecisions decisions = new();
-        foreach (MergeItem item in analysis.AllItems.Where(i => i.Outcome == Outcome.Conflict))
+        MergeResolution open = new(analysis, decisions);
+        foreach (MergeItem item in analysis.AllItems.Where(open.NeedsDecision))
             decisions.Decide(item, conflicts == Choice.Both && item.Kind != ItemKind.Object ? Choice.A : conflicts);
         foreach (OverlapGroup group in analysis.Overlaps)
             decisions.DecideOverlap(group.Key, Choice.Both);
@@ -44,6 +45,22 @@ public sealed class FormatCoverageTests
                     .Select(i => $"{i.Kind} {i.Outcome} {i.ChangeA} {i.ChangeB} {i.Conflict}").Order()];
 
         Assert.That(Summary(v12), Is.EqualTo(Summary(v2018)));
+    }
+
+    [Test]
+    public void FilesWithANewerVersionNumberMergeLike2018Files()
+    {
+        // Decided: version numbers above 2018 are accepted and read with its layout.
+        static OcadFile As2025(string name)
+            => OcadFile.Read(Patch(Fixtures.Bytes(name), bytes => BitConverter.TryWriteBytes(bytes.AsSpan(FileLayout.VersionOffset), (short)2025)));
+
+        OcadFile merged = OcadFile.Read(Merge(As2025("base.ocd"), As2025("kari.ocd"), As2025("ola.ocd")));
+        OcadFile expected = OcadFile.Read(Merge(Fixtures.Base, Fixtures.Kari, Fixtures.Ola));
+
+        Assert.Multiple(() => {
+            Assert.That(merged.Version, Is.EqualTo(2025));
+            Assert.That(merged.Objects.Select(Shape), Is.EquivalentTo(expected.Objects.Select(Shape)));
+        });
     }
 
     [TestCase("base_v12.ocd", "kari_v12.ocd", "ola_v12.ocd")]
