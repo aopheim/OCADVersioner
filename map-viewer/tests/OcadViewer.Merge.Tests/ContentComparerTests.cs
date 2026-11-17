@@ -79,4 +79,24 @@ public sealed class ContentComparerTests
 
         Assert.That(Comparer.Same(inBase, inKari), Is.True);
     }
+    [TestCase(SettingType.Template, "contours.ocd\ts1\tr1\td50", "contours.ocd\ts0\tr1\td50")]
+    [TestCase(SettingType.TerrainModel, "map.ocdDem\tidata\tl1\tf0", "map.ocdDem\tidata\tl0\tf0")]
+    [TestCase(SettingType.PointCloud, "map.ocdLas\tl1\tf1", "map.ocdLas\tl0\tf1")]
+    public void FlagsOcadSetsWhenItOpensTheMapAreNotChanges(int type, string inBase, string opened)
+        // Opening the map on another computer flips these: seen on a real map
+        // where both mappers' copies differed from base only here.
+        => Assert.That(Comparer.Same(Setting(type, inBase), Setting(type, opened)), Is.True);
+
+    [Test]
+    public void ABackgroundMapWithANewDimmingHasChanged()
+        => Assert.That(Comparer.Same(Setting(SettingType.Template, "contours.ocd\ts1\td50"),
+                                     Setting(SettingType.Template, "contours.ocd\ts1\td40")), Is.False);
+
+    [Test]
+    public void ColoursAreComparedWhole()
+        => Assert.That(Comparer.Same(Setting(SettingType.Color, "Brown\tn5\ts1"),
+                                     Setting(SettingType.Color, "Brown\tn5\ts0")), Is.False);
+
+    private static OcadSetting Setting(int type, string text)
+        => new(null, 0, type, 0, System.Text.Encoding.Latin1.GetBytes(text));
 }

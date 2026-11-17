@@ -27,10 +27,6 @@
     cursor: pointer;
 }
 
-.w-10 {
-    width: 10%;
-}
-
 /* Blazor's own two pieces ----------------------------------------------- */
 
 /* Blazor reveals this with an inline display when an exception escapes a

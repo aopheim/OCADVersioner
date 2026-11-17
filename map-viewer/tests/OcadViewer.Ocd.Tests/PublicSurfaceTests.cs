@@ -34,11 +34,20 @@ public sealed class PublicSurfaceTests
     [Test]
     public void NoPublicMemberHandsOutRawBytes()
     {
-        Type[] bytes = [typeof(byte[]), typeof(ReadOnlyMemory<byte>), typeof(Memory<byte>)];
+        // Bytes go in (OcadFile.Read) and the whole file comes out (OcadEditor.ToArray);
+        // no member hands out part of a file.
+        string[] allowed = [$"{nameof(OcadEditor)}.{nameof(OcadEditor.ToArray)}"];
+        Type[] bytes = [typeof(byte[]), typeof(ReadOnlyMemory<byte>), typeof(Memory<byte>),
+                        typeof(ReadOnlySpan<byte>), typeof(Span<byte>), typeof(IEnumerable<byte>), typeof(IReadOnlyList<byte>)];
+        const BindingFlags Visible = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
+
         string[] exposing = [.. typeof(OcadFile).Assembly.GetExportedTypes()
-            .SelectMany(t => t.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static))
-            .Where(p => bytes.Contains(p.PropertyType))
-            .Select(p => $"{p.DeclaringType.Name}.{p.Name}")];
+            .SelectMany(t => t.GetProperties(Visible).Select(p => (Member: (MemberInfo)p, Type: p.PropertyType))
+                .Concat(t.GetMethods(Visible).Select(m => (Member: (MemberInfo)m, Type: m.ReturnType)))
+                .Concat(t.GetFields(Visible).Select(f => (Member: (MemberInfo)f, Type: f.FieldType))))
+            .Where(m => bytes.Contains(m.Type))
+            .Select(m => $"{m.Member.DeclaringType.Name}.{m.Member.Name}")
+            .Except(allowed)];
 
         Assert.That(exposing, Is.Empty);
     }
