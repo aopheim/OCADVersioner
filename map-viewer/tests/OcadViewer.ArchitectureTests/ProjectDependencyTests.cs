@@ -129,17 +129,19 @@ public sealed class ProjectDependencyTests
 
     /// <summary>
     /// The domain projects. Versioning states the contract this app shares with the
-    /// Angular app; Merge reads and writes OCAD files byte for byte. Both have to
-    /// stay testable without a browser, a renderer or a vendored assembly.
+    /// Angular app; Ocd reads and edits OCAD files byte for byte; Merge decides what
+    /// to merge. All have to stay testable without a browser, a renderer or a
+    /// vendored assembly, so they reference nothing but each other.
     /// </summary>
-    [TestCase("OcadViewer.Versioning")]
-    [TestCase("OcadViewer.Merge")]
-    public void TheDomainProjectsDependOnNothingAtAll(string name)
+    private static readonly string[] DomainProjects = ["OcadViewer.Versioning", "OcadViewer.Ocd", "OcadViewer.Merge"];
+
+    [TestCaseSource(nameof(DomainProjects))]
+    public void TheDomainProjectsDependOnNothingButEachOther(string name)
     {
         Project domain = Find(name);
 
         Assert.Multiple(() => {
-            Assert.That(domain.ProjectReferences, Is.Empty,
+            Assert.That(domain.ProjectReferences, Is.SubsetOf(DomainProjects),
                 $"{name} is domain code. It has to stay testable without a browser, a renderer "
                 + "or a vendored assembly.");
             Assert.That(domain.PackageReferences, Is.Empty,
