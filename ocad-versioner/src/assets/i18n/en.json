@@ -173,5 +173,18 @@
     "#_mergeRegionMixed": "Both copies changed things here: decide object by object.",
     "#_mergeCrossing": "{{count}} cross the border and need a decision of their own",
     "#_mergeRemoveRegion": "Remove",
-    "#_mergeNoRegions": "No regions yet."
+    "#_mergeNoRegions": "No regions yet.",
+    "#_mergeWalk": "Walk through conflicts",
+    "#_mergeWalkTitle": "Conflict {{n}} of {{total}}",
+    "#_mergeBackToMap": "Back to the map",
+    "#_mergePrevious": "Previous",
+    "#_mergeNext": "Next",
+    "#_mergeWalkKeys": "1–4 decide · S skips · arrow keys step · Esc goes back",
+    "#_mergeWhatChanged": "What changed",
+    "#_mergeEditedAt": "edited {{date}}",
+    "#_mergeAllConflicts": "All conflicts",
+    "#_mergeNoConflicts": "There are no conflicts to walk through.",
+    "#_mergeOpen": "open",
+    "#_mergeAllDecided": "Every conflict is decided.",
+    "#_mergeNotInThisCopy": "Not in this copy"
 }

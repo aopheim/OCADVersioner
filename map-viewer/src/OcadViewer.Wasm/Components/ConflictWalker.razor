@@ -1,0 +1,191 @@
+@using OcadViewer.Merge
+@using OcadViewer.Merge.Analysis
+@using OcadViewer.Merge.Decisions
+@using OcadViewer.Merge.Format
+@using OcadViewer.Wasm.Services
+@inherits LocalisedComponent
+
+@*
+    The conflict walker (board D of the design): one conflict at a time, base and
+    both copies side by side and zoomed to it, big decision buttons and keys.
+*@
+<div class="walker">
+    <div class="walker-bar">
+        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="OnClose">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i> @L["#_mergeBackToMap"]
+        </button>
+        <span class="flex-grow-1"></span>
+        @if (Conflicts.Count > 0) {
+            <span class="small text-muted">@L.Format("#_mergeWalkTitle", ("n", index + 1), ("total", Conflicts.Count))</span>
+            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => Step(-1)">@L["#_mergePrevious"]</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => Step(1)">@L["#_mergeNext"]</button>
+        }
+    </div>
+
+    @if (Conflicts.Count == 0) {
+        <p class="text-muted mt-3">@L["#_mergeNoConflicts"]</p>
+    } else {
+        PanelEntry entry = Current;
+        <h2 class="walker-title">
+            <span class="badge text-bg-danger">@(index + 1)</span>
+            @entry.Title
+            <small class="text-muted">@entry.Detail</small>
+        </h2>
+
+        <div class="walker-maps" hidden="@(!HasShape)">
+            <MergeMap @ref="map" Panes="Panes" Captions="captions" Fade="0.8" />
+        </div>
+        @if (!HasShape) {
+            <div class="walker-texts">
+                @foreach ((string caption, string text) in Texts(entry.Source)) {
+                    <section class="walker-text"><strong>@caption</strong><span>@(text ?? L["#_mergeNotInThisCopy"])</span></section>
+                }
+            </div>
+        }
+
+        <ChoiceButtons Source="entry.Source" Session="Session" LabelA="@LabelA" LabelB="@LabelB"
+                       Large="true" Shortcuts="true" Disabled="Disabled" OnChoose="Choose" />
+
+        <section class="walker-changes">
+            <span class="merge-label">@L["#_mergeWhatChanged"]</span>
+            @foreach ((string label, string side, MergeItem item) in Changes(entry.Source)) {
+                <div class="walker-change">
+                    <strong class="text-@side">@label</strong>
+                    <span>@MergeText.Change(item.Change(side == "a" ? Side.A : Side.B), L)</span>
+                    @if (item is ObjectItem o && o.Version(side == "a" ? Side.A : Side.B)?.ModifiedAt is DateTime edited) {
+                        <span class="text-muted small">@L.Format("#_mergeEditedAt", ("date", edited.ToString("g")))</span>
+                    }
+                </div>
+            }
+            <span class="text-muted small">@L["#_mergeWalkKeys"]</span>
+        </section>
+
+        <section class="walker-strip">
+            <span class="merge-label">@L["#_mergeAllConflicts"]</span>
+            <div class="walker-thumbs">
+                @for (int i = 0; i < Conflicts.Count; i++) {
+                    int at = i;
+                    <button type="button" class="walker-thumb @(at == index ? "here" : null) @(Conflicts[at].Open ? "open" : null)"
+                            @onclick="() => GoTo(at)">
+                        @(at + 1) · @(Conflicts[at].Open ? L["#_mergeOpen"] : Decided(Conflicts[at].Source))
+                    </button>
+                }
+            </div>
+        </section>
+
+        <KeyboardShortcut Key="1" OnPressed="() => Press(Choice.A)" />
+        <KeyboardShortcut Key="2" OnPressed="() => Press(Choice.B)" />
+        <KeyboardShortcut Key="3" OnPressed="() => Press(Choice.Both)" />
+        <KeyboardShortcut Key="4" OnPressed="() => Press(Choice.Base)" />
+        <KeyboardShortcut Key="s" OnPressed="() => Step(1)" />
+        <KeyboardShortcut Key="ArrowRight" OnPressed="() => Step(1)" />
+        <KeyboardShortcut Key="ArrowLeft" OnPressed="() => Step(-1)" />
+    }
+    <KeyboardShortcut Key="Escape" OnPressed="OnClose" />
+</div>
+
+@code {
+    private static readonly string[] Panes = ["base", "a", "b"];
+
+    [Parameter, EditorRequired] public MergeSession Session { get; set; }
+    [Parameter, EditorRequired] public MergeStart Start { get; set; }
+    [Parameter] public string LabelA { get; set; }
+    [Parameter] public string LabelB { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback<(object Source, Choice? Choice)> OnChoose { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private MergeMap map;
+    private bool loaded;
+    private int index;
+    private string shownKey;
+    private Dictionary<string, string> captions = [];
+
+    private IReadOnlyList<PanelEntry> Conflicts => MergePanelEntries.For(MergeTab.Conflicts, Session, LabelA, LabelB, L);
+
+    private PanelEntry Current => Conflicts[Math.Clamp(index, 0, Conflicts.Count - 1)];
+
+    /// <summary>Objects and overlaps are shown on maps; symbols and colours as text.</summary>
+    private bool HasShape => Current.Source is ObjectItem or OverlapGroup;
+
+    protected override void OnParametersSet()
+    {
+        captions = new() { ["base"] = L["#_mergeBaseShort"], ["a"] = LabelA, ["b"] = LabelB };
+        int firstOpen = Conflicts.ToList().FindIndex(c => c.Open);
+        if (!loaded && firstOpen >= 0)
+            index = firstOpen;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (map is null || Conflicts.Count == 0)
+            return;
+
+        if (!loaded) {
+            loaded = true;
+            await map.LoadAsync("base", Start.Base.FileName, Start.Base.Bytes);
+            await map.LoadAsync("a", Start.A.FileName, Start.A.Bytes);
+            await map.LoadAsync("b", Start.B.FileName, Start.B.Bytes);
+            foreach (string pane in Panes)
+                await map.ShowAsync(pane, pane);
+        }
+
+        if (HasShape && Current.Key != shownKey) {
+            shownKey = Current.Key;
+            await map.SetFeaturesAsync("base", MergeOverlay.Json(MergeOverlay.Versions(Current.Source, null)));
+            await map.SetFeaturesAsync("a", MergeOverlay.Json(MergeOverlay.Versions(Current.Source, Side.A)));
+            await map.SetFeaturesAsync("b", MergeOverlay.Json(MergeOverlay.Versions(Current.Source, Side.B)));
+            // The panes are kept in step, so zooming one zooms them all.
+            foreach (string pane in Panes) {
+                if (MergeOverlay.Versions(Current.Source, pane switch { "a" => Side.A, "b" => Side.B, _ => null }).Count > 0) {
+                    await map.ZoomToAsync(pane, Current.Key);
+                    break;
+                }
+            }
+        }
+    }
+
+    private async Task Choose((object Source, Choice? Choice) chosen)
+    {
+        await OnChoose.InvokeAsync(chosen);
+        NextOpen();
+    }
+
+    /// <summary>A number key: decide if that choice is offered here, then move on.</summary>
+    private Task Press(Choice choice)
+        => Disabled || !MergeChoices.For(Current.Source, Session, LabelA, LabelB, L).Any(o => o.Choice == choice)
+            ? Task.CompletedTask
+            : Choose((Current.Source, choice));
+
+    private void NextOpen()
+    {
+        IReadOnlyList<PanelEntry> all = Conflicts;
+        for (int step = 1; step <= all.Count; step++) {
+            int at = (index + step) % all.Count;
+            if (all[at].Open) {
+                index = at;
+                return;
+            }
+        }
+    }
+
+    private void Step(int by) => GoTo((index + by + Conflicts.Count) % Conflicts.Count);
+
+    private void GoTo(int at) => index = at;
+
+    private string Decided(object source)
+        => MergeChoices.For(source, Session, LabelA, LabelB, L).FirstOrDefault(o => o.Current)?.Label ?? L["#_mergeAllDecided"];
+
+    private IEnumerable<(string Label, string Side, MergeItem Item)> Changes(object source) => source switch {
+        MergeItem item => [(LabelA, "a", item), (LabelB, "b", item)],
+        OverlapGroup group => group.Items.Select(i => i.Outcome == Outcome.OnlyA ? (LabelA, "a", (MergeItem)i) : (LabelB, "b", i)),
+        _ => [],
+    };
+
+    /// <summary>A symbol's or setting's three versions, for conflicts that have no shape.</summary>
+    private IEnumerable<(string Caption, string Text)> Texts(object source) => source switch {
+        SymbolItem s => [(L["#_mergeBaseShort"], s.Base?.Description), (LabelA, s.A?.Description), (LabelB, s.B?.Description)],
+        SettingItem s => [(L["#_mergeBaseShort"], s.Base?.Text), (LabelA, s.A?.Text), (LabelB, s.B?.Text)],
+        _ => [],
+    };
+}

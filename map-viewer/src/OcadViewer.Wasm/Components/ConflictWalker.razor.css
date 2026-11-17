@@ -1,0 +1,86 @@
+.walker {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 1320px;
+    margin: 0 auto;
+}
+
+.walker-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.walker-title {
+    font-size: 1.4rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px;
+    margin: 0;
+}
+
+/* Sized by its panes (MergeMap gives each a minimum height). */
+.walker-maps {
+    display: flex;
+    flex-direction: column;
+}
+
+.walker-texts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 10px;
+}
+
+.walker-text {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    word-break: break-word;
+}
+
+.walker-changes {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.walker-change {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: baseline;
+}
+
+.walker-thumbs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.walker-thumb {
+    flex: none;
+    min-width: 96px;
+    min-height: 44px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 6px;
+    background: #f7f8f9;
+    color: var(--bs-secondary-color);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.walker-thumb.open {
+    background: #fff;
+    color: #D7003A;
+}
+
+.walker-thumb.here {
+    border: 2px solid #D7003A;
+}

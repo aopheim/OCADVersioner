@@ -28,6 +28,11 @@
         </span>
         <span class="flex-grow-1"></span>
         <span class="small text-muted">@ProgressText</span>
+        @if (ConflictCount > 0 && !walking) {
+            <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => walking = true" disabled="@Busy">
+                @L["#_mergeWalk"] <i class="bi bi-chevron-right" aria-hidden="true"></i>
+            </button>
+        }
         <div class="btn-group btn-group-sm">
             <button type="button" class="btn btn-outline-secondary" disabled="@(Busy || !session.CanUndo)"
                     @onclick="() => ApplyAsync(s => s.Undo())" title="@L["#_mergeUndo"]">
@@ -58,7 +63,12 @@
 @if (session is null) {
     <MergeSetup OnStart="Start" />
 } else {
-    <div class="merge-body">
+    @* The walker exists only while open: its number keys must not decide anything from the map. *@
+    @if (walking) {
+        <ConflictWalker Session="session" Start="start" LabelA="@start.LabelA" LabelB="@start.LabelB"
+                        Disabled="Busy" OnChoose="Choose" OnClose="() => walking = false" />
+    }
+    <div class="merge-body" hidden="@walking">
         <aside class="merge-rail">
             <div class="merge-rail-group">
                 <span class="merge-label">@L["#_mergeShowMapAs"]</span>
@@ -122,6 +132,7 @@
     private string selectedRegion;
     private int suggestions;
     private string saved;
+    private bool walking;
 
     private IEnumerable<(string Key, string Name)> Layers => [
         (ResultLayer, L["#_mergeResult"]),
@@ -130,14 +141,11 @@
         ("b", start.LabelB),
     ];
 
+    private int ConflictCount
+        => session.Analysis.AllItems.Count(i => i.Outcome == Outcome.Conflict) + session.Analysis.Overlaps.Count;
+
     private string ProgressText
-    {
-        get {
-            int total = session.Analysis.AllItems.Count(i => i.Outcome == Outcome.Conflict) + session.Analysis.Overlaps.Count;
-            int open = session.Resolution.Unresolved.Count;
-            return L.Format("#_mergeResolvedOf", ("resolved", total - open), ("total", total));
-        }
-    }
+        => L.Format("#_mergeResolvedOf", ("resolved", ConflictCount - session.Resolution.Unresolved.Count), ("total", ConflictCount));
 
     private Task Start(MergeStart chosen)
         => Run(() => L["#_mergeAnalysing"], async () => {
@@ -261,6 +269,7 @@
         saved = null;
         regions = [];
         selectedRegion = null;
+        walking = false;
         selected = null;
         layer = ResultLayer;
     }

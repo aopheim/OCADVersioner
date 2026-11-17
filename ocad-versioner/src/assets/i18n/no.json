@@ -173,5 +173,18 @@
     "#_mergeRegionMixed": "Begge kopiene har endret noe her: bestem objekt for objekt.",
     "#_mergeCrossing": "{{count}} krysser grensen og må bestemmes hver for seg",
     "#_mergeRemoveRegion": "Fjern",
-    "#_mergeNoRegions": "Ingen områder ennå."
+    "#_mergeNoRegions": "Ingen områder ennå.",
+    "#_mergeWalk": "Gå gjennom konfliktene",
+    "#_mergeWalkTitle": "Konflikt {{n}} av {{total}}",
+    "#_mergeBackToMap": "Tilbake til kartet",
+    "#_mergePrevious": "Forrige",
+    "#_mergeNext": "Neste",
+    "#_mergeWalkKeys": "1–4 bestemmer · S hopper over · piltastene blar · Esc går tilbake",
+    "#_mergeWhatChanged": "Hva som er endret",
+    "#_mergeEditedAt": "endret {{date}}",
+    "#_mergeAllConflicts": "Alle konflikter",
+    "#_mergeNoConflicts": "Det er ingen konflikter å gå gjennom.",
+    "#_mergeOpen": "åpen",
+    "#_mergeAllDecided": "Alle konflikter er bestemt.",
+    "#_mergeNotInThisCopy": "Finnes ikke i denne kopien"
 }
