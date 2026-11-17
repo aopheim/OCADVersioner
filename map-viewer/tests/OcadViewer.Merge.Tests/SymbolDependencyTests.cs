@@ -157,12 +157,10 @@ public sealed class SymbolDependencyTests
         // Both duplicated symbol 101 into 101.004 differently; Kari also drew with hers.
         MergeAnalysis analysis = MergeAnalyzer.Analyze(Fixtures.Base, KariSettingsWithAnObjectUsing(101004), Fixtures.Read("ola_settings.ocd"));
         SymbolItem added = Symbol(analysis, 101004);
-        MergeDecisions decisions = new();
-        decisions.Decide(added, Choice.Base);
-        MergeResolution overruled = new(analysis, decisions);
-
-        decisions.Decide(added, Choice.B);
-        MergeResolution decided = new(analysis, decisions);
+        MergeDecisions leaveOut = new(), takeOla = new();
+        leaveOut.Decide(added, Choice.Base);
+        takeOla.Decide(added, Choice.B);
+        MergeResolution overruled = new(analysis, leaveOut), decided = new(analysis, takeOla);
 
         Assert.Multiple(() => {
             Assert.That(added.Conflict, Is.EqualTo(ConflictKind.BothAdded));
