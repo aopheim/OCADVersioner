@@ -24,7 +24,7 @@ public static class MergeChoices
             case OverlapGroup group:
                 return Conflict(decisions.Overlaps.TryGetValue(group.Key, out Choice g) ? g : null, keepBoth: true);
 
-            case MergeItem item when item.Outcome == Outcome.Conflict:
+            case MergeItem item when session.Resolution.NeedsDecision(item):
                 return Conflict(decisions.Items.TryGetValue(item.Key, out Choice c) ? c : null,
                                 keepBoth: item.Kind == ItemKind.Object, keepBase: !Locked(item));
 
