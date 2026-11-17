@@ -175,7 +175,7 @@ public sealed class SymbolDependencyTests
     /// kari_settings.ocd with base's knoll added again as a new object using symbol
     /// <paramref name="symbol"/>: no fixture draws with the duplicated symbol.
     /// </summary>
-    private static OcadFile KariSettingsWithAnObjectUsing(int symbol)
+    internal static OcadFile KariSettingsWithAnObjectUsing(int symbol)
     {
         OcadFile kari = Fixtures.Read("kari_settings.ocd");
         OcadEditor editor = new(kari);
