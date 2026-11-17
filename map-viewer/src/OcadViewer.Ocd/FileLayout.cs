@@ -1,4 +1,4 @@
-namespace OcadViewer.Merge.Format;
+namespace OcadViewer.Ocd;
 
 /// <summary>
 /// Where things are in an OCAD file of a given version: the one place that knows
@@ -10,7 +10,7 @@ namespace OcadViewer.Merge.Format;
 /// release. Offsets come from PurplePen's OcadFileFormat.cs and were checked
 /// against files saved by OCAD 2020.
 /// </remarks>
-public sealed class FileLayout
+internal sealed class FileLayout
 {
     public const short OcadMark = 0x0CAD;
 
@@ -52,13 +52,6 @@ public sealed class FileLayout
     public const int SymbolDescriptionOffset = 56;
     public const int SymbolDescriptionChars = 64;
 
-    /// <summary>Index status of an object OCAD shows.</summary>
-    public const byte StatusNormal = 1;
-    /// <summary>Index status of an object the user hid.</summary>
-    public const byte StatusHidden = 2;
-    /// <summary>Index status OCAD leaves on the record of a deleted object.</summary>
-    public const byte StatusDeleted = 3;
-
     public int Version { get; }
 
     /// <summary>Size of the fixed part of an object record, before its coordinates.</summary>
@@ -95,7 +88,7 @@ public sealed class FileLayout
         11 => new(11, headerSize: 40, coordCount: 8, textCount: 12, color: 16, created: 32, modified: -1, extraStrings: -1),
         12 or >= 2018 => new(version, headerSize: 56, coordCount: 44, textCount: 48, color: 8, created: 24, modified: 36, extraStrings: 50),
         _ => throw new OcadFormatException(
-            $"This is an OCAD {version} file. Only OCAD 11, 12 and 2018 (and later) files can be merged."),
+            $"This is an OCAD {version} file. Only OCAD 11, 12 and 2018 (and later) files can be read."),
     };
 
     /// <summary>

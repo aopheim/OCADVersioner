@@ -16,8 +16,11 @@ namespace OcadViewer.ArchitectureTests;
 ///   Graphics2D ← MapModel ← Map_SkiaStd ← OcadViewer.Core ← RenderCli
 ///                                              ↑
 ///                      OcadViewer.Versioning ← OcadViewer.Wasm
-///                      OcadViewer.Merge      ←┘
+///   OcadViewer.Ocd ←       OcadViewer.Merge      ←┘
 /// </code>
+///
+/// OcadViewer.Ocd reads and edits OCAD files at the byte level; OcadViewer.Merge
+/// builds on it and nothing else.
 ///
 /// Nothing in the compiler keeps it that way: one <c>using</c> of
 /// Microsoft.AspNetCore in the wrong project compiles. These tests do.
@@ -37,11 +40,13 @@ public sealed class ProjectDependencyTests
         ["Map_SkiaStd"] = ["Graphics2D", "MapModel"],
         ["OcadViewer.Core"] = ["Map_SkiaStd"],
         ["OcadViewer.Versioning"] = [],
-        ["OcadViewer.Merge"] = [],
+        ["OcadViewer.Ocd"] = [],
+        ["OcadViewer.Merge"] = ["OcadViewer.Ocd"],
         ["OcadViewer.RenderCli"] = ["OcadViewer.Core"],
-        ["OcadViewer.Wasm"] = ["OcadViewer.Core", "OcadViewer.Versioning", "OcadViewer.Merge"],
+        ["OcadViewer.Wasm"] = ["OcadViewer.Core", "OcadViewer.Versioning", "OcadViewer.Merge", "OcadViewer.Ocd"],
         ["OcadViewer.ArchitectureTests"] = ["OcadViewer.Versioning"],
-        ["OcadViewer.Merge.Tests"] = ["OcadViewer.Merge"],
+        ["OcadViewer.Merge.Tests"] = ["OcadViewer.Merge", "OcadViewer.Ocd"],
+        ["OcadViewer.Ocd.Tests"] = ["OcadViewer.Ocd"],
     };
 
     /// <summary>Packages that only a UI host has any business referencing.</summary>

@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OcadViewer.Merge\OcadViewer.Merge.csproj" />
+    <ProjectReference Include="..\..\src\OcadViewer.Ocd\OcadViewer.Ocd.csproj" />
   </ItemGroup>
 
   <ItemGroup>
