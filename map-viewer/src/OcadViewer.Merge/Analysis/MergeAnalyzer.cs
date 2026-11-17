@@ -20,7 +20,7 @@ public static class MergeAnalyzer
         IReadOnlyList<ObjectItem> objects = Objects(@base, a, b, comparer);
         return new MergeAnalysis(@base, a, b, options,
             objects,
-            Symbols(@base, a, b, comparer),
+            [.. Symbols(@base, a, b, comparer).Select(s => DeletedButStillUsed(s, objects, a, b) ? AsConflict(s, ConflictKind.SymbolInUse) : s)],
             Settings(@base, a, b, comparer),
             OverlapDetector.Find(objects, options.OverlapBufferUnits(@base.Scale)));
     }
@@ -59,6 +59,30 @@ public static class MergeAnalyzer
     private static List<SymbolItem> Symbols(OcadFile @base, OcadFile a, OcadFile b, ContentComparer comparer)
         => Join(@base.Symbols, a.Symbols, b.Symbols, s => $"sym:{s.Number}",
                 (key, o, x, y) => Item(key, o, x, y, comparer.Same, v => new SymbolItem(key, o, x, y, v)));
+
+    /// <summary>
+    /// Whether one branch alone deleted <paramref name="symbol"/> while objects in the
+    /// merge would still use it: the deleting branch's own objects (kept when OCAD
+    /// asked), or objects the other branch added or edited with it. Objects the other
+    /// branch left alone do not count; the deleting branch removed those cleanly.
+    /// </summary>
+    private static bool DeletedButStillUsed(SymbolItem symbol, IReadOnlyList<ObjectItem> objects, OcadFile a, OcadFile b)
+    {
+        if (symbol.Outcome is not (Outcome.OnlyA or Outcome.OnlyB))
+            return false;
+
+        Side deleter = symbol.Outcome == Outcome.OnlyA ? Side.A : Side.B;
+        Side other = deleter == Side.A ? Side.B : Side.A;
+        if (symbol.Change(deleter) != ChangeKind.Deleted)
+            return false;
+
+        int number = symbol.Number;
+        return (deleter == Side.A ? a : b).Objects.Any(o => o.Symbol == number)
+            || objects.Any(i => i.Change(other) != ChangeKind.None && i.Version(other)?.Symbol == number);
+    }
+
+    private static SymbolItem AsConflict(SymbolItem s, ConflictKind kind)
+        => new(s.Key, s.Base, s.A, s.B, new ThreeWay.Verdict(Outcome.Conflict, s.ChangeA, s.ChangeB, kind));
 
     private static List<SettingItem> Settings(OcadFile @base, OcadFile a, OcadFile b, ContentComparer comparer)
     {
