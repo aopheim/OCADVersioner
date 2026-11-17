@@ -966,9 +966,6 @@ Accepted as lost until rebuilt, compared with the Angular app:
   setting it used. See *The diff — deferred* for where its specification lives.
 - **Watching the working file.** Angular checked its size every 2 s and reloaded
   the comparison when OCAD saved; Blazor has a Refresh button.
-- **Most of the About page**: the step-by-step guide with screenshots, the
-  `Releases/` layout explanation and the supported-browsers section that
-  `ProjectDirectorySelector`'s `about#supportedBrowsers` link points at.
 - The "loaded map" telemetry event and the `/dev` test page.
 
 **Done when:** steps 1–3 are done too. The Angular source is gone; mentions of
