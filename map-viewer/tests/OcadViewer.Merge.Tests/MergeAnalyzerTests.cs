@@ -107,16 +107,17 @@ public sealed class MergeAnalyzerTests
     }
 
     [Test]
-    public void TheWestHalfIsOneOverlapBecauseTheMapIsSmall()
+    public void InTheWestOnlyOlasOpenLandAndKarisRideAreClose()
     {
-        // The whole fixture map is ~400 m across. Ola's open land and Kari's lake
-        // touch, and Kari's new ride runs within 10 m of the open land and of the
-        // boulder Ola deleted, so all four join one group.
-        OverlapGroup west = analysis.Overlaps.Single(g => g.Items.Any(i => i.Base?.CreatedAt == Fixtures.Created.Lake));
+        // Their boxes all touch, but what changed does not: Kari moved the lake's NE
+        // corner and Ola the open land's, more than 10 m apart, and the middle boulder
+        // Ola deleted is more than 10 m from Kari's new ride. The ride does pass within
+        // 10 m of the open land's moved corner.
+        OverlapGroup west = analysis.Overlaps.Single(g => g.Items.Any(i => i.Symbol == 508000));
 
         Assert.Multiple(() => {
             Assert.That(analysis.Overlaps, Has.Count.EqualTo(2));
-            Assert.That(west.Items.Select(i => i.Symbol), Is.EquivalentTo(new[] { 401000, 301000, 204000, 508000 }));
+            Assert.That(west.Items.Select(i => i.Symbol), Is.EquivalentTo(new[] { 401000, 508000 }));
         });
     }
 
