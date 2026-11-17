@@ -65,11 +65,6 @@ Copyright © Google Inc. Licensed under **Apache License 2.0**
 Bundled with the viewer because a browser provides no system fonts to the
 rendering engine.
 
-## ocad2geojson
-
-Used by the existing Angular application. Copyright © Per Liedman. Licensed under
-the **GNU Affero General Public License v3.0**.
-
 ## Leaflet
 
 Copyright © 2010–2023 Volodymyr Agafonkin. Licensed under **BSD 2-Clause**
@@ -92,6 +87,12 @@ Copyright © 2017 Sumit Kumar. Licensed under the **MIT** licence
 (`map-viewer/src/OcadViewer.Wasm/wwwroot/lib/leaflet-geoman/LICENSE-leaflet-geoman.txt`).
 
 Draws and edits the regions on the merge screen.
+
+## Bootstrap
+
+Copyright © 2011–2024 The Bootstrap Authors. Licensed under the **MIT** licence
+(<https://github.com/twbs/bootstrap/blob/main/LICENSE>; the notice is kept in the
+header of each file under `map-viewer/src/OcadViewer.Wasm/wwwroot/lib/bootstrap/dist/`).
 
 ## Bootstrap Icons
 

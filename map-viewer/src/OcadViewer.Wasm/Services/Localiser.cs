@@ -4,17 +4,15 @@ using System.Text.Json;
 namespace OcadViewer.Wasm.Services;
 
 /// <summary>
-/// Looks up UI strings by the keys the Angular app already uses.
+/// Looks up UI strings by the keys the Angular app used.
 /// </summary>
 /// <remarks>
 /// Deliberately not Blazor's .resx localisation. The translations are the Angular
-/// app's own JSON files, now kept here in <c>wwwroot/i18n</c> as the original.
-/// The Angular app keeps a copy in <c>src/assets/i18n</c> until it is deleted,
-/// because its production deploy builds that folder on its own; the architecture
-/// tests fail if the two copies differ, so they stay one set of strings.
+/// app's JSON files, carried over into <c>wwwroot/i18n</c>, which is now the only
+/// copy.
 ///
-/// Keys keep their <c>#_</c> prefix for the same reason: so a string can be traced
-/// to the Angular component it came from without translating names as well.
+/// Keys keep their <c>#_</c> prefix so a string can still be traced to the Angular
+/// component it came from, in git history, without translating names as well.
 /// </remarks>
 public sealed class Localiser(HttpClient http)
 {
