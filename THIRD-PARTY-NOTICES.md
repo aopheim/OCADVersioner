@@ -81,6 +81,12 @@ Copyright © 2013–2017 Bjørn Sandvik / Jan Pieter Waagmeester. Licensed under
 
 Keeps the two side-by-side maps in step.
 
+## Bootstrap
+
+Copyright © 2011–2024 The Bootstrap Authors. Licensed under the **MIT** licence
+(<https://github.com/twbs/bootstrap/blob/main/LICENSE>; the notice is kept in the
+header of each file under `map-viewer/src/OcadViewer.Wasm/wwwroot/lib/bootstrap/dist/`).
+
 ## Bootstrap Icons
 
 Copyright © 2019–2024 The Bootstrap Authors. Licensed under the **MIT** licence
