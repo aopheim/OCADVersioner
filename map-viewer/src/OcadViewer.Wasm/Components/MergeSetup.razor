@@ -4,6 +4,7 @@
 @using OcadViewer.Versioning
 @using OcadViewer.Wasm.Services
 @inherits LocalisedComponent
+@inject MergeProgressStore ProgressStore
 
 @*
     The merge's start screen (board 0 of the design): pick the base and the two
@@ -12,6 +13,20 @@
 <div class="merge-setup">
     <h1 class="h3">@L["#_mergeTitle"]</h1>
     <p class="text-muted">@L["#_mergeIntro"]</p>
+
+    @if (unfinished.Count > 0) {
+        <section class="merge-checks">
+            <h2 class="merge-card-title">@L["#_mergeUnfinished"]</h2>
+            @foreach (MergeProgress saved in unfinished) {
+                <div class="d-flex flex-wrap align-items-center gap-2 small">
+                    <span>@L.Format("#_mergeUnfinishedRow", ("base", saved.BaseName), ("a", saved.LabelA), ("b", saved.LabelB),
+                                    ("decided", saved.Decided), ("total", saved.Total), ("date", saved.SavedAt.LocalDateTime.ToString("g")))</span>
+                    <button type="button" class="btn btn-link btn-sm p-0" @onclick="() => Discard(saved)">@L["#_mergeDiscard"]</button>
+                </div>
+            }
+            <p class="text-muted small mb-0 mt-1">@L["#_mergePickSameFiles"]</p>
+        </section>
+    }
 
     <div class="merge-cards">
         @foreach (MergeRole role in Enum.GetValues<MergeRole>()) {
@@ -53,9 +68,17 @@
         }
     </section>
 
-    <div class="d-flex justify-content-end">
-        <button type="button" class="btn btn-primary" disabled="@(!CanStart)" @onclick="Start">@L["#_mergeStart"]</button>
-    </div>
+    @if (CanStart && resumable is not null) {
+        <div class="merge-checks d-flex flex-wrap align-items-center gap-2">
+            <span class="flex-grow-1">@L.Format("#_mergeResumeFound", ("decided", resumable.Decided), ("total", resumable.Total))</span>
+            <button type="button" class="btn btn-outline-secondary" @onclick="() => Start(null)">@L["#_mergeStartOver"]</button>
+            <button type="button" class="btn btn-primary" @onclick="() => Start(resumable)">@L["#_mergeResume"]</button>
+        </div>
+    } else {
+        <div class="d-flex justify-content-end">
+            <button type="button" class="btn btn-primary" disabled="@(!CanStart)" @onclick="() => Start(null)">@L["#_mergeStart"]</button>
+        </div>
+    }
 </div>
 
 @code {
@@ -68,6 +91,8 @@
     private readonly Dictionary<MergeRole, MergeInput> inputs = [];
     private readonly Dictionary<MergeRole, string> labels = new() { [MergeRole.A] = "", [MergeRole.B] = "" };
     private readonly Dictionary<MergeRole, string> errors = [];
+    private IReadOnlyList<MergeProgress> unfinished = [];
+    private MergeProgress resumable;
 
     /// <summary>How much of base each copy still has, worked out once when a file is picked.</summary>
     private readonly Dictionary<MergeRole, int> shared = [];
@@ -93,6 +118,9 @@
             if (role != MergeRole.Base && string.IsNullOrWhiteSpace(labels[role]))
                 labels[role] = input.DefaultLabel;
             Measure(role);
+            resumable = HaveAll
+                ? await ProgressStore.LoadAsync(MergeProgress.KeyFor(inputs[MergeRole.Base], inputs[MergeRole.A], inputs[MergeRole.B]))
+                : null;
         }
         catch (Exception ex) when (ex is OcadFormatException or IOException) {
             inputs.Remove(role);
@@ -150,7 +178,19 @@
         _ => L["#_mergeSecondBranch"],
     };
 
-    private Task Start()
+    protected override async Task OnInitializedAsync() => unfinished = await ProgressStore.ListAsync();
+
+    private async Task Discard(MergeProgress saved)
+    {
+        await ProgressStore.RemoveAsync(saved.Key);
+        unfinished = [.. unfinished.Where(p => p.Key != saved.Key)];
+        if (resumable?.Key == saved.Key)
+            resumable = null;
+    }
+
+    /// <summary>Starts the merge; resuming keeps the names the copies had last time.</summary>
+    private Task Start(MergeProgress resume)
         => OnStart.InvokeAsync(new MergeStart(inputs[MergeRole.Base], inputs[MergeRole.A], inputs[MergeRole.B],
-                                              Label(MergeRole.A), Label(MergeRole.B)));
+                                              resume?.LabelA ?? Label(MergeRole.A), resume?.LabelB ?? Label(MergeRole.B),
+                                              resume));
 }

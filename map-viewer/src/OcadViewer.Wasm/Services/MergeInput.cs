@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using OcadViewer.Ocd;
 
 namespace OcadViewer.Wasm.Services;
@@ -11,10 +12,11 @@ public enum MergeRole { Base, A, B }
 /// them. <see cref="OcadFile.Read"/> keeps its own copy so nothing can change a file
 /// under the merge, which is why the bytes are held twice.
 /// </remarks>
-public sealed record MergeInput(string FileName, byte[] Bytes, OcadFile File)
+/// <param name="Hash">SHA-256 of the bytes, to recognise the same file again when resuming.</param>
+public sealed record MergeInput(string FileName, byte[] Bytes, OcadFile File, string Hash)
 {
     /// <exception cref="OcadFormatException">Not an OCAD file this merge can read.</exception>
-    public static MergeInput Read(string fileName, byte[] bytes) => new(fileName, bytes, OcadFile.Read(bytes));
+    public static MergeInput Read(string fileName, byte[] bytes) => new(fileName, bytes, OcadFile.Read(bytes), Convert.ToHexString(SHA256.HashData(bytes)));
 
     /// <summary>The name a branch is shown under until the user renames it: the file name without .ocd.</summary>
     public string DefaultLabel => Path.GetFileNameWithoutExtension(FileName);

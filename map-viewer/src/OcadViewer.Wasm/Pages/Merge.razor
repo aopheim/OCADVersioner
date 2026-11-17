@@ -9,6 +9,7 @@
 @using OcadViewer.Wasm.Services
 @inherits BusyPage
 @inject IJSRuntime JS
+@inject MergeProgressStore ProgressStore
 
 <PageTitle>@L["#_merge"] · @L["#_OCADVersioner"]</PageTitle>
 
@@ -157,6 +158,11 @@
         => Run(() => L["#_mergeAnalysing"], async () => {
             start = chosen;
             session = new MergeSession(MergeAnalyzer.Analyze(chosen.Base.File, chosen.A.File, chosen.B.File));
+            if (chosen.Resume is MergeProgress resume) {
+                session.Restore(resume.Decisions);
+                regions = [.. resume.RestoreRegions()];
+                suggestions = regions.Count(r => r.Id.StartsWith('s'));
+            }
             tab = session.Resolution.Unresolved.Count > 0 ? MergeTab.Conflicts : MergeTab.A;
 
             Report(() => L["#_mergeDrawing"], null);
@@ -169,6 +175,8 @@
             await map.LoadAsync("b", chosen.B.FileName, chosen.B.Bytes);
             await RefreshResultAsync();
             await map.ShowAsync(MergePane, layer);
+            if (regions.Count > 0)
+                await DescribeRegionsAsync(withRings: true);
         });
 
     /// <summary>Re-renders the merged map and its outlines after the decisions changed.</summary>
@@ -188,6 +196,7 @@
         => RunWhenIdle(() => L["#_mergeDrawing"], async () => {
             change(session);
             saved = null;
+            await SaveProgressAsync();
             await RefreshResultAsync();
         });
 
@@ -223,6 +232,8 @@
             await using IJSObjectReference saver = await JS.ImportAsync("./js/fileSave.js");
             await saver.InvokeVoidAsync("download", fileName, merged);
             saved = fileName;
+            // Finished: nothing left to resume.
+            await ProgressStore.RemoveAsync(MergeProgress.KeyFor(start));
         });
 
     private Task DrawRegion(string shape) => map.DrawRegionAsync(MergePane, shape);
@@ -232,6 +243,7 @@
     {
         regions = MergeRegions.FromShapes(json, regions);
         await DescribeRegionsAsync(withRings: false);
+        await SaveProgressAsync();
     }
 
     private void PickRegion(string id)
@@ -249,13 +261,18 @@
             .Select(s => new MergeRegion($"s{++suggestions}", $"S{suggestions}", s.Region, s.Suggested))];
         regions = [.. regions.Where(r => !r.Id.StartsWith('s')), .. suggested];
         await map.DescribeRegionsAsync(MergePane, MergeRegions.Describe(suggested, RegionLabel, withRings: true));
+        await SaveProgressAsync();
     }
 
     private async Task RemoveRegion(MergeRegion region)
     {
         await map.RemoveRegionAsync(MergePane, region.Id);
         regions = [.. regions.Where(r => r.Id != region.Id)];
+        await SaveProgressAsync();
     }
+
+    /// <summary>Keeps the decisions and regions in this browser, to resume with the same files.</summary>
+    private Task SaveProgressAsync() => ProgressStore.SaveAsync(MergeProgress.Of(start, session, regions));
 
     private Task DescribeRegionsAsync(bool withRings)
         => map.DescribeRegionsAsync(MergePane, MergeRegions.Describe(regions, RegionLabel, withRings));
