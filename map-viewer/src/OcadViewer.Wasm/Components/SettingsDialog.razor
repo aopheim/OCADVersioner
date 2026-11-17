@@ -1,8 +1,7 @@
 @using OcadViewer.Wasm.Services
 @inject AppSettingsService SettingsService
-@inject Localiser L
+@inherits LocalisedComponent
 @inject IJSRuntime JS
-@implements IAsyncDisposable
 
 @*
     Settings, as the Angular app's app-settings-modal: a real Bootstrap modal,
@@ -39,7 +38,7 @@
                             <div class="col-1 pointer" @onclick="() => draftLanguage = language.Code"
                                  title="@language.Name">
                                 <div class="border @(draftLanguage == language.Code ? "border-4 border-success" : "")">
-                                    <span>@((MarkupString)Flag(language.Code))</span>
+                                    <span><LanguageFlag Code="@language.Code" /></span>
                                 </div>
                             </div>
                         }
@@ -92,7 +91,7 @@
                            can actually show today. *@
                         @if (!string.IsNullOrWhiteSpace(Georeference)) {
                             <p class="text-muted small mt-2 mb-0">
-                                This map declares <code>@Georeference</code>
+                                @L["#_mapDeclares"] <code>@Georeference</code>
                             </p>
                         }
                     </div>
@@ -157,7 +156,7 @@
         StateHasChanged();
     }
 
-    public async ValueTask DisposeAsync()
+    protected override async ValueTask DisposeAsyncCore()
     {
         await ui.ReleaseAsync();
         self?.Dispose();
@@ -190,30 +189,4 @@
 
         await SettingsService.SaveAsync(draftLanguage, draftEpsg);
     }
-
-    /// <summary>
-    /// The two flags, verbatim from the Angular modal so the picker is the same
-    /// picture. Inline rather than files because that is how Angular ships them.
-    /// </summary>
-    private static string Flag(string languageCode) => languageCode switch {
-        "no" => """
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480">
-              <path fill="#ed2939" d="M0 0h640v480H0z"/>
-              <path fill="#fff" d="M180 0h120v480H180z"/>
-              <path fill="#fff" d="M0 180h640v120H0z"/>
-              <path fill="#002664" d="M210 0h60v480h-60z"/>
-              <path fill="#002664" d="M0 210h640v60H0z"/>
-            </svg>
-            """,
-        "en" => """
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480">
-              <path fill="#012169" d="M0 0h640v480H0z"/>
-              <path fill="#FFF" d="m75 0 244 181L562 0h78v62L400 241l240 178v61h-80L320 301 81 480H0v-60l239-178L0 64V0z"/>
-              <path fill="#C8102E" d="m424 281 216 159v40L369 281zm-184 20 6 35L54 480H0zM640 0v3L391 191l2-44L590 0zM0 0l239 176h-60L0 42z"/>
-              <path fill="#FFF" d="M241 0v480h160V0zM0 160v160h640V160z"/>
-              <path fill="#C8102E" d="M0 193v96h640v-96zM273 0v480h96V0z"/>
-            </svg>
-            """,
-        _ => ""
-    };
 }

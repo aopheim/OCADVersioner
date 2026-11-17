@@ -4,17 +4,15 @@ using System.Text.Json;
 namespace OcadViewer.Wasm.Services;
 
 /// <summary>
-/// Looks up UI strings by the keys the Angular app already uses.
+/// Looks up UI strings by the keys the Angular app used.
 /// </summary>
 /// <remarks>
-/// Deliberately not Blazor's .resx localisation. The translations exist, they are
-/// maintained, and the Angular app is still live - copying them into .resx would
-/// mean two copies drifting apart for as long as both apps run. An MSBuild target
-/// copies <c>src/assets/i18n/*.json</c> into this app's wwwroot, so there is one
-/// source of truth until Angular is deleted.
+/// Deliberately not Blazor's .resx localisation. The translations are the Angular
+/// app's JSON files, carried over into <c>wwwroot/i18n</c>, which is now the only
+/// copy.
 ///
-/// Keys keep their <c>#_</c> prefix for the same reason: so a string can be traced
-/// to the Angular component it came from without translating names as well.
+/// Keys keep their <c>#_</c> prefix so a string can still be traced to the Angular
+/// component it came from, in git history, without translating names as well.
 /// </remarks>
 public sealed class Localiser(HttpClient http)
 {
@@ -70,7 +68,8 @@ public sealed class Localiser(HttpClient http)
     /// where a blank space would just look like a layout bug.
     /// </remarks>
     public string this[string key]
-        => strings.TryGetValue(key, out string value) ? value : key;
+        => key is null ? string.Empty
+         : strings.TryGetValue(key, out string value) ? value : key;
 
     /// <summary>
     /// The string for <paramref name="key"/> with <c>{{name}}</c> placeholders

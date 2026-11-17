@@ -1,13 +1,7 @@
 # See http://help.github.com/ignore-files/ for more about ignoring files.
 
-# Compiled output
-ocad-versioner/dist
-ocad-versioner/tmp
-ocad-versioner/out-tsc
-ocad-versioner/bazel-out
-
 # Node
-ocad-versioner/node_modules
+node_modules/
 npm-debug.log
 yarn-error.log
 
@@ -28,23 +22,12 @@ yarn-error.log
 !.vscode/extensions.json
 .history/*
 
-# Miscellaneous
-ocad-versioner/.angular/cache
-.sass-cache/
-/connect.lock
-/coverage
-/libpeerconnection.log
-testem.log
-/typings
-
 # System files
 .DS_Store
 Thumbs.db
 
-# Angular environment variables created in CI pipeline  
-# environment.prod.ts
-# environment.ts
 .env
+
 # .NET (map-viewer)
 [Bb]in/
 [Oo]bj/
@@ -60,12 +43,8 @@ map-viewer/src/OcadViewer.Wasm/wwwroot/fonts/
 # Local-only test maps for the Blazor viewer; never publish these
 map-viewer/src/OcadViewer.Wasm/wwwroot/testmaps/
 
-# Staged into the tile spike by MSBuild from vendor/ and node_modules
-map-viewer/src/OcadViewer.TileSpike/wwwroot/fonts/
-map-viewer/src/OcadViewer.TileSpike/wwwroot/lib/
+# The 9.8 MB benchmark map is passed around by hand, not committed
+map-viewer/testdata/large_map.ocd
 
 # Generated into the Blazor app by MSBuild from the repo root
 map-viewer/src/OcadViewer.Wasm/wwwroot/third-party-notices.txt
-
-# Translations copied in from the Angular app by MSBuild
-map-viewer/src/OcadViewer.Wasm/wwwroot/i18n/

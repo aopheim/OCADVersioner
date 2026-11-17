@@ -41,17 +41,24 @@ public sealed class AssemblyDependencyTests
             + string.Join(", ", references));
     }
 
-    [Test]
-    public void TheDomainProjectReferencesOnlyTheFramework()
+    /// <summary>
+    /// The domain projects reference the framework and, where named, each other -
+    /// nothing vendored, nothing from the browser.
+    /// </summary>
+    [TestCase("OcadViewer.Versioning")]
+    [TestCase("OcadViewer.Ocd")]
+    [TestCase("OcadViewer.Merge", "OcadViewer.Ocd")]
+    public void TheDomainProjectsReferenceOnlyTheFrameworkAndEachOther(string assembly, params string[] allowed)
     {
-        IReadOnlyList<string> references = ReferencesOf("OcadViewer.Versioning");
+        IReadOnlyList<string> references = ReferencesOf(assembly);
 
         string[] offending = [.. references.Where(reference =>
             !reference.StartsWith("System", StringComparison.Ordinal)
-            && reference is not ("netstandard" or "mscorlib"))];
+            && reference is not ("netstandard" or "mscorlib")
+            && !allowed.Contains(reference))];
 
         Assert.That(offending, Is.Empty,
-            "The project-folder contract must stay free of everything, so its rules can be tested "
+            $"{assembly} must stay free of everything but the framework, so its rules can be tested "
             + "directly. References found: " + string.Join(", ", references));
     }
 
@@ -83,6 +90,50 @@ public sealed class AssemblyDependencyTests
         Assert.That(offending, Is.Empty,
             $"{assembly} is vendored and re-synced from upstream PurplePen. A dependency on our "
             + "code would survive exactly until the next sync.");
+    }
+
+    /// <summary>
+    /// OCAD files are written by OcadViewer.Ocd's OcadEditor and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// The vendored PurplePen model can write OCAD files too (OcadExport, reached
+    /// through InputOutput.WriteFile and WriteToBytes). It is compiled in only
+    /// because InputOutput refers to it. It writes the drawing model back out, so
+    /// whatever the model does not keep would be lost from a mapper's file. Read
+    /// from the compiled code rather than the source, so that no alias or
+    /// <c>using static</c> can hide a call.
+    /// </remarks>
+    [TestCase("OcadViewer.Core")]
+    [TestCase("OcadViewer.RenderCli")]
+    [TestCase("OcadViewer.Wasm")]
+    [TestCase("OcadViewer.Merge")]
+    [TestCase("OcadViewer.Ocd")]
+    [TestCase("OcadViewer.Versioning")]
+    public void OnlyOcadEditorWritesOcadFiles(string assembly)
+    {
+        using FileStream stream = File.OpenRead(Locate(assembly));
+        using PEReader pe = new(stream);
+        MetadataReader metadata = pe.GetMetadataReader();
+
+        string[] typesUsed = [.. metadata.TypeReferences
+            .Select(handle => metadata.GetTypeReference(handle))
+            .Where(type => metadata.GetString(type.Namespace) == "PurplePen.MapModel")
+            .Select(type => metadata.GetString(type.Name))
+            .Where(name => name == "OcadExport")];
+
+        string[] writersCalled = [.. metadata.MemberReferences
+            .Select(handle => metadata.GetMemberReference(handle))
+            .Where(member => member.Parent.Kind == HandleKind.TypeReference
+                && metadata.GetTypeReference((TypeReferenceHandle)member.Parent) is var parent
+                && metadata.GetString(parent.Namespace) == "PurplePen.MapModel"
+                && metadata.GetString(parent.Name) == "InputOutput")
+            .Select(member => metadata.GetString(member.Name))
+            .Where(name => name.StartsWith("Write", StringComparison.Ordinal))
+            .Select(name => $"InputOutput.{name}")];
+
+        Assert.That(typesUsed.Concat(writersCalled), Is.Empty,
+            $"{assembly} writes OCAD files through PurplePen. Write them with OcadViewer.Ocd's "
+            + "OcadEditor, which copies the file byte for byte and changes only what it is told to.");
     }
 
     private static IReadOnlyList<string> ReferencesOf(string assemblyName)

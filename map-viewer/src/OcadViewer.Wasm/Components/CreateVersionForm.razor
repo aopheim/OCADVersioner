@@ -1,5 +1,4 @@
-@using OcadViewer.Wasm.Services
-@inject Localiser L
+@inherits LocalisedComponent
 
 @*
     The "create a new version" form at the foot of the version list.
@@ -33,8 +32,8 @@
     </button>
 
     <p class="text-muted small mt-2 mb-0">
-        Copies the working file into <code>Releases/@NextVersionName/</code>.
-        Symbol counts are written as zero for now; the comparison below does not fill them in yet.
+        @L["#_copiesWorkingFileInto"] <code>Releases/@NextVersionName/</code>.
+        @L["#_symbolCountsSavedAsZero"]
     </p>
 </div>
 

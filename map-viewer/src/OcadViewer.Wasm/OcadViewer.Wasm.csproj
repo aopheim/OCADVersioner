@@ -93,18 +93,6 @@
   </ItemGroup>
 
 
-  <!-- The translations live in the Angular app and are maintained there. Copying
-       them in at build time keeps one source of truth while both apps exist,
-       rather than a .resx copy that drifts. wwwroot/i18n is generated. -->
-  <Target Name="StageTranslations" BeforeTargets="ResolveStaticWebAssetsInputs">
-    <ItemGroup>
-      <TranslationFile Include="$(MSBuildThisFileDirectory)..\..\..\ocad-versioner\src\assets\i18n\*.json" />
-    </ItemGroup>
-    <Copy SourceFiles="@(TranslationFile)"
-          DestinationFolder="$(MSBuildProjectDirectory)\wwwroot\i18n"
-          SkipUnchangedFiles="true" />
-  </Target>
-
   <!-- The BSD-3 licence on the vendored renderer requires the notice to travel
        with what is served to a browser, so the About page links to it. -->
   <Target Name="StageNotices" BeforeTargets="ResolveStaticWebAssetsInputs">

@@ -6,6 +6,8 @@
     <Project Path="src/Map_SkiaStd/Map_SkiaStd.csproj" />
     <Project Path="src/OcadViewer.Core/OcadViewer.Core.csproj" />
     <Project Path="src/OcadViewer.Diff/OcadViewer.Diff.csproj" />
+    <Project Path="src/OcadViewer.Merge/OcadViewer.Merge.csproj" />
+    <Project Path="src/OcadViewer.Ocd/OcadViewer.Ocd.csproj" />
     <Project Path="src/OcadViewer.RenderCli/OcadViewer.RenderCli.csproj" />
     <Project Path="src/OcadViewer.Versioning/OcadViewer.Versioning.csproj" />
     <Project Path="src/OcadViewer.Wasm/OcadViewer.Wasm.csproj" />
@@ -13,5 +15,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/OcadViewer.ArchitectureTests/OcadViewer.ArchitectureTests.csproj" />
     <Project Path="tests/OcadViewer.Diff.Tests/OcadViewer.Diff.Tests.csproj" />
+    <Project Path="tests/OcadViewer.Merge.Tests/OcadViewer.Merge.Tests.csproj" />
+    <Project Path="tests/OcadViewer.Ocd.Tests/OcadViewer.Ocd.Tests.csproj" />
   </Folder>
 </Solution>

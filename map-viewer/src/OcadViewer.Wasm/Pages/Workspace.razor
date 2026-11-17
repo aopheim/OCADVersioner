@@ -43,7 +43,7 @@
             }
         </span>
         <button class="btn btn-outline-secondary btn-sm" @onclick="Refresh" disabled="@Busy"
-                title="Re-read the folder">
+                title="@L["#_rereadFolder"]">
             <i class="bi bi-arrow-clockwise"></i>
         </button>
         <button class="btn btn-outline-secondary btn-sm" @onclick="ChangeProject" disabled="@Busy"
@@ -85,17 +85,26 @@
                          OtherNumber="@(Comparison.Older == Comparison.Newer ? 0 : NumberOf(Comparison.Older))"
                          Disabled="Blocked" OnSelected="SelectVersion" />
 
-            <CreateVersionForm @ref="versionForm"
-                               FileName="@Project.Project.CurrentFileName"
-                               NextVersionName="@Project.NextVersionName()"
-                               Busy="Busy"
-                               OnCreate="CreateVersion" />
+            @* Shown only while the working file is on screen, as in the Angular
+               app: a new version is always a copy of the working file, so offering
+               it beside two past versions would suggest it copies one of them.
+               Hidden rather than removed, so a title and description typed before
+               a look at an older version are still there on the way back. *@
+            @if (!string.IsNullOrEmpty(Project.Project.CurrentFileName)) {
+                <div class="mt-auto" hidden="@IsHistory">
+                    <CreateVersionForm @ref="versionForm"
+                                       FileName="@Project.Project.CurrentFileName"
+                                       NextVersionName="@Project.NextVersionName()"
+                                       Busy="Busy"
+                                       OnCreate="CreateVersion" />
+                </div>
+            }
         </div>
 
         <div class="col-md-10">
             <div class="d-flex justify-content-center align-items-center gap-3 mb-1">
                 @if (IsHistory) {
-                    <i class="bi bi-book fs-4 text-primary" title="Comparing two past versions"></i>
+                    <i class="bi bi-book fs-4 text-primary" title="@L["#_comparingPastVersions"]"></i>
                 }
                 @* In the order the maps are in, so a glance at the heading and a
                    glance at the panes agree. Each side can be picked; the working
@@ -114,7 +123,7 @@
             <OcadMapPair @ref="mapPair" />
 
             <DiffTable Diff="diff" Available="DiffSource.IsAvailable"
-                       UnavailableReason="@DiffSource.UnavailableReason"
+                       UnavailableReasonKey="@DiffSource.UnavailableReasonKey"
                        OnZoom="ZoomToObject" />
         </div>
     </div>
@@ -266,14 +275,14 @@
 
         // A different folder may have been opened, and its releases share their
         // names with the last one's, so nothing parsed before can be trusted.
-        await Run("Loading…", async () => {
+        await Run(() => L["#_loading"], async () => {
             await mapPair.ResetAsync();
             await ShowComparison();
         });
     }
 
     private async Task Refresh()
-        => await Run("Re-reading folder…", async () => {
+        => await Run(() => L["#_rereadingFolder"], async () => {
             await Project.RefreshAsync();
 
             // Keep the pair being looked at, unless a release in it has been
@@ -301,7 +310,7 @@
     /// time spent on nothing.
     /// </remarks>
     private async Task SelectVersion(int number)
-        => await RunTakingOver("Loading…", async () => {
+        => await RunTakingOver(() => L["#_loading"], async () => {
             comparison = Project.ComparisonFor(number == NumberOf(comparison.Newer) ? 0 : number);
             await ShowComparison();
         });
@@ -316,19 +325,24 @@
 
     /// <remarks>Takes over a load in progress, as a click in the list does.</remarks>
     private async Task Pick(string picked, string otherSide)
-        => await RunTakingOver("Loading…", async () => {
+        => await RunTakingOver(() => L["#_loading"], async () => {
             picks++;
             comparison = ProjectService.Ordered(picked, otherSide);
             await ShowComparison();
         });
 
     private async Task CreateVersion((string Title, string Description) entry)
-        => await Run("Creating version…", async () => {
+    {
+        // Captured now: once the version exists, the next name is a different one.
+        string creating = Project.NextVersionName();
+
+        await Run(() => L.Format("#_creatingNewVersion", ("newVersionName", creating)), async () => {
             await Project.CreateVersionAsync(entry.Title, entry.Description);
             versionForm?.Reset();
             comparison = Project.ComparisonFor(0);
             await ShowComparison();
         });
+    }
 
     /// <summary>Puts both sides of the comparison on screen.</summary>
     /// <remarks>
@@ -363,7 +377,7 @@
                 (MapSide side, string version) = maps[i];
                 double share = 1.0 / maps.Length;
 
-                Report($"Loading {Label(version)}…", i * share);
+                Report(() => L.Format("#_loadingMap", ("name", Label(version))), i * share);
                 MapSummary info = await mapPair.ParseAsync(Project.SourceFor(version));
                 if (Superseded())
                     return;
@@ -371,7 +385,7 @@
                 if (i == 0)
                     georeference = info.Georeference;
 
-                Report($"Drawing {Label(version)}…", (i + 0.5) * share);
+                Report(() => L.Format("#_drawingMap", ("name", Label(version))), (i + 0.5) * share);
                 Task drawn = mapPair.DrawAsync(side, version);
 
                 // The diff is read from the parses, not the tiles, so the table
@@ -402,7 +416,7 @@
             // folder has only just changed, and the toggle has not been
             // re-rendered with it yet.
             if (overlay.IsOn)
-                Report("Finding changes…", null);
+                Report(() => L["#_findingChanges"], null);
 
             await overlay.ApplyAsync(older, newer);
         }

@@ -18,7 +18,7 @@ public sealed class OcadDiffSource(IOcadDiffService diff) : IDiffSource
 
     public bool IsAvailable { get; private set; } = true;
 
-    public string UnavailableReason { get; private set; }
+    public string UnavailableReasonKey { get; private set; }
 
     public Task<MapDiff> CompareAsync(MapStore maps, string olderVersion, string newerVersion)
     {
@@ -32,14 +32,12 @@ public sealed class OcadDiffSource(IOcadDiffService diff) : IDiffSource
 
         if (newer is null || (!firstVersion && older is null)) {
             IsAvailable = false;
-            UnavailableReason =
-                "These versions cannot be compared object by object: the comparison reads "
-                + "OCAD 9 to 2018 maps only. Both maps are still shown above.";
+            UnavailableReasonKey = "#_diffCannotCompare";
             return Task.FromResult(MapDiff.Empty);
         }
 
         IsAvailable = true;
-        UnavailableReason = null;
+        UnavailableReasonKey = null;
         return Task.FromResult(ToTable(diff.Compare(older, newer)));
     }
 

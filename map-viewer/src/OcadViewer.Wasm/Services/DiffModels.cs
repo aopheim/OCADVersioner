@@ -81,8 +81,10 @@ public interface IDiffSource
     /// <summary>Whether this source can actually produce a comparison.</summary>
     bool IsAvailable { get; }
 
-    /// <summary>Why no comparison is available, for the UI to show plainly.</summary>
-    string UnavailableReason { get; }
+    /// <summary>
+    /// Why no comparison is available, as a translation key the UI looks up.
+    /// </summary>
+    string UnavailableReasonKey { get; }
 
     /// <param name="maps">Where both versions are parsed - the panes' own store.</param>
     /// <param name="olderVersion">

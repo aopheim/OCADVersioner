@@ -9,7 +9,7 @@ namespace OcadViewer.ArchitectureTests;
 /// </summary>
 /// <remarks>
 /// The intended shape is a single chain pointing inward, from the hosts to the
-/// vendored renderer, with a domain project hanging off the side that depends on
+/// vendored renderer, with domain projects hanging off the side that depend on
 /// nothing:
 ///
 /// <code>
@@ -17,10 +17,14 @@ namespace OcadViewer.ArchitectureTests;
 ///                   ↑                          ↑    ↑
 ///                   └──── OcadViewer.Diff ─────┘    │
 ///                      OcadViewer.Versioning ← OcadViewer.Wasm
+///   OcadViewer.Ocd ←       OcadViewer.Merge      ←┘
 /// </code>
 ///
 /// OcadViewer.Diff sits beside the renderer rather than on top of it: it needs
 /// the parsed Map, never the pixels.
+///
+/// OcadViewer.Ocd reads and edits OCAD files at the byte level; OcadViewer.Merge
+/// builds on it and nothing else.
 ///
 /// Nothing in the compiler keeps it that way: one <c>using</c> of
 /// Microsoft.AspNetCore in the wrong project compiles. These tests do.
@@ -44,10 +48,14 @@ public sealed class ProjectDependencyTests
         // the file bytes and the Map are both in hand, once.
         ["OcadViewer.Core"] = ["Map_SkiaStd", "OcadViewer.Diff"],
         ["OcadViewer.Versioning"] = [],
+        ["OcadViewer.Ocd"] = [],
+        ["OcadViewer.Merge"] = ["OcadViewer.Ocd"],
         ["OcadViewer.RenderCli"] = ["OcadViewer.Core"],
         ["OcadViewer.Wasm"] = ["OcadViewer.Core", "OcadViewer.Diff", "OcadViewer.Versioning"],
         ["OcadViewer.ArchitectureTests"] = ["OcadViewer.Versioning"],
         ["OcadViewer.Diff.Tests"] = ["OcadViewer.Core", "OcadViewer.Diff"],
+        ["OcadViewer.Merge.Tests"] = ["OcadViewer.Merge", "OcadViewer.Ocd"],
+        ["OcadViewer.Ocd.Tests"] = ["OcadViewer.Ocd"],
     };
 
     /// <summary>Packages that only a UI host has any business referencing.</summary>
@@ -128,16 +136,24 @@ public sealed class ProjectDependencyTests
         }
     }
 
-    [Test]
-    public void TheDomainProjectDependsOnNothingAtAll()
+    /// <summary>
+    /// The domain projects. Versioning states the contract this app shares with the
+    /// Angular app; Ocd reads and edits OCAD files byte for byte; Merge decides what
+    /// to merge. All have to stay testable without a browser, a renderer or a
+    /// vendored assembly, so they reference nothing but each other.
+    /// </summary>
+    private static readonly string[] DomainProjects = ["OcadViewer.Versioning", "OcadViewer.Ocd", "OcadViewer.Merge"];
+
+    [TestCaseSource(nameof(DomainProjects))]
+    public void TheDomainProjectsDependOnNothingButEachOther(string name)
     {
-        Project versioning = Find("OcadViewer.Versioning");
+        Project domain = Find(name);
 
         Assert.Multiple(() => {
-            Assert.That(versioning.ProjectReferences, Is.Empty,
-                "OcadViewer.Versioning states the contract this app shares with the Angular app. "
-                + "It has to stay testable without a browser, a renderer or a vendored assembly.");
-            Assert.That(versioning.PackageReferences, Is.Empty,
+            Assert.That(domain.ProjectReferences, Is.SubsetOf(DomainProjects),
+                $"{name} is domain code. It has to stay testable without a browser, a renderer "
+                + "or a vendored assembly.");
+            Assert.That(domain.PackageReferences, Is.Empty,
                 "Not even a package. Its only dependency is the framework.");
         });
     }

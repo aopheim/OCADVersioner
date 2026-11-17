@@ -2,7 +2,6 @@
 @inherits LocalisedComponent
 @inject ProjectService Project
 @inject IJSRuntime JS
-@implements IAsyncDisposable
 
 @*
     The start page, as the Angular app's project-directory-selector: a modal that
@@ -63,7 +62,7 @@
             </div>
 
             @foreach (var error in errors) {
-                <p class="text-danger">@error.Message</p>
+                <p class="text-danger">@error.Message()</p>
                 @if (error.Type == ErrorType.UnsupportedBrowser) {
                     <a href="about#supportedBrowsers">@L["#_supportedBrowsers"]</a>
                 }
@@ -81,7 +80,8 @@
     private bool busy;
 
     private IReadOnlyList<string> candidates = [];
-    private readonly List<(ErrorType Type, string Message)> errors = [];
+    /// <summary>Worded at render time, so an error on screen follows a language switch.</summary>
+    private readonly List<(ErrorType Type, Func<string> Message)> errors = [];
 
     private enum ErrorType
     {
@@ -100,7 +100,7 @@
         }
 
         if (!supported)
-            errors.Add((ErrorType.UnsupportedBrowser, L["#_errorTypeUnsupportedBrowser"]));
+            errors.Add((ErrorType.UnsupportedBrowser, () => L["#_errorTypeUnsupportedBrowser"]));
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -137,11 +137,10 @@
             candidates = project.OcdCandidates;
 
             if (candidates.Count == 0) {
-                // Angular writes this message in English regardless of language,
-                // with a TODO about it. Ours uses the folder name the same way but
-                // at least goes through the translation table when a key exists.
+                // Angular writes this message in English regardless of language, with
+                // a TODO about it. Ours is translated, with the folder name filled in.
                 errors.Add((ErrorType.NoOcdFileInDirectory,
-                            $"Found no .ocd file in the {project.ProjectName} folder"));
+                            () => L.Format("#_noOcdFileInFolder", ("folderName", project.ProjectName))));
                 return;
             }
 
@@ -152,7 +151,8 @@
             // The picker throws when the user closes it, which is not an error.
         }
         catch (Exception ex) {
-            errors.Add((ErrorType.CouldNotRead, ex.Message));
+            string message = ex.Message;
+            errors.Add((ErrorType.CouldNotRead, () => message));
         }
         finally {
             busy = false;
@@ -168,7 +168,8 @@
             await Done();
         }
         catch (Exception ex) {
-            errors.Add((ErrorType.CouldNotRead, ex.Message));
+            string message = ex.Message;
+            errors.Add((ErrorType.CouldNotRead, () => message));
         }
         finally {
             busy = false;
@@ -185,5 +186,5 @@
     private static bool IsCancellation(Exception ex)
         => ex.Message.Contains("abort", StringComparison.OrdinalIgnoreCase);
 
-    public async ValueTask DisposeAsync() => await ui.ReleaseAsync();
+    protected override async ValueTask DisposeAsyncCore() => await ui.ReleaseAsync();
 }

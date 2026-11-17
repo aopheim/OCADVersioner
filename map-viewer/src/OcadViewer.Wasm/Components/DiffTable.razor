@@ -1,6 +1,6 @@
 @using OcadViewer.Diff
 @using OcadViewer.Wasm.Services
-@inject Localiser L
+@inherits LocalisedComponent
 
 @*
     Tabs and table, mirroring Angular's diff-table-tabs and ocad-diff-table. The
@@ -24,7 +24,7 @@
 </ul>
 
 @if (!Available) {
-    <div class="alert alert-secondary mt-3 mb-0">@UnavailableReason</div>
+    <div class="alert alert-secondary mt-3 mb-0">@L[UnavailableReasonKey ?? "#_nothingToShow"]</div>
 }
 
 <div class="table-responsive mt-3">
@@ -52,7 +52,7 @@
             @if (Rows().Count == 0) {
                 <tr>
                     <td colspan="9" class="text-center text-muted py-3">
-                        @(Available ? "No symbols in this category." : "Nothing to show.")
+                        @L[Available ? "#_noSymbolsInCategory" : "#_nothingToShow"]
                     </td>
                 </tr>
             }
@@ -100,7 +100,7 @@
 
     [Parameter, EditorRequired] public MapDiff Diff { get; set; } = MapDiff.Empty;
     [Parameter] public bool Available { get; set; }
-    [Parameter] public string UnavailableReason { get; set; }
+    [Parameter] public string UnavailableReasonKey { get; set; }
 
     /// <summary>Asks the page to frame one object on both maps.</summary>
     [Parameter] public EventCallback<PaperBounds> OnZoom { get; set; }
