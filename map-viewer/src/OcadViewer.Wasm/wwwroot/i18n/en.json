@@ -191,5 +191,17 @@
     "#_mergeSaveBlocked": "Decide every conflict before saving.",
     "#_mergeSaving": "Writing the merged map…",
     "#_mergeSaved": "Saved as {{file}}. The files you picked are unchanged.",
-    "#_mergeMergedSuffix": "merged"
+    "#_mergeMergedSuffix": "merged",
+    "#_mergeRegions": "Regions",
+    "#_mergeDrawRectangle": "Rectangle",
+    "#_mergeDrawPolygon": "Polygon",
+    "#_mergeSuggestRegions": "Suggest regions",
+    "#_mergeRegionsHelp": "Draw over the map to decide everything inside at once, or let the merge suggest regions from where each copy changed things. Click a region to adjust its corners.",
+    "#_mergeRegionCounts": "{{a}}: {{countA}} · {{b}}: {{countB}} · conflicts: {{conflicts}}",
+    "#_mergeRegionEmpty": "No changes wholly inside.",
+    "#_mergeRegionSuggests": "Suggested: take {{name}}",
+    "#_mergeRegionMixed": "Both copies changed things here: decide object by object.",
+    "#_mergeCrossing": "{{count}} cross the border and need a decision of their own",
+    "#_mergeRemoveRegion": "Remove",
+    "#_mergeNoRegions": "No regions yet."
 }

@@ -34,3 +34,12 @@
     filter: grayscale(1);
     opacity: var(--merge-fade, 0.45);
 }
+
+/* Region names, drawn by Leaflet inside the map. */
+.merge-panes ::deep .region-label {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #98A2B3;
+    font-weight: 600;
+    font-size: 0.8rem;
+    box-shadow: none;
+}

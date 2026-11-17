@@ -16,7 +16,9 @@
             <button type="button" role="tab" aria-selected="@(tab == Tab)"
                     class="merge-tab @(tab == Tab ? "active" : null)" @onclick="() => TabChanged.InvokeAsync(tab)">
                 @TabName(tab)
-                @if (tab == MergeTab.Conflicts && OpenCount > 0) {
+                @if (tab == MergeTab.Regions) {
+                    <span class="badge rounded-pill text-bg-light ms-1">@RegionCount</span>
+                } else if (tab == MergeTab.Conflicts && OpenCount > 0) {
                     <span class="badge rounded-pill text-bg-danger ms-1">@L.Format("#_mergeOpenCount", ("count", OpenCount))</span>
                 } else {
                     <span class="badge rounded-pill text-bg-light ms-1">@Listing[tab].Count</span>
@@ -26,7 +28,10 @@
     </nav>
 
     <div class="merge-entries">
-        @if (Listing[Tab].Count == 0) {
+        @if (Tab == MergeTab.Regions) {
+            @RegionsContent
+        }
+        @if (Listing[Tab].Count == 0 && Tab != MergeTab.Regions) {
             <p class="text-muted small m-2">@L["#_mergeNothingHere"]</p>
         }
         @foreach (PanelEntry entry in Listing[Tab]) {
@@ -51,20 +56,26 @@
     [Parameter] public string SelectedKey { get; set; }
     [Parameter] public EventCallback<string> OnSelect { get; set; }
 
+    /// <summary>What the Regions tab shows. While that tab is open the panel renders whenever the page does.</summary>
+    [Parameter] public RenderFragment RegionsContent { get; set; }
+
+    [Parameter] public int RegionCount { get; set; }
+
     /// <summary>What a row offers, e.g. decision buttons. Rendered under the row.</summary>
     [Parameter] public RenderFragment<PanelEntry> Actions { get; set; }
 
     /// <summary>Whether the rows' actions are disabled, e.g. while the page is busy. The panel re-renders when it changes.</summary>
     [Parameter] public bool Disabled { get; set; }
 
-    private (MergePanelListing, MergeTab, string, string, string, bool) rendered;
+    private (MergePanelListing, MergeTab, string, string, string, bool, int) rendered;
 
     private int OpenCount => Listing.Resolution.Unresolved.Count;
 
     protected override bool ShouldRender()
     {
-        var showing = (Listing, Tab, SelectedKey, LabelA, LabelB, Disabled);
-        if (showing == rendered)
+        var showing = (Listing, Tab, SelectedKey, LabelA, LabelB, Disabled, RegionCount);
+        // The regions tab holds the page's own components, which only re-render with the panel.
+        if (showing == rendered && Tab != MergeTab.Regions)
             return false;
         rendered = showing;
         return true;
@@ -72,6 +83,7 @@
 
     private string TabName(MergeTab tab) => tab switch {
         MergeTab.Conflicts => L["#_mergeConflicts"],
+        MergeTab.Regions => L["#_mergeRegions"],
         MergeTab.A => LabelA,
         MergeTab.B => LabelB,
         _ => L["#_mergeSymbolsAndColours"],

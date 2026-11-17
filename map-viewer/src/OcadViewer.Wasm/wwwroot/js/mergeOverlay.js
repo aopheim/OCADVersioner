@@ -65,12 +65,13 @@ export function createChangeOverlay(map, onPick) {
     const drawn = new Map();
     let features = [];
     let selectedKey = null;
+    let muted = false;
 
     /* An item can have several outlines - an open conflict draws base's shape and
      * both branches' versions - so a key collects layers rather than owning one. */
     function draw(feature) {
         const selected = feature.key === selectedKey;
-        const layer = layerFor(feature, selected).on('click', () => onPick(feature.key));
+        const layer = layerFor(feature, selected).on('click', () => { if (!muted) onPick(feature.key); });
         const layers = drawn.get(feature.key) ?? [];
         layers.push(layer);
         drawn.set(feature.key, layers);
@@ -102,6 +103,11 @@ export function createChangeOverlay(map, onPick) {
         setFeatures(next) {
             features = next;
             redraw();
+        },
+
+        /** While muted, clicks on outlines are not reported (e.g. while a region is drawn). */
+        mute(on) {
+            muted = on;
         },
 
         select(key) {

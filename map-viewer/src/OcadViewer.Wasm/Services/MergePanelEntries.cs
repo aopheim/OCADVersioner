@@ -5,7 +5,7 @@ using OcadViewer.Merge.Decisions;
 namespace OcadViewer.Wasm.Services;
 
 /// <summary>The side panel's tabs.</summary>
-public enum MergeTab { Conflicts, A, B, SymbolsAndColours }
+public enum MergeTab { Conflicts, Regions, A, B, SymbolsAndColours }
 
 /// <summary>One row in the side panel: an item or an overlap group.</summary>
 /// <param name="Source">The <see cref="MergeItem"/> or <see cref="OverlapGroup"/> it stands for.</param>
@@ -64,6 +64,8 @@ public static class MergePanelEntries
                     g.Key, l["#_mergeOverlap"], l.Format("#_mergeOverlapCount", ("count", g.Items.Count)),
                     ChangeSide.Conflict, !resolution.IsResolved(g), g)),
             ],
+            // Regions are the page's, not the analysis's: the tab shows its own content.
+            [MergeTab.Regions] = [],
             [MergeTab.A] = [.. analysis.Objects.Where(i => i.Outcome is Outcome.OnlyA or Outcome.BothSame).Select(Clean)],
             [MergeTab.B] = [.. analysis.Objects.Where(i => i.Outcome is Outcome.OnlyB or Outcome.BothSame).Select(Clean)],
             [MergeTab.SymbolsAndColours] = [.. analysis.Symbols.Cast<MergeItem>().Concat(analysis.Settings)

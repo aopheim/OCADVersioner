@@ -31,6 +31,12 @@
     /// <summary>The key of the outline the user clicked.</summary>
     [Parameter] public EventCallback<string> OnPick { get; set; }
 
+    /// <summary>Every region's shape as JSON, after any was drawn, edited or removed.</summary>
+    [Parameter] public EventCallback<string> OnRegionsChanged { get; set; }
+
+    /// <summary>The id of the region the user clicked.</summary>
+    [Parameter] public EventCallback<string> OnRegionPicked { get; set; }
+
     private readonly Dictionary<string, ElementReference> elements = [];
     private readonly TaskCompletionSource ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private IJSObjectReference module;
@@ -86,8 +92,33 @@
         await workspace.InvokeAsync<bool>("zoomTo", pane, key);
     }
 
+    /// <param name="shape">"Rectangle" or "Polygon".</param>
+    public async Task DrawRegionAsync(string pane, string shape)
+    {
+        await Ready;
+        await workspace.InvokeVoidAsync("drawRegion", pane, shape);
+    }
+
+    public async Task DescribeRegionsAsync(string pane, string json)
+    {
+        await Ready;
+        await workspace.InvokeVoidAsync("describeRegions", pane, json);
+    }
+
+    public async Task RemoveRegionAsync(string pane, string id)
+    {
+        await Ready;
+        await workspace.InvokeVoidAsync("removeRegion", pane, id);
+    }
+
     [JSInvokable]
     public Task Pick(string pane, string key) => OnPick.InvokeAsync(key);
+
+    [JSInvokable]
+    public Task RegionsChanged(string pane, string json) => OnRegionsChanged.InvokeAsync(json);
+
+    [JSInvokable]
+    public Task RegionPicked(string pane, string id) => OnRegionPicked.InvokeAsync(id);
 
     protected override async ValueTask DisposeAsyncCore()
     {

@@ -3,6 +3,7 @@
 @using Microsoft.JSInterop
 @using OcadViewer.Merge.Analysis
 @using OcadViewer.Merge.Decisions
+@using OcadViewer.Merge.Regions
 @using OcadViewer.Versioning
 @using OcadViewer.Wasm.Components
 @using OcadViewer.Wasm.Services
@@ -84,12 +85,18 @@
         </aside>
 
         <main class="merge-map">
-            <MergeMap @ref="map" Fade="fade" OnPick="Select" />
+            <MergeMap @ref="map" Fade="fade" OnPick="Select"
+                      OnRegionsChanged="RegionsChanged" OnRegionPicked="PickRegion" />
         </main>
 
         <div class="merge-side">
             <ChangePanel Listing="Listing" LabelA="@start.LabelA" LabelB="@start.LabelB" Disabled="Busy"
-                         @bind-Tab="tab" SelectedKey="@selected" OnSelect="SelectAndZoom">
+                         @bind-Tab="tab" SelectedKey="@selected" OnSelect="SelectAndZoom" RegionCount="regions.Count">
+                <RegionsContent>
+                    <RegionPanel Session="session" Regions="regions" LabelA="@start.LabelA" LabelB="@start.LabelB"
+                                 SelectedId="@selectedRegion" Disabled="Busy" OnDraw="DrawRegion" OnSuggest="SuggestRegions"
+                                 OnChoose="Choose" OnRemove="RemoveRegion" OnSelectItem="SelectAndZoom" />
+                </RegionsContent>
                 <Actions Context="entry">
                     <ChoiceButtons Source="entry.Source" Session="session" LabelA="@start.LabelA" LabelB="@start.LabelB"
                                    Disabled="Busy" OnChoose="Choose" />
@@ -111,6 +118,9 @@
     private double fade = 0.45;
     private MergeTab tab;
     private string selected;
+    private List<MergeRegion> regions = [];
+    private string selectedRegion;
+    private int suggestions;
     private string saved;
     private MergePanelListing listing;
 
@@ -208,11 +218,54 @@
             saved = fileName;
         });
 
+    private Task DrawRegion(string shape) => map.DrawRegionAsync(MergePane, shape);
+
+    /// <summary>The drawing changed: take the shapes, keep what the screen knows about each.</summary>
+    private async Task RegionsChanged(string json)
+    {
+        regions = MergeRegions.FromShapes(json, regions);
+        await DescribeRegionsAsync(withRings: false);
+    }
+
+    private void PickRegion(string id)
+    {
+        selectedRegion = id;
+        tab = MergeTab.Regions;
+    }
+
+    private async Task SuggestRegions()
+    {
+        foreach (MergeRegion old in regions.Where(r => r.Id.StartsWith('s')).ToList())
+            await map.RemoveRegionAsync(MergePane, old.Id);
+
+        List<MergeRegion> suggested = [.. RegionSuggester.Suggest(session.Analysis)
+            .Select(s => new MergeRegion($"s{++suggestions}", $"S{suggestions}", s.Region, s.Suggested))];
+        regions = [.. regions.Where(r => !r.Id.StartsWith('s')), .. suggested];
+        await map.DescribeRegionsAsync(MergePane, MergeRegions.Describe(suggested, RegionLabel, withRings: true));
+    }
+
+    private async Task RemoveRegion(MergeRegion region)
+    {
+        await map.RemoveRegionAsync(MergePane, region.Id);
+        regions = [.. regions.Where(r => r.Id != region.Id)];
+    }
+
+    private Task DescribeRegionsAsync(bool withRings)
+        => map.DescribeRegionsAsync(MergePane, MergeRegions.Describe(regions, RegionLabel, withRings));
+
+    private string RegionLabel(MergeRegion region) => region.Suggested switch {
+        Side.A => $"{region.Name} · {start.LabelA}",
+        Side.B => $"{region.Name} · {start.LabelB}",
+        _ => region.Name,
+    };
+
     private void StartOver()
     {
         session = null;
         start = null;
         saved = null;
+        regions = [];
+        selectedRegion = null;
         selected = null;
         layer = ResultLayer;
         listing = null;

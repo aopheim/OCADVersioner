@@ -44,3 +44,22 @@
 #app-loading-text:after {
     content: var(--blazor-load-percentage-text, "Loading");
 }
+
+/* The merge's decision buttons ------------------------------------------ */
+
+/* Shared by every place a merge decision is made (side panel, regions,
+   conflict walker), so they look and read the same everywhere. Kari is teal,
+   Ola orange; the darker shades keep text readable on white. */
+.merge-choice {
+    border: 1px solid var(--bs-border-color);
+    background: #fff;
+}
+
+.merge-choice.side-a { border-color: #0E8A93; color: #0B7A82; font-weight: 600; }
+.merge-choice.side-b { border-color: #E26A0A; color: #B35309; font-weight: 600; }
+
+.merge-choice.chosen {
+    background: var(--bs-body-color);
+    border-color: var(--bs-body-color);
+    color: #fff;
+}

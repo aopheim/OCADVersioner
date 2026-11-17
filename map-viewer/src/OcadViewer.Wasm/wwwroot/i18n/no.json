@@ -191,5 +191,17 @@
     "#_mergeSaveBlocked": "Bestem alle konflikter før du lagrer.",
     "#_mergeSaving": "Skriver det sammenslåtte kartet…",
     "#_mergeSaved": "Lagret som {{file}}. Filene du valgte er uendret.",
-    "#_mergeMergedSuffix": "sammenslått"
+    "#_mergeMergedSuffix": "sammenslått",
+    "#_mergeRegions": "Områder",
+    "#_mergeDrawRectangle": "Rektangel",
+    "#_mergeDrawPolygon": "Polygon",
+    "#_mergeSuggestRegions": "Foreslå områder",
+    "#_mergeRegionsHelp": "Tegn over kartet for å bestemme alt innenfor på én gang, eller la sammenslåingen foreslå områder ut fra hvor hver kopi endret noe. Klikk på et område for å justere hjørnene.",
+    "#_mergeRegionCounts": "{{a}}: {{countA}} · {{b}}: {{countB}} · konflikter: {{conflicts}}",
+    "#_mergeRegionEmpty": "Ingen endringer helt innenfor.",
+    "#_mergeRegionSuggests": "Foreslått: ta {{name}}",
+    "#_mergeRegionMixed": "Begge kopiene har endret noe her: bestem objekt for objekt.",
+    "#_mergeCrossing": "{{count}} krysser grensen og må bestemmes hver for seg",
+    "#_mergeRemoveRegion": "Fjern",
+    "#_mergeNoRegions": "Ingen områder ennå."
 }

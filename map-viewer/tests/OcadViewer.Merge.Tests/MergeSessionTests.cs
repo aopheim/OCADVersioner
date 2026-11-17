@@ -49,6 +49,18 @@ public sealed class MergeSessionTests
     }
 
     [Test]
+    public void SeveralDecisionsAtOnceAreOneUndoStep()
+    {
+        MergeSession session = Start();
+        MergeItem[] all = [.. session.Analysis.AllItems];
+
+        session.DecideAll(all.Select(i => (i, i.Kind == ItemKind.Object ? Choice.Both : Choice.A)));
+        session.Undo();
+
+        Assert.That(session.Decisions.Items, Is.Empty);
+    }
+
+    [Test]
     public void ForgettingAnOverlapDecisionOpensItAgain()
     {
         MergeSession session = Start();
