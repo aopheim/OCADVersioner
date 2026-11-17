@@ -48,7 +48,7 @@ Decisions taken during implementation, for the product owner to confirm (see the
 - Saving is blocked until every conflict and overlap is decided.
 - Overlap groups join transitively (a chain of neighbours is one group).
 - A colour or setting can only be taken from one file; "Keep both" applies to objects.
-- Saving downloads  rather than using a save picker: it works in every browser and can never overwrite an input.
+- Saving downloads `<base>-merged.ocd` rather than using a save picker: it works in every browser and can never overwrite an input.
 - Suggested regions join changes within 50 m and reach 10 m beyond them.
 - Regions are drawn as outlines only, so the changes inside stay clickable.
 - The conflict walker exists only while open (its number keys must not act on the map screen) and parses the three files into its own panes each time it opens.
