@@ -11,7 +11,7 @@ namespace OcadViewer.Merge.Writing;
 /// first version a replacement, and a second version - "keep both" - an addition
 /// with a new identity.
 /// </remarks>
-public static class MergePlanner
+internal static class MergePlanner
 {
     /// <exception cref="InvalidOperationException">A conflict or overlap is still undecided.</exception>
     public static MergePlan Plan(MergeResolution resolution)
