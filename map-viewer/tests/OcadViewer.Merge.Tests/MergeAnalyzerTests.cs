@@ -162,6 +162,6 @@ public sealed class MergeAnalyzerTests
 
     [Test]
     public void FilesMustBeTheSameOcadVersion()
-        => Assert.Throws<OcadFormatException>(
+        => Assert.Throws<MergeException>(
             () => MergeAnalyzer.Analyze(Fixtures.Base, Fixtures.Read("base_v12.ocd"), Fixtures.Ola));
 }
