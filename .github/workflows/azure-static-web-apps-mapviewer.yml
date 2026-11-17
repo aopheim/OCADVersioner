@@ -1,11 +1,9 @@
 name: MapViewer Deploy
 
-# develop: the Blazor app REPLACES Angular on the DEV Static Web App
-# (thankful-coast). The Angular DEV workflow no longer deploys on push, so the
-# two cannot race to overwrite each other.
+# develop deploys to the DEV Static Web App (thankful-coast).
 #
-# main: the Blazor app goes to its OWN Static Web App, so production Angular
-# (icy-pond) is untouched and a problem here can never take the live app down.
+# main deploys to the Blazor app's OWN Static Web App, not to icy-pond, which
+# keeps serving the last Angular build until the production domain is moved.
 # That resource and its token do not exist yet; until they do, main skips the
 # deploy (skip_deploy_on_missing_secrets).
 #
@@ -17,8 +15,8 @@ on:
         branches:
             - main
             - develop
-        # A native relink is 3-10 minutes, so Angular-only commits must not pay
-        # for it.
+        # A native relink is 3-10 minutes, so commits that touch nothing the app
+        # is built from must not pay for it.
         paths:
             - 'map-viewer/**'
             - '.github/workflows/azure-static-web-apps-mapviewer.yml'
@@ -80,7 +78,7 @@ jobs:
               with:
                   # develop -> thankful-coast (DEV). main -> the Blazor app's own
                   # Static Web App; rename that secret to the Azure-generated name
-                  # once the resource exists, the way the Angular two are named.
+                  # once the resource exists, the way thankful-coast's is named.
                   azure_static_web_apps_api_token: ${{ github.ref == 'refs/heads/develop' && secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_COAST_0330E1403 || secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MAPVIEWER }}
                   repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
                   action: 'upload'
