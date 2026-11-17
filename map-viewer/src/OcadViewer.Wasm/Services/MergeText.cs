@@ -1,5 +1,5 @@
 using OcadViewer.Merge.Analysis;
-using OcadViewer.Merge.Format;
+using OcadViewer.Ocd;
 
 namespace OcadViewer.Wasm.Services;
 
@@ -18,7 +18,7 @@ public static class MergeText
     public static string Title(MergeAnalysis analysis, MergeItem item, Localiser l) => item switch {
         ObjectItem o => Symbol(analysis, o.Symbol),
         SymbolItem s => Symbol(analysis, s.Number),
-        SettingItem s when s.Type == OcadSetting.ColorType
+        SettingItem s when s.Type == SettingType.Color
             => l.Format("#_mergeColour", ("name", (s.Base ?? s.A ?? s.B).FirstField)),
         SettingItem s => l.Format("#_mergeSettingType", ("type", s.Type)),
         _ => item.Key,
