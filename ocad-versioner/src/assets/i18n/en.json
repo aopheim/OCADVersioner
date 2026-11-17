@@ -153,6 +153,8 @@
     "#_mergeKeepBoth": "Keep both",
     "#_mergeKeepBase": "Keep base",
     "#_mergeReject": "Reject",
+    "#_mergeSymbolKeptForObjects": "Kept: {{count}} objects in the merge use it",
+    "#_mergeSymbolGoesWith": "Taking the deletion also removes the {{count}} objects that use it",
     "#_mergeAccept": "Accept again",
     "#_mergeRejected": "Rejected",
     "#_mergeChange": "Change",
