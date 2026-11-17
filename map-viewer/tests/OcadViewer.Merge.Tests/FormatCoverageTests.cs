@@ -138,14 +138,22 @@ public sealed class FormatCoverageTests
     public void AStringTiedToAnObjectNeverTakesPart()
     {
         // No real map has one; they belong to objects, and entries are not identities.
-        OcadFile kari = Fixtures.Read("kari_settings.ocd");
-        OcadSetting brown = kari.Settings.Single(s => s.Type == SettingType.Color && s.Field('n') == "5");
-        OcadFile tied = OcadFile.Read(Patch(Fixtures.Bytes("kari_settings.ocd"), bytes =>
-            BitConverter.TryWriteBytes(bytes.AsSpan(kari.StringIndex.EntryOffset(brown.Entry) + FileLayout.StringObjectIndexOffset), 1)));
+        // Kari renamed colour 5; tied to an object in both files, the rename is not merged.
+        static OcadFile Tied(string name)
+        {
+            OcadFile file = Fixtures.Read(name);
+            OcadSetting brown = file.Settings.Single(s => s.Type == SettingType.Color && s.Field('n') == "5");
+            return OcadFile.Read(Patch(Fixtures.Bytes(name), bytes =>
+                BitConverter.TryWriteBytes(bytes.AsSpan(file.StringIndex.EntryOffset(brown.Entry) + FileLayout.StringObjectIndexOffset), 1)));
+        }
 
-        MergeAnalysis analysis = MergeAnalyzer.Analyze(Fixtures.Base, tied, Fixtures.Base);
+        OcadFile @base = Tied("base.ocd");
 
-        Assert.That(analysis.Settings, Is.Empty);
+        Assert.Multiple(() => {
+            Assert.That(MergeAnalyzer.Analyze(Fixtures.Base, Fixtures.Read("kari_settings.ocd"), Fixtures.Base).Settings,
+                        Is.Not.Empty, "the rename, when the string is map-wide");
+            Assert.That(MergeAnalyzer.Analyze(@base, Tied("kari_settings.ocd"), @base).Settings, Is.Empty);
+        });
     }
 
     private static byte[] Patch(byte[] bytes, Action<byte[]> patch)
