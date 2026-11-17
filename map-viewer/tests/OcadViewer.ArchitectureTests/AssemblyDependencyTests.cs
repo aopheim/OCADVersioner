@@ -47,7 +47,8 @@ public sealed class AssemblyDependencyTests
     /// </summary>
     [TestCase("OcadViewer.Versioning")]
     [TestCase("OcadViewer.Ocd")]
-    [TestCase("OcadViewer.Merge", "OcadViewer.Ocd")]
+    [TestCase("OcadViewer.Comparison", "OcadViewer.Ocd")]
+    [TestCase("OcadViewer.Merge", "OcadViewer.Comparison", "OcadViewer.Ocd")]
     public void TheDomainProjectsReferenceOnlyTheFrameworkAndEachOther(string assembly, params string[] allowed)
     {
         IReadOnlyList<string> references = ReferencesOf(assembly);
@@ -90,6 +91,7 @@ public sealed class AssemblyDependencyTests
     [TestCase("OcadViewer.Core")]
     [TestCase("OcadViewer.RenderCli")]
     [TestCase("OcadViewer.Wasm")]
+    [TestCase("OcadViewer.Comparison")]
     [TestCase("OcadViewer.Merge")]
     [TestCase("OcadViewer.Ocd")]
     [TestCase("OcadViewer.Versioning")]

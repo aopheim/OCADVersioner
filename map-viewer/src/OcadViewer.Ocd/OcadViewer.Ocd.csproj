@@ -24,6 +24,7 @@
     <!-- The merge engine's tests nudge coordinates (WithCoords) and build files OCAD
          cannot be made to write, such as a string tied to an object. Tests only. -->
     <InternalsVisibleTo Include="OcadViewer.Merge.Tests" />
+    <InternalsVisibleTo Include="OcadViewer.Comparison.Tests" />
   </ItemGroup>
 
 </Project>

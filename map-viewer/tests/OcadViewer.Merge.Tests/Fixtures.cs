@@ -1,41 +1,11 @@
-using OcadViewer.Ocd;
-
-namespace OcadViewer.Merge.Tests;
+namespace OcadViewer.TestData;
 
 /// <summary>
-/// The OCAD files in tests/TestData/merge, as drawn in OCAD. Their README says
-/// what each one contains and what merging them must report.
+/// The merge's own scenarios in tests/TestData/merge. Reading files, base.ocd's
+/// objects and nudging coordinates are shared, in tests/TestData/Fixtures.cs.
 /// </summary>
-internal static class Fixtures
+internal static partial class Fixtures
 {
-    public static byte[] Bytes(string name)
-        => File.ReadAllBytes(Path.Combine(TestContext.CurrentContext.TestDirectory, "merge", name));
-
-    public static OcadFile Read(string name) => OcadFile.Read(Bytes(name));
-
-    public static OcadFile Base => Read("base.ocd");
-    public static OcadFile Kari => Read("kari.ocd");
-    public static OcadFile Ola => Read("ola.ocd");
-
-    /// <summary>A copy of <paramref name="obj"/> with every coordinate passed through <paramref name="change"/>.</summary>
-    public static OcadObject WithCoords(OcadObject obj, Func<OcadCoord, OcadCoord> change)
-        => obj.WithCoords([.. obj.Coords.Select(change)]);
-
-    /// <summary>OCAD's creation timestamps for the objects in base.ocd, by what they are.</summary>
-    public static class Created
-    {
-        public static readonly DateTime OpenLand = At(22, 32, 13, 139);
-        public static readonly DateTime Lake = At(22, 33, 29, 289);
-        public static readonly DateTime Forest = At(22, 33, 47, 520);
-        public static readonly DateTime Footpath = At(22, 34, 5, 870);
-        public static readonly DateTime Contour = At(22, 34, 10, 353);
-        public static readonly DateTime MiddleBoulder = At(22, 34, 11, 987);
-        public static readonly DateTime EastBoulder = At(22, 34, 12, 570);
-        public static readonly DateTime Knoll = At(22, 34, 21, 606);
-
-        private static DateTime At(int h, int m, int s, int ms) => new(2026, 11, 16, h, m, s, ms);
-    }
-
     /// <summary>
     /// The objects in sprint_base.ocd (ISSprOM 2019, 1:4000), by the part they play
     /// in the scenario base.ocd plays out with forest symbols.

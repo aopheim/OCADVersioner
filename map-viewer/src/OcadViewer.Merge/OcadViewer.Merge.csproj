@@ -4,9 +4,10 @@
     The 3-way merge of OCAD maps: read three files, work out what each branch
     changed, detect conflicts, apply the user's decisions and write the result.
 
-    Its only dependency is OcadViewer.Ocd, which reads and edits the files
-    byte-faithfully; this project decides what changed and what to write. See
-    MERGE-PLAN.md.
+    It builds on OcadViewer.Ocd, which reads and edits the files byte-faithfully,
+    and OcadViewer.Comparison, which decides which object is which and whether it
+    changed. This project applies the 3-way rule, finds conflicts and decides what
+    to write. See MERGE-PLAN.md and COMPARISON.md.
   -->
 
   <PropertyGroup>
@@ -16,6 +17,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\OcadViewer.Comparison\OcadViewer.Comparison.csproj" />
     <ProjectReference Include="..\OcadViewer.Ocd\OcadViewer.Ocd.csproj" />
   </ItemGroup>
 

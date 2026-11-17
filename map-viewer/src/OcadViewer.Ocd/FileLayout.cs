@@ -57,6 +57,11 @@ internal sealed class FileLayout
     public const int SymbolDescriptionOffset = 56;
     public const int SymbolDescriptionChars = 64;
 
+    // Object record: the same first eight bytes in every supported version.
+    public const int ObjectSymbolOffset = 0;
+    public const int ObjectTypeOffset = 4;
+    public const int ObjectAngleOffset = 6;
+
     public int Version { get; }
 
     /// <summary>Size of the fixed part of an object record, before its coordinates.</summary>
@@ -95,6 +100,24 @@ internal sealed class FileLayout
         _ => throw new OcadFormatException(
             $"This is an OCAD {version} file. Only OCAD 11, 12 and 2018 (and later) files can be read."),
     };
+
+    /// <summary>Which field the byte at <paramref name="offset"/> in an object record's header belongs to.</summary>
+    /// <remarks>
+    /// The coordinate and text counts are reported as the coordinates and the text
+    /// they count. Bytes no named field covers are <see cref="ObjectFields.Other"/>.
+    /// </remarks>
+    public ObjectFields ObjectFieldAt(int offset)
+        => In(offset, ObjectSymbolOffset, 4) ? ObjectFields.Symbol
+         : In(offset, ObjectTypeOffset, 1) ? ObjectFields.Type
+         : In(offset, ObjectAngleOffset, 2) ? ObjectFields.Angle
+         : In(offset, ObjectCoordCountOffset, 4) ? ObjectFields.Coordinates
+         : In(offset, ObjectTextCountOffset, 2) ? ObjectFields.Text
+         : In(offset, ObjectCreatedOffset, 8) ? ObjectFields.CreationDate
+         : In(offset, ObjectModifiedOffset, 8) ? ObjectFields.ModificationDate
+         : In(offset, ObjectColorOffset, 4) ? ObjectFields.Color
+         : ObjectFields.Other;
+
+    private static bool In(int offset, int start, int length) => start >= 0 && offset >= start && offset < start + length;
 
     /// <summary>
     /// The size an object record actually uses: its header, coordinates and texts.

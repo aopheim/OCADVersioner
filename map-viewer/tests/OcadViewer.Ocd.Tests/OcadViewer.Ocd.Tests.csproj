@@ -24,7 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\TestData\merge\*.ocd" Link="ocd\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="..\TestData\Fixtures.cs" Link="Fixtures.Shared.cs" />
+    <None Include="..\TestData\merge\*.ocd" Link="TestData\merge\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

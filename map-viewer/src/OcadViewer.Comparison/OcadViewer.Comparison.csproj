@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Compares two versions of an OCAD map: which object in one is which object in
+    the other, whether it changed and what about it, and how much. The 3-way
+    merge and the diff table both ask these questions, so they are answered here
+    once. See COMPARISON.md.
+
+    Its only dependency is OcadViewer.Ocd, which knows where every field sits in
+    each OCAD version. This project decides what a difference means.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OcadViewer.Ocd\OcadViewer.Ocd.csproj" />
+  </ItemGroup>
+
+</Project>
