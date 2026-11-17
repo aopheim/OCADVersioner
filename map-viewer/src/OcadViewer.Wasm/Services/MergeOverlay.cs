@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 using OcadViewer.Merge;
 using OcadViewer.Merge.Analysis;
 using OcadViewer.Merge.Decisions;
-using OcadViewer.Merge.Format;
+using OcadViewer.Ocd;
 using OcadViewer.Merge.Geometry;
 
 namespace OcadViewer.Wasm.Services;

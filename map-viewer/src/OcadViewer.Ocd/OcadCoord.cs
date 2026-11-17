@@ -1,4 +1,4 @@
-namespace OcadViewer.Merge.Format;
+namespace OcadViewer.Ocd;
 
 /// <summary>
 /// One OCAD coordinate: a position in hundredths of a millimetre on paper, plus
@@ -11,7 +11,7 @@ namespace OcadViewer.Merge.Format;
 /// </remarks>
 public readonly record struct OcadCoord(int X, int Y, byte XFlags, byte YFlags)
 {
-    public const int Size = 8;
+    internal const int Size = 8;
 
     /// <summary>Whether this is a Bézier control point rather than a point on the line.</summary>
     public bool IsControlPoint => (XFlags & 0b11) != 0;
@@ -19,13 +19,13 @@ public readonly record struct OcadCoord(int X, int Y, byte XFlags, byte YFlags)
     /// <summary>Whether this point starts a hole in an area object.</summary>
     public bool StartsHole => (YFlags & 0b10) != 0;
 
-    public void Write(Span<byte> bytes)
+    internal void Write(Span<byte> bytes)
     {
         BitConverter.TryWriteBytes(bytes, (X << 8) | XFlags);
         BitConverter.TryWriteBytes(bytes[4..], (Y << 8) | YFlags);
     }
 
-    public static OcadCoord Read(ReadOnlySpan<byte> bytes)
+    internal static OcadCoord Read(ReadOnlySpan<byte> bytes)
     {
         int x = BitConverter.ToInt32(bytes);
         int y = BitConverter.ToInt32(bytes[4..]);

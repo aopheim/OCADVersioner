@@ -1,4 +1,4 @@
-namespace OcadViewer.Merge.Format;
+namespace OcadViewer.Ocd;
 
 /// <summary>An axis-aligned rectangle in hundredths of a millimetre on paper.</summary>
 public readonly record struct Bounds(int MinX, int MinY, int MaxX, int MaxY)

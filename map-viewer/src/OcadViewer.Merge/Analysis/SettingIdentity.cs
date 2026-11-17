@@ -1,4 +1,4 @@
-using OcadViewer.Merge.Format;
+using OcadViewer.Ocd;
 
 namespace OcadViewer.Merge.Analysis;
 
@@ -10,7 +10,9 @@ public static class SettingIdentity
     /// files, display mode, view options. They are kept from base: merging them
     /// would turn every pan and zoom into a conflict.
     /// </summary>
-    public static readonly IReadOnlySet<int> ViewStateTypes = new HashSet<int> { 12, 19, 24, 1024, 1030 };
+    public static readonly IReadOnlySet<int> ViewStateTypes = new HashSet<int> {
+        SettingType.Zoom, SettingType.Selection, SettingType.RecentFiles, SettingType.Display, SettingType.View,
+    };
 
     /// <summary>
     /// Whether <paramref name="setting"/> is merged. Strings tied to an object entry
@@ -18,7 +20,7 @@ public static class SettingIdentity
     /// safely, and base's is kept.
     /// </summary>
     public static bool IsMerged(OcadSetting setting)
-        => setting.ObjectIndex == 0 && !ViewStateTypes.Contains(setting.Type);
+        => setting.IsMapWide && !ViewStateTypes.Contains(setting.Type);
 
     /// <summary>
     /// A key per string, unique within one file: the type, plus the colour number

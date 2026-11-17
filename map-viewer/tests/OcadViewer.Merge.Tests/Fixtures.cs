@@ -1,4 +1,4 @@
-using OcadViewer.Merge.Format;
+using OcadViewer.Ocd;
 
 namespace OcadViewer.Merge.Tests;
 
@@ -19,12 +19,7 @@ internal static class Fixtures
 
     /// <summary>A copy of <paramref name="obj"/> with every coordinate passed through <paramref name="change"/>.</summary>
     public static OcadObject WithCoords(OcadObject obj, Func<OcadCoord, OcadCoord> change)
-    {
-        byte[] record = obj.Record.ToArray();
-        for (int i = 0; i < obj.Coords.Count; i++)
-            change(obj.Coords[i]).Write(record.AsSpan(obj.Layout.ObjectHeaderSize + i * OcadCoord.Size));
-        return obj.WithRecord(record);
-    }
+        => obj.WithCoords([.. obj.Coords.Select(change)]);
 
     /// <summary>OCAD's creation timestamps for the objects in base.ocd, by what they are.</summary>
     public static class Created

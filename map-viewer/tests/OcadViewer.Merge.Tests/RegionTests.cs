@@ -50,7 +50,7 @@ public sealed class RegionTests
     {
         // The footpath runs west to east across the whole map; a thin box across its
         // middle holds none of its vertices.
-        OcadViewer.Merge.Format.OcadObject path = Fixtures.Base.Objects.Single(o => o.CreatedAt == Fixtures.Created.Footpath);
+        OcadViewer.Ocd.OcadObject path = Fixtures.Base.Objects.Single(o => o.CreatedAt == Fixtures.Created.Footpath);
         (double x, double y) = ObjectShape.Of(path).Parts[0][0];
         (double nx, double ny) = ObjectShape.Of(path).Parts[0][1];
         double midX = (x + nx) / 2, midY = (y + ny) / 2;
