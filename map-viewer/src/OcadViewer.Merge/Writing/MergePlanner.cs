@@ -1,9 +1,16 @@
 using OcadViewer.Merge.Analysis;
 using OcadViewer.Merge.Decisions;
+using OcadViewer.Ocd;
 
 namespace OcadViewer.Merge.Writing;
 
 /// <summary>Turns resolved choices into operations on base's file.</summary>
+/// <remarks>
+/// What each item becomes is the resolution's business (<see cref="MergeResolution.ResultOf"/>);
+/// this only compares that with base: nothing left means a deletion, a different
+/// first version a replacement, and a second version - "keep both" - an addition
+/// with a new identity.
+/// </remarks>
 public static class MergePlanner
 {
     /// <exception cref="InvalidOperationException">A conflict or overlap is still undecided.</exception>
@@ -15,54 +22,25 @@ public static class MergePlanner
 
         MergeAnalysis analysis = resolution.Analysis;
         return new MergePlan(
-            [.. analysis.Objects.SelectMany(i => For(i, resolution.ChoiceFor(i).Value))],
-            [.. analysis.Symbols.SelectMany(i => For(i, resolution.ChoiceFor(i).Value))],
-            [.. analysis.Settings.SelectMany(i => For(i, resolution.ChoiceFor(i).Value))]);
+            [.. analysis.Objects.SelectMany(i => Operations(i, resolution.ResultOf(i)))
+                                .Concat(resolution.RemovedWithSymbols.Select(o => new Operation<OcadObject>(OperationKind.Delete, o, null)))],
+            [.. analysis.Symbols.SelectMany(i => Operations(i, resolution.ResultOf(i)))],
+            [.. analysis.Settings.SelectMany(i => Operations(i, resolution.ResultOf(i)))]);
     }
 
-    private static IEnumerable<Operation<T>> For<T>(MergeItem<T> item, Choice choice) where T : class
+    private static IEnumerable<Operation<T>> Operations<T>(MergeItem<T> item, IReadOnlyList<T> result) where T : class
     {
-        switch (choice) {
-            case Choice.A:
-                return Take(item, Side.A);
-            case Choice.B:
-                return Take(item, Side.B);
-            case Choice.Both:
-                return KeepBoth(item);
-            default:
-                return [];
+        if (item.Base is not null) {
+            if (result.Count == 0)
+                yield return new(OperationKind.Delete, item.Base, null);
+            else if (!ReferenceEquals(result[0], item.Base))
+                yield return new(OperationKind.Replace, item.Base, result[0]);
         }
-    }
+        else if (result.Count > 0) {
+            yield return new(OperationKind.Add, null, result[0]);
+        }
 
-    /// <summary>One branch's version in base's place. Nothing to do if that branch left it alone.</summary>
-    private static IEnumerable<Operation<T>> Take<T>(MergeItem<T> item, Side side) where T : class
-    {
-        if (item.Change(side) == ChangeKind.None)
-            yield break;
-
-        T version = item.Version(side);
-        if (item.Base is null) {
-            if (version is not null)
-                yield return new(OperationKind.Add, null, version);
-        }
-        else if (version is null) {
-            yield return new(OperationKind.Delete, item.Base, null);
-        }
-        else {
-            yield return new(OperationKind.Replace, item.Base, version);
-        }
-    }
-
-    /// <summary>
-    /// A's version keeps the identity; B's is added beside it as a new object. If one
-    /// branch deleted the item, keeping both means keeping the one that still exists.
-    /// </summary>
-    private static IEnumerable<Operation<T>> KeepBoth<T>(MergeItem<T> item) where T : class
-    {
-        if (item.A is null)
-            return Take(item, Side.B);
-        if (item.B is null)
-            return Take(item, Side.A);
-        return Take(item, Side.A).Append(new(OperationKind.Add, null, item.B, NewIdentity: true));
+        foreach (T copy in result.Skip(1))
+            yield return new(OperationKind.Add, null, copy, NewIdentity: true);
     }
 }

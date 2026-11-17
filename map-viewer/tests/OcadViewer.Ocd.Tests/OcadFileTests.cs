@@ -96,6 +96,35 @@ public sealed class OcadFileTests
     public void RejectsATruncatedFile()
         => Assert.Throws<OcadFormatException>(() => OcadFile.Read(Fixtures.Bytes("base.ocd")[..4000]));
 
+    [Test]
+    public void ReadsTextObjectsWithTheirTexts()
+    {
+        // texts.ocd: base plus "Storigarden" (unformatted, 901) and "Langs stien" (formatted, 902).
+        OcadObject[] texts = [.. Fixtures.Read("texts.ocd").Objects.Where(o => o.Symbol >= 900000)];
+
+        Assert.Multiple(() => {
+            Assert.That(texts.Select(o => o.Type), Is.EqualTo(new[] { ObjectType.UnformattedText, ObjectType.FormattedText }));
+            Assert.That(texts.Select(o => o.UsedRecord.Length),
+                        Is.All.GreaterThan(texts[0].Layout.ObjectHeaderSize + 5 * OcadCoord.Size), "the record size counts the text");
+        });
+    }
+
+    [Test]
+    public void ReadsHiddenObjectsAndSkipsDeletedOnes()
+    {
+        OcadFile file = Fixtures.Base;
+        byte[] bytes = Fixtures.Bytes("base.ocd");
+        bytes[file.ObjectIndex.EntryOffset(0) + FileLayout.IndexStatusOffset] = (byte)ObjectStatus.Hidden;
+        bytes[file.ObjectIndex.EntryOffset(2) + FileLayout.IndexStatusOffset] = (byte)ObjectStatus.Deleted;
+
+        OcadFile patched = OcadFile.Read(bytes);
+
+        Assert.Multiple(() => {
+            Assert.That(patched.Objects.Single(o => o.Entry == 1).Status, Is.EqualTo(ObjectStatus.Hidden));
+            Assert.That(patched.Objects.Select(o => o.Entry), Has.None.EqualTo(3));
+        });
+    }
+
     private static string[] Describe(OcadFile file)
         => [.. file.Objects.Select(o => $"{o.Symbol} {o.Type} {string.Join(';', o.Coords.Select(c => $"{c.X},{c.Y}"))}")];
 }
