@@ -1056,15 +1056,14 @@ The plan was to deploy the two apps side by side until Angular was retired. The
 Angular app and its workflows have since been deleted ahead of that, so:
 
 - `thankful-coast` (`develop`) serves the Blazor app.
-- `icy-pond` (`main`, production) still serves the **last Angular build** and
-  nothing deploys to it any more. No fix reaches production until the Blazor
-  production SWA below exists and the domain moves to it.
+- `icy-pond` (`main`, production) serves the Blazor app too, from the first
+  merge to `main` on. It is the Static Web App the production domain already
+  points at, so no third resource and no domain move are needed.
 
-**A third Static Web App for Blazor production.** Blazor is built in GitHub
-Actions and deployed prebuilt, because **Oryx cannot build .NET 10 Blazor
-WebAssembly** and has no `wasm-tools`. Its production resource and the
-`AZURE_STATIC_WEB_APPS_API_TOKEN_MAPVIEWER` secret do not exist yet; until they do,
-the `main` deploy is skipped.
+**Built in Actions, deployed prebuilt.** Blazor is built in GitHub Actions and
+uploaded already published, because **Oryx cannot build .NET 10 Blazor
+WebAssembly** and has no `wasm-tools`. The sketch below is where that started;
+the committed workflow picks the token by branch.
 
 ```yaml
 # .github/workflows/azure-static-web-apps-mapviewer.yml
@@ -1121,15 +1120,11 @@ found while writing it:
   `develop && 'develop' || ''` rather than the other way round: `''` is falsy in
   an Actions expression, so the natural-looking `main && '' || 'develop'` yields
   `'develop'` on main.
-- **`skip_deploy_on_missing_secrets: true`**, as the Angular workflows have, so
-  the file can land before the Azure resource exists instead of failing every
-  push until it does.
-
-**Still needs a person**, and nothing deploys until both exist: the third Static
-Web App in Azure, and two repository secrets —
-`AZURE_STATIC_WEB_APPS_API_TOKEN_MAPVIEWER` (rename to match the Azure-generated
-name, the way the other two are named) and the existing
-`APPINSIGHTSINSTRUMENTATIONKEY_PROD`.
+  (Since superseded: each branch now has its own Static Web App - `develop` uses
+  thankful-coast's token, `main` uses icy-pond's - so there is no environment.)
+- **No `skip_deploy_on_missing_secrets`.** It was on while the production token
+  did not exist, which made every `main` run pass green with nothing deployed.
+  Both tokens exist now, and a missing one should fail the run.
 
 The app's own `wwwroot/staticwebapp.config.json` already carries what is needed:
 
