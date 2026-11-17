@@ -73,5 +73,15 @@ public sealed class OcadSetting
     public bool SameContent(OcadSetting other)
         => Type == other.Type && Content.Span.SequenceEqual(other.Content.Span);
 
+    /// <summary>
+    /// Whether <paramref name="other"/> is the same type with the same text, leaving
+    /// out the fields led by any of <paramref name="ignoredFields"/>.
+    /// </summary>
+    public bool SameContent(OcadSetting other, string ignoredFields)
+        => Type == other.Type && KeptFields(ignoredFields).SequenceEqual(other.KeptFields(ignoredFields));
+
+    private IEnumerable<string> KeptFields(string ignoredFields)
+        => Text.Split('\t').Where((part, i) => i == 0 || part.Length == 0 || !ignoredFields.Contains(part[0]));
+
     public override string ToString() => $"{Type}: {Text}";
 }

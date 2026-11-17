@@ -41,17 +41,24 @@ public sealed class AssemblyDependencyTests
             + string.Join(", ", references));
     }
 
-    [Test]
-    public void TheDomainProjectReferencesOnlyTheFramework()
+    /// <summary>
+    /// The domain projects reference the framework and, where named, each other -
+    /// nothing vendored, nothing from the browser.
+    /// </summary>
+    [TestCase("OcadViewer.Versioning")]
+    [TestCase("OcadViewer.Ocd")]
+    [TestCase("OcadViewer.Merge", "OcadViewer.Ocd")]
+    public void TheDomainProjectsReferenceOnlyTheFrameworkAndEachOther(string assembly, params string[] allowed)
     {
-        IReadOnlyList<string> references = ReferencesOf("OcadViewer.Versioning");
+        IReadOnlyList<string> references = ReferencesOf(assembly);
 
         string[] offending = [.. references.Where(reference =>
             !reference.StartsWith("System", StringComparison.Ordinal)
-            && reference is not ("netstandard" or "mscorlib"))];
+            && reference is not ("netstandard" or "mscorlib")
+            && !allowed.Contains(reference))];
 
         Assert.That(offending, Is.Empty,
-            "The project-folder contract must stay free of everything, so its rules can be tested "
+            $"{assembly} must stay free of everything but the framework, so its rules can be tested "
             + "directly. References found: " + string.Join(", ", references));
     }
 

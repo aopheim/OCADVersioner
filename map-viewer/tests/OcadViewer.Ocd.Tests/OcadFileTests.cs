@@ -159,4 +159,21 @@ public sealed class OcadFileTests
 
     private static string[] Describe(OcadFile file)
         => [.. file.Objects.Select(o => $"{o.Symbol} {o.Type} {string.Join(';', o.Coords.Select(c => $"{c.X},{c.Y}"))}")];
+    [Test]
+    public void SettingsCanBeComparedLeavingOutSomeFields()
+    {
+        OcadSetting shown = Setting(SettingType.Template, "contours.ocd\ts1\tr1\td50");
+        OcadSetting hidden = Setting(SettingType.Template, "contours.ocd\ts0\tr1\td50");
+        OcadSetting dimmed = Setting(SettingType.Template, "contours.ocd\ts0\tr1\td40");
+
+        Assert.Multiple(() => {
+            Assert.That(shown.SameContent(hidden), Is.False);
+            Assert.That(shown.SameContent(hidden, "s"), Is.True);
+            Assert.That(shown.SameContent(dimmed, "s"), Is.False);
+            Assert.That(shown.SameContent(Setting(SettingType.Color, shown.Text), "s"), Is.False);
+        });
+    }
+
+    private static OcadSetting Setting(int type, string text)
+        => new(null, 0, type, 0, System.Text.Encoding.Latin1.GetBytes(text));
 }
