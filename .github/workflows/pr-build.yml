@@ -4,11 +4,11 @@ name: PR build
 # branch. With `types: [opened]` a required check could only ever report on the
 # first commit: push a fix for a failing build and nothing re-ran, leaving the
 # PR gated on a verdict about code that was no longer there.
+#
+# No `branches:` filter either: stacked pull requests target the branch below
+# them, not develop, and their builds and tests matter just as much.
 on:
     pull_request:
-        branches:
-            - main
-            - develop
 
 jobs:
     map-viewer:
