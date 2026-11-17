@@ -186,5 +186,11 @@
     "#_mergeNoConflicts": "Det er ingen konflikter å gå gjennom.",
     "#_mergeOpen": "åpen",
     "#_mergeAllDecided": "Alle konflikter er bestemt.",
-    "#_mergeNotInThisCopy": "Finnes ikke i denne kopien"
+    "#_mergeNotInThisCopy": "Finnes ikke i denne kopien",
+    "#_mergeUnfinished": "Uferdige sammenslåinger i denne nettleseren",
+    "#_mergeUnfinishedRow": "{{base}} ← {{a}} + {{b}} · {{decided}} av {{total}} konflikter bestemt · {{date}}",
+    "#_mergePickSameFiles": "Velg de samme tre filene for å fortsette en av dem. Bare beslutningene lagres her, aldri kartene.",
+    "#_mergeResumeFound": "Du har en uferdig sammenslåing av disse filene: {{decided}} av {{total}} konflikter bestemt.",
+    "#_mergeResume": "Fortsett",
+    "#_mergeDiscard": "Forkast"
 }

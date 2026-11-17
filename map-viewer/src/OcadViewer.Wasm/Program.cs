@@ -17,6 +17,8 @@ builder.Services.AddScoped<ProjectService>();
 
 builder.Services.AddScoped<Localiser>();
 builder.Services.AddScoped<AppSettingsService>();
+// Unfinished merges kept in this browser, so a merge can be resumed with the same files.
+builder.Services.AddScoped<MergeProgressStore>();
 
 // Comparing versions is deferred work. The table is built against this interface
 // so it renders an honest empty state now and needs no reshaping when a real

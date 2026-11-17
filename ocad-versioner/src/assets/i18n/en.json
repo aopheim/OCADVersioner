@@ -186,5 +186,11 @@
     "#_mergeNoConflicts": "There are no conflicts to walk through.",
     "#_mergeOpen": "open",
     "#_mergeAllDecided": "Every conflict is decided.",
-    "#_mergeNotInThisCopy": "Not in this copy"
+    "#_mergeNotInThisCopy": "Not in this copy",
+    "#_mergeUnfinished": "Unfinished merges in this browser",
+    "#_mergeUnfinishedRow": "{{base}} ← {{a}} + {{b}} · {{decided}} of {{total}} conflicts decided · {{date}}",
+    "#_mergePickSameFiles": "Pick the same three files to continue one of them. Only decisions are kept here, never the maps.",
+    "#_mergeResumeFound": "You have an unfinished merge of these files: {{decided}} of {{total}} conflicts decided.",
+    "#_mergeResume": "Resume",
+    "#_mergeDiscard": "Discard"
 }

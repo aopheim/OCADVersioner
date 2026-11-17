@@ -1,6 +1,7 @@
 # 3-way merge of OCAD maps
 
-> **Status: milestone 1 (engine) done; milestones 2–6 in stacked pull requests.**
+> **Status: all six milestones implemented, in stacked pull requests (engine #147,
+> view #148, decisions #149, regions #150, walker #151, resume #152).**
 > Decisions below were settled with the product owner on 2026-11-16. Test fixtures
 > and their expected results are in `tests/TestData/merge/`.
 > Design mockups: <https://claude.ai/artifact/5Fxg9tMzTida3tS9kHcFet> (private canvas;
@@ -47,6 +48,11 @@ Decisions taken during implementation, for the product owner to confirm (see the
 - Saving is blocked until every conflict and overlap is decided.
 - Overlap groups join transitively (a chain of neighbours is one group).
 - A colour or setting can only be taken from one file; "Keep both" applies to objects.
+- Saving downloads  rather than using a save picker: it works in every browser and can never overwrite an input.
+- Suggested regions join changes within 50 m and reach 10 m beyond them.
+- Regions are drawn as outlines only, so the changes inside stay clickable.
+- The conflict walker exists only while open (its number keys must not act on the map screen) and parses the three files into its own panes each time it opens.
+- Resuming needs the same three files picked again; only decisions and regions are kept in the browser, never the maps, and the record is removed once the merged map is saved.
 
 ## What OCAD actually does to a file
 
@@ -101,14 +107,14 @@ blocked, the PR build on GitHub is the authoritative run.
 1. **Engine.** Read, match, diff, detect, decide, splice. *Done*: every row of the
    fixtures' table passes, the identity merge is byte-identical, and the merged
    fixtures open in OCAD 2020 showing exactly the chosen versions.
-2. **Read-only change view.** `/merge`, setup screen with checks, board A map with
+2. **Read-only change view.** *Done*: `/merge`, setup screen with checks, board A map with
    outline overlay, side panel lists (Conflicts / Kari / Ola / Symbols), click to select.
-3. **Decisions + save.** Take/keep buttons, reject clean changes, symbol and settings
+3. **Decisions + save.** *Done*: take/keep buttons, reject clean changes, symbol and settings
    choices, undo, Save merged `.ocd`.
-4. **Regions.** Leaflet-Geoman rectangle/lasso, Regions tab, per-region
+4. **Regions.** *Done*: Leaflet-Geoman rectangle/lasso, Regions tab, per-region
    Kari/Ola/Both/Base/Per object, border-crossing objects flagged, Suggest regions.
-5. **Conflict walker.** Board D: Base | Kari | Ola zoomed panes, keys 1–4, filmstrip.
-6. **Resume.** IndexedDB keyed by file hashes; "Unfinished merge found" on the setup screen.
+5. **Conflict walker.** *Done*: board D: Base | Kari | Ola zoomed panes, keys 1–4, filmstrip.
+6. **Resume.** *Done*: IndexedDB keyed by file hashes; "Unfinished merge found" on the setup screen.
 
 ## Risks
 

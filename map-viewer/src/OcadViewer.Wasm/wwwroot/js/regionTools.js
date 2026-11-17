@@ -55,7 +55,9 @@ export function createRegionTools(map, onChange, onSelect, onDrawing = () => {})
     function onCreate(e) {
         map.pm.disableDraw();
         onDrawing(false);
-        const id = `r${++counter}`;
+        // Regions restored from an earlier visit already hold some ids.
+        let id;
+        do id = `r${++counter}`; while (regions.has(id));
         adopt(id, e.layer, id.toUpperCase(), null);
         report();
         onSelect(id);
