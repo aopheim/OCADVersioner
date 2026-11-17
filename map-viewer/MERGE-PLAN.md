@@ -68,20 +68,29 @@ Still not covered by a fixture: text objects, symbol graphics changes, backgroun
 Graphics2D ← MapModel ← Map_SkiaStd ← OcadViewer.Core ← RenderCli
                                             ↑
                     OcadViewer.Versioning ← OcadViewer.Wasm
-                    OcadViewer.Merge      ←┘
+OcadViewer.Ocd ←    OcadViewer.Merge      ←┘
 ```
 
-**`OcadViewer.Merge`** — pure, depends on nothing (enforced by `ProjectDependencyTests`).
+**`OcadViewer.Ocd`** — reads and edits OCAD files at the byte level, depends on nothing
+(enforced by `ProjectDependencyTests`).
 
-- `Format/` — `OcadFile` reads header, index chains and records as byte slices;
-  `FileLayout` is the one place that knows byte offsets per version.
+- Public: `OcadFile` (objects, symbols, strings, version, scale), `OcadObject`,
+  `OcadSymbol`, `OcadSetting` (with `SameContent`, told which fields to ignore by
+  `ObjectFields` / `SymbolFields`), `OcadEditor` (replace / add / delete on a copy,
+  byte-faithfully), and the small value types. `PublicSurfaceTests` pins that list.
+- Internal: `FileLayout` (the one place that knows byte offsets per version),
+  `IndexChain`, raw records, Delphi dates. Only `OcadViewer.Ocd.Tests` sees them.
+
+**`OcadViewer.Merge`** — pure, depends only on `OcadViewer.Ocd`.
+
 - `Matching/` — `ObjectMatcher` (identity) and `ContentComparer` (what "changed" means).
 - `Analysis/` — `ThreeWay` (the 3-way rule, once for every kind of item),
   `MergeAnalyzer`, `OverlapDetector`, `SettingIdentity`.
 - `Decisions/` — `MergeDecisions` (plain data by stable key) and `MergeResolution`
   (the single precedence rule: item decision, then overlap decision, then default).
 - `Writing/` — `MergePlanner` (choices to operations) and `OcadSplicer` (operations
-  into base's bytes); `MergeWriter` composes them.
+  to `OcadEditor` calls, fresh creation dates for "keep both"); `MergeWriter`
+  composes them.
 
 **`OcadViewer.Merge.Tests`** — NUnit against `tests/TestData/merge/`: the README's
 table row by row, and merge(base, base, base) == base byte for byte.

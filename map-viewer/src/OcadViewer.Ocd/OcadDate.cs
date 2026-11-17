@@ -1,4 +1,4 @@
-namespace OcadViewer.Merge.Format;
+namespace OcadViewer.Ocd;
 
 /// <summary>
 /// OCAD's timestamps: Delphi TDateTime, days since 1899-12-30 as a double.
@@ -8,7 +8,7 @@ namespace OcadViewer.Merge.Format;
 /// creation date as its identity, so the conversion rounds to the millisecond
 /// rather than trusting floating-point days to land on a tick.
 /// </remarks>
-public static class OcadDate
+internal static class OcadDate
 {
     private static readonly DateTime Epoch = new(1899, 12, 30, 0, 0, 0, DateTimeKind.Unspecified);
 

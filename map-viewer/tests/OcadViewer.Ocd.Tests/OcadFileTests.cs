@@ -1,6 +1,4 @@
-using OcadViewer.Merge.Format;
-
-namespace OcadViewer.Merge.Tests;
+namespace OcadViewer.Ocd.Tests;
 
 [TestFixture]
 public sealed class OcadFileTests

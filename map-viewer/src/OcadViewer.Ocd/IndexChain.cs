@@ -1,4 +1,4 @@
-namespace OcadViewer.Merge.Format;
+namespace OcadViewer.Ocd;
 
 /// <summary>
 /// One of OCAD's three linked lists of index blocks (symbols, objects, strings).
@@ -8,7 +8,7 @@ namespace OcadViewer.Merge.Format;
 /// The reader walks the chain to find records; the writer walks the same chain to
 /// update entries and to find a free one, so both go through this type.
 /// </remarks>
-public sealed class IndexChain
+internal sealed class IndexChain
 {
     /// <summary>File offsets of the blocks, in chain order.</summary>
     public IReadOnlyList<int> Blocks { get; }
