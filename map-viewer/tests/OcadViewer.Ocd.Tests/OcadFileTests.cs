@@ -96,6 +96,38 @@ public sealed class OcadFileTests
     public void RejectsATruncatedFile()
         => Assert.Throws<OcadFormatException>(() => OcadFile.Read(Fixtures.Bytes("base.ocd")[..4000]));
 
+    [TestCase(2019)]
+    [TestCase(2025)]
+    public void ReadsNewerVersionNumbersWithThe2018Layout(int version)
+    {
+        // No release is known to write anything but 2018; if one does, it must open.
+        byte[] bytes = Fixtures.Bytes("base.ocd");
+        BitConverter.TryWriteBytes(bytes.AsSpan(FileLayout.VersionOffset), (short)version);
+
+        OcadFile file = OcadFile.Read(bytes);
+
+        Assert.Multiple(() => {
+            Assert.That(file.Version, Is.EqualTo(version));
+            Assert.That(Describe(file), Is.EqualTo(Describe(Fixtures.Base)));
+            Assert.That(new OcadEditor(file).ToArray(), Is.EqualTo(bytes), "written back as it came, version included");
+        });
+    }
+
+    [Test]
+    public void ChangingTheBytesAfterReadingChangesNothing()
+    {
+        byte[] bytes = Fixtures.Bytes("base.ocd");
+        OcadFile file = OcadFile.Read(bytes);
+        string[] before = Describe(file);
+
+        Array.Clear(bytes);
+
+        Assert.Multiple(() => {
+            Assert.That(Describe(file), Is.EqualTo(before));
+            Assert.That(new OcadEditor(file).ToArray(), Is.EqualTo(Fixtures.Bytes("base.ocd")));
+        });
+    }
+
     [Test]
     public void ReadsTextObjectsWithTheirTexts()
     {

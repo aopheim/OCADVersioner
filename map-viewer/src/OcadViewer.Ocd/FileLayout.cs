@@ -9,6 +9,11 @@ namespace OcadViewer.Ocd;
 /// (their Save As offers 2018, 12, 11 and 10), so "2018" covers every current
 /// release. Offsets come from PurplePen's OcadFileFormat.cs and were checked
 /// against files saved by OCAD 2020.
+/// <para>A version number above 2018 is accepted and read with the 2018 layout (a
+/// product decision: newer releases must open). No such file is known - OCAD
+/// 2019 and 2020 write 2018, and OpenOrienteering Mapper refuses anything newer -
+/// so if a release ever changes the layout, the reader's checks on every index
+/// block and record refuse the file rather than misread it.</para>
 /// </remarks>
 internal sealed class FileLayout
 {
@@ -93,19 +98,22 @@ internal sealed class FileLayout
 
     /// <summary>
     /// The size an object record actually uses: its header, coordinates and texts.
-    /// The index may reserve more than this.
+    /// The index may reserve more than this. -1 if a count is negative.
     /// </summary>
-    public int ObjectRecordSize(ReadOnlySpan<byte> record)
+    /// <remarks>A long, so counts read from a damaged file cannot overflow it.</remarks>
+    public long ObjectRecordSize(ReadOnlySpan<byte> record)
     {
-        int coords = BitConverter.ToInt32(record[ObjectCoordCountOffset..]);
-        int texts = BitConverter.ToInt16(record[ObjectTextCountOffset..]);
+        long coords = BitConverter.ToInt32(record[ObjectCoordCountOffset..]);
+        long[] texts = ObjectExtraStringCountsOffset >= 0
+            ? [BitConverter.ToInt16(record[ObjectTextCountOffset..]),
+               BitConverter.ToInt16(record[ObjectExtraStringCountsOffset..]),
+               BitConverter.ToInt16(record[(ObjectExtraStringCountsOffset + 2)..])]
+            : [BitConverter.ToInt16(record[ObjectTextCountOffset..])];
 
-        if (ObjectExtraStringCountsOffset >= 0) {
-            texts += BitConverter.ToInt16(record[ObjectExtraStringCountsOffset..]);
-            texts += BitConverter.ToInt16(record[(ObjectExtraStringCountsOffset + 2)..]);
-        }
+        if (coords < 0 || texts.Any(t => t < 0))
+            return -1;
 
         // Texts are stored in units of one coordinate: 8 bytes, four UTF-16 characters.
-        return ObjectHeaderSize + (coords + texts) * OcadCoord.Size;
+        return ObjectHeaderSize + (coords + texts.Sum()) * OcadCoord.Size;
     }
 }
