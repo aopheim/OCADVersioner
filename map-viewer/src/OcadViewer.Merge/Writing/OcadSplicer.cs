@@ -9,7 +9,7 @@ namespace OcadViewer.Merge.Writing;
 /// copies stay distinct in later merges; dates count up from <c>now</c> by a
 /// millisecond each, which is OCAD's own precision.
 /// </remarks>
-public static class OcadSplicer
+internal static class OcadSplicer
 {
     public static byte[] Write(OcadFile @base, MergePlan plan, DateTime now)
     {

@@ -2,7 +2,7 @@ using OcadViewer.Ocd;
 
 namespace OcadViewer.Merge.Writing;
 
-public enum OperationKind
+internal enum OperationKind
 {
     /// <summary>Put <see cref="Operation{T}.Source"/> where base has <see cref="Operation{T}.Target"/>.</summary>
     Replace,
@@ -16,10 +16,10 @@ public enum OperationKind
 /// <param name="Target">Base's version, for Replace and Delete.</param>
 /// <param name="Source">The branch version to write, for Replace and Add.</param>
 /// <param name="NewIdentity">Objects only: give the added copy a fresh creation date ("keep both").</param>
-public sealed record Operation<T>(OperationKind Kind, T Target, T Source, bool NewIdentity = false) where T : class;
+internal sealed record Operation<T>(OperationKind Kind, T Target, T Source, bool NewIdentity = false) where T : class;
 
 /// <summary>Exactly what to do to base's file to produce the merged map.</summary>
-public sealed record MergePlan(
+internal sealed record MergePlan(
     IReadOnlyList<Operation<OcadObject>> Objects,
     IReadOnlyList<Operation<OcadSymbol>> Symbols,
     IReadOnlyList<Operation<OcadSetting>> Settings)
