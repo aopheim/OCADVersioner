@@ -752,7 +752,8 @@ Components, all new except where noted:
   and area in square metres; Updated shows movement in metres, length difference
   and area difference as percentages. Both show created and last-edited dates.
 
-**The diff table is built but not fed.** All of it sits behind an `IDiffSource`
+**The diff table is built but not fed.** *(Since fed by the C# diff; see
+[DIFF.md](DIFF.md).)* All of it sits behind an `IDiffSource`
 that currently returns nothing and renders an explicit "diff not available yet"
 state. Nothing fakes data, because fake rows in a table like this are indis-
 tinguishable from real ones at a glance and tend to outlive their welcome.
@@ -766,6 +767,10 @@ open a folder, pick versions, see them side by side, switch diff tabs — with t
 table honestly empty.
 
 ### The diff — deferred
+
+> **Picked up: see [DIFF.md](DIFF.md).** The object diff is done and feeds the
+> diff table; symbols, colours, georeferencing and templates follow. What is below
+> is the record of why it was deferred.
 
 Originally planned as the next stage and a 5–8 day port of
 `json-diff-service.ts`. Dropped, because that logic is going to be expanded, and

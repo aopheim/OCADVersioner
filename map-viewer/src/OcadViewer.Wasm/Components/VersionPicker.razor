@@ -1,0 +1,41 @@
+@*
+    One side of the comparison: a dropdown of versions. The page decides what each
+    pick means - including swapping the sides so the newer map stays on the right -
+    so this only reports which version was chosen.
+*@
+
+@* Keyed on a generation the page bumps on every pick. A swap can leave this
+   dropdown's value exactly what it was, and then Blazor sees nothing to update
+   while the browser still shows the entry that was clicked. A new key redraws it. *@
+<select @key="Generation" class="form-select form-select-sm w-auto versionPicker"
+        title="@Title" aria-label="@Title" disabled="@Disabled" @onchange="Changed">
+    @foreach (Option option in Options) {
+        <option value="@option.Name" selected="@(option.Name == Value)">@option.Label</option>
+    }
+</select>
+
+@code {
+    /// <param name="Name">The version's name: "V3", or "current" for the working file.</param>
+    /// <param name="Label">What the entry says.</param>
+    public sealed record Option(string Name, string Label);
+
+    [Parameter, EditorRequired] public IReadOnlyList<Option> Options { get; set; } = [];
+
+    /// <summary>The version this side is showing.</summary>
+    [Parameter] public string Value { get; set; }
+
+    [Parameter] public EventCallback<string> OnPicked { get; set; }
+
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Changes on every pick, to redraw the dropdown; see the markup.</summary>
+    [Parameter] public int Generation { get; set; }
+
+    [Parameter] public string Title { get; set; }
+
+    private async Task Changed(ChangeEventArgs e)
+    {
+        if (e.Value?.ToString() is { Length: > 0 } picked && picked != Value)
+            await OnPicked.InvokeAsync(picked);
+    }
+}

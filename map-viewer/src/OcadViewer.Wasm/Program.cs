@@ -18,10 +18,9 @@ builder.Services.AddScoped<ProjectService>();
 builder.Services.AddScoped<Localiser>();
 builder.Services.AddScoped<AppSettingsService>();
 
-// Comparing versions is deferred work. The table is built against this interface
-// so it renders an honest empty state now and needs no reshaping when a real
-// comparison arrives.
-builder.Services.AddScoped<IDiffSource, NoDiffSource>();
+// The versions being compared, parsed once each, as long as the project is open.
+builder.Services.AddScoped<ComparisonCache>();
+builder.Services.AddScoped<IDiffSource, OcadDiffSource>();
 
 builder.Services.AddScoped<TelemetryService>();
 

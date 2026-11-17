@@ -87,9 +87,24 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
     public (string Newer, string Older) ComparisonFor(int selectedNumber)
         => ProjectFolder.Comparison(selectedNumber, Versions);
 
+    /// <summary>Two versions picked in any order, as a comparison with the newer first.</summary>
+    public static (string Newer, string Older) Ordered(string first, string second)
+        => ProjectFolder.Ordered(first, second);
+
+    /// <summary>Whether a version is still in the folder.</summary>
+    public bool Contains(string versionName) => ProjectFolder.Contains(Versions, versionName);
+
     /// <summary>Where a version's map is, and whether to read it again each time.</summary>
     public MapSource SourceFor(string versionName)
         => FolderLayout.SourceFor(versionName, Project?.CurrentFileName);
+
+    /// <summary>A file's contents, by its path relative to the project folder.</summary>
+    /// <remarks>
+    /// For comparing versions. The renderer reads its own copy in JavaScript, so map
+    /// bytes it draws never cross into .NET twice.
+    /// </remarks>
+    public async Task<byte[]> ReadBytesAsync(string path)
+        => await (await ModuleAsync()).InvokeAsync<byte[]>("readBytes", path);
 
     /// <summary>
     /// Whether this version has to be re-read every time it is shown.
@@ -100,9 +115,9 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
     /// Copies the working file into a new release folder and writes its metadata.
     /// </summary>
     /// <remarks>
-    /// The symbol counts are written as zero until the C# diff exists. The Angular
-    /// app fills them in from its GeoJSON diff; a version created here will show
-    /// zeros in both apps' version lists until that is ported.
+    /// The symbol counts are still written as zero: the C# diff exists, but filling
+    /// them needs the working file and the newest release both parsed here (see
+    /// DIFF.md). The Angular app fills them in from its GeoJSON diff.
     ///
     /// The folder is re-read first. The Angular app writes to the same folders,
     /// so a name worked out from the last scan may already be taken - and

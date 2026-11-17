@@ -30,6 +30,9 @@ export async function createTileSource() {
     const store = interop.CreateStore();
 
     return {
+        /** The .NET store's handle, for C# that reads the same parses. */
+        store,
+
         /** Whether this map is already parsed, so the caller can skip re-reading it. */
         isLoaded(key) {
             return interop.IsLoaded(store, key);

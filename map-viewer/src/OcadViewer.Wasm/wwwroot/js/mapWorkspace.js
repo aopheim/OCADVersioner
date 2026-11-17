@@ -23,7 +23,8 @@ import { paint, coverage, boundsOf } from './changeMask.js';
 /**
  * Builds the viewer over two elements.
  * @returns {Promise<{parse: Function, draw: Function, showFile: Function, showChanges: Function,
- *                    zoomToChanges: Function, reset: Function, showing: Function, stats: object, dispose: Function}>}
+ *                    zoomToChanges: Function, zoomTo: Function, setMapVisible: Function, reset: Function,
+ *                    showing: Function, stats: object, dispose: Function}>}
  */
 export async function createWorkspace(leftEl, rightEl) {
     const tiles = await createTileSource();
@@ -250,6 +251,28 @@ export async function createWorkspace(leftEl, rightEl) {
 
             view.fitTo(area);
             return area;
+        },
+
+        /**
+         * Moves both panes to frame one rectangle of the map - an object from the
+         * diff table. A point is a rectangle with no size, so the padding is what
+         * gives it a sensible zoom.
+         *
+         * @param area paper millimetres, Y up
+         * @param paddingMm breathing room around it
+         */
+        zoomTo(area, paddingMm = 8) {
+            const framed = {
+                minX: area.minX - paddingMm, maxX: area.maxX + paddingMm,
+                minY: area.minY - paddingMm, maxY: area.maxY + paddingMm
+            };
+            view.fitTo(framed);
+            return framed;
+        },
+
+        /** Shows or hides the maps under the change overlay, on both panes. */
+        setMapVisible(visible) {
+            view.setMapVisible(visible);
         },
 
         /**

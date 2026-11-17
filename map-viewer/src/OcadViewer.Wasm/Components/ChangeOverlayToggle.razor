@@ -151,6 +151,16 @@
         });
     }
 
+    /// <summary>
+    /// Turns the overlay on if it is off, for a page that has just hidden the
+    /// maps and would otherwise show nothing at all.
+    /// </summary>
+    public async Task TurnOnAsync()
+    {
+        if (!showChanges)
+            await ToggleAsync();
+    }
+
     /// <summary>Frames whatever the overlay is showing, however small it is.</summary>
     private async Task ZoomAsync()
         => await Run(() => L["#_zooming"], async () => await MapPair.ZoomToChangesAsync());

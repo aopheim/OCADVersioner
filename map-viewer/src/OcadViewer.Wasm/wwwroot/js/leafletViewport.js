@@ -373,6 +373,19 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
         },
 
         /**
+         * Shows or hides the map itself, leaving any overlay on top of it.
+         *
+         * Hides Leaflet's tile pane rather than removing the layers, so it holds
+         * for maps shown later too, and turning the map back on is instant - the
+         * tiles are still there. The change mask sits in the overlay pane and is
+         * not touched.
+         */
+        setMapVisible(visible) {
+            for (const side of SIDES)
+                maps[side].getPane('tilePane').style.visibility = visible ? '' : 'hidden';
+        },
+
+        /**
          * Lets the next show fit the view again, as the very first one did.
          *
          * For a different project: its maps can sit anywhere on the paper, so

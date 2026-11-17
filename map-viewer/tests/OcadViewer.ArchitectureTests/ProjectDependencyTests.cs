@@ -16,14 +16,15 @@ namespace OcadViewer.ArchitectureTests;
 ///   Graphics2D ← MapModel ← Map_SkiaStd ← OcadViewer.Core ← RenderCli
 ///                                              ↑
 ///                      OcadViewer.Versioning ← OcadViewer.Wasm
-///
+///                                                   ↓
 ///   OcadViewer.Ocd ← OcadViewer.Comparison ← OcadViewer.Merge
 ///         ↑______________________________________|
 /// </code>
 ///
 /// OcadViewer.Ocd reads and edits OCAD files at the byte level. OcadViewer.Comparison
 /// decides which object is which and whether it changed, for every feature that
-/// compares versions. OcadViewer.Merge builds on both and nothing else.
+/// compares versions: the merge, and the app's diff table. OcadViewer.Merge builds
+/// on both and nothing else.
 ///
 /// Nothing in the compiler keeps it that way: one <c>using</c> of
 /// Microsoft.AspNetCore in the wrong project compiles. These tests do.
@@ -47,7 +48,7 @@ public sealed class ProjectDependencyTests
         ["OcadViewer.Comparison"] = ["OcadViewer.Ocd"],
         ["OcadViewer.Merge"] = ["OcadViewer.Comparison", "OcadViewer.Ocd"],
         ["OcadViewer.RenderCli"] = ["OcadViewer.Core"],
-        ["OcadViewer.Wasm"] = ["OcadViewer.Core", "OcadViewer.Versioning"],
+        ["OcadViewer.Wasm"] = ["OcadViewer.Comparison", "OcadViewer.Core", "OcadViewer.Versioning"],
         ["OcadViewer.ArchitectureTests"] = ["OcadViewer.Versioning"],
         ["OcadViewer.Comparison.Tests"] = ["OcadViewer.Comparison", "OcadViewer.Ocd"],
         ["OcadViewer.Merge.Tests"] = ["OcadViewer.Comparison", "OcadViewer.Merge", "OcadViewer.Ocd"],
