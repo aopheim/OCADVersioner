@@ -4,3 +4,6 @@
 # Vendored PurplePen sources must stay byte-identical to upstream: tools/sync-purplepen.ps1
 # verifies them by SHA-256, and any end-of-line translation would break that check.
 map-viewer/vendor/** -text
+
+# OCAD maps are binary; never let line-ending normalisation touch a fixture.
+*.ocd binary

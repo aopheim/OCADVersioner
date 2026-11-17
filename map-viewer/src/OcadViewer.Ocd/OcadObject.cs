@@ -94,46 +94,85 @@ public sealed class OcadObject
     }
 
     /// <summary>
-    /// Whether <paramref name="other"/> has the same content: the same record byte
-    /// for byte, except for the fields in <paramref name="ignoring"/> and
-    /// coordinates that may each be up to <paramref name="coordTolerance"/> apart.
-    /// Objects from files of different versions are never the same.
+    /// Whether <paramref name="other"/> has the same content: no field differs but
+    /// those in <paramref name="ignoring"/>, with coordinates that may each be up
+    /// to <paramref name="coordTolerance"/> apart. Objects from files of different
+    /// versions are never the same.
     /// </summary>
     public bool SameContent(OcadObject other, ObjectFields ignoring, int coordTolerance)
+        => Differences(other, ignoring, coordTolerance) == ObjectFields.None;
+
+    /// <summary>
+    /// The fields in which <paramref name="other"/> differs from this object, less
+    /// those in <paramref name="ignoring"/>. Coordinates count as the same while
+    /// each is within <paramref name="coordTolerance"/> and their flags agree.
+    /// </summary>
+    /// <remarks>
+    /// Records of the same version are compared byte for byte, so nothing escapes:
+    /// a byte no named field covers is <see cref="ObjectFields.Other"/>. Records of
+    /// different versions are compared field by field where the layouts agree, and
+    /// always differ in <see cref="ObjectFields.Other"/>.
+    /// </remarks>
+    public ObjectFields Differences(OcadObject other, ObjectFields ignoring, int coordTolerance)
     {
         if (ReferenceEquals(this, other))
-            return true;
-        if (Layout.Version != other.Layout.Version)
-            return false;
-        if (Status != other.Status || Coords.Count != other.Coords.Count)
-            return false;
+            return ObjectFields.None;
 
-        ReadOnlySpan<byte> mine = UsedRecord, theirs = other.UsedRecord;
-        if (mine.Length != theirs.Length)
-            return false;
+        ObjectFields found = ObjectFields.None;
+        if (Status != other.Status)
+            found |= ObjectFields.Status;
+        if (!SameCoords(other, coordTolerance))
+            found |= ObjectFields.Coordinates;
+        if (!Texts.SequenceEqual(other.Texts))
+            found |= ObjectFields.Text;
+        if (!ExtraStrings.SequenceEqual(other.ExtraStrings))
+            found |= ObjectFields.Other;
 
-        for (int i = 0; i < Layout.ObjectHeaderSize; i++) {
-            if (mine[i] != theirs[i] && !IsIgnored(i, ignoring))
-                return false;
+        if (Layout.Version == other.Layout.Version) {
+            ReadOnlySpan<byte> mine = Record.Span, theirs = other.Record.Span;
+            for (int i = 0; i < Layout.ObjectHeaderSize; i++) {
+                if (mine[i] != theirs[i])
+                    found |= Layout.ObjectFieldAt(i);
+            }
         }
+        else {
+            found |= ObjectFields.Other;
+            if (Symbol != other.Symbol)
+                found |= ObjectFields.Symbol;
+            if (Type != other.Type)
+                found |= ObjectFields.Type;
+            if (AngleField != other.AngleField)
+                found |= ObjectFields.Angle;
+        }
+
+        return found & ~ignoring;
+    }
+
+    private short AngleField => BitConverter.ToInt16(Record.Span[FileLayout.ObjectAngleOffset..]);
+
+    private int TextLength => BitConverter.ToInt16(Record.Span[Layout.ObjectTextCountOffset..]) * OcadCoord.Size;
+
+    private int TextsStart => Layout.ObjectHeaderSize + Coords.Count * OcadCoord.Size;
+
+    /// <summary>The object's own text, as stored.</summary>
+    private ReadOnlySpan<byte> Texts => UsedRecord.Slice(TextsStart, TextLength);
+
+    /// <summary>The object and database strings after the text (OCAD 12 and later).</summary>
+    private ReadOnlySpan<byte> ExtraStrings => UsedRecord[(TextsStart + TextLength)..];
+
+    private bool SameCoords(OcadObject other, int tolerance)
+    {
+        if (Coords.Count != other.Coords.Count)
+            return false;
 
         for (int i = 0; i < Coords.Count; i++) {
             OcadCoord a = Coords[i], b = other.Coords[i];
             if (a.XFlags != b.XFlags || a.YFlags != b.YFlags
-                || Math.Abs(a.X - b.X) > coordTolerance || Math.Abs(a.Y - b.Y) > coordTolerance)
+                || Math.Abs(a.X - b.X) > tolerance || Math.Abs(a.Y - b.Y) > tolerance)
                 return false;
         }
-
-        int texts = Layout.ObjectHeaderSize + Coords.Count * OcadCoord.Size;
-        return mine[texts..].SequenceEqual(theirs[texts..]);
+        return true;
     }
-
-    private bool IsIgnored(int offset, ObjectFields ignoring)
-        => (ignoring.HasFlag(ObjectFields.CreationDate) && InRange(offset, Layout.ObjectCreatedOffset, 8))
-        || (ignoring.HasFlag(ObjectFields.ModificationDate) && InRange(offset, Layout.ObjectModifiedOffset, 8))
-        || (ignoring.HasFlag(ObjectFields.Color) && InRange(offset, Layout.ObjectColorOffset, 4));
-
-    private static bool InRange(int offset, int start, int length) => start >= 0 && offset >= start && offset < start + length;
 
     /// <exception cref="OcadFormatException">The record claims more coordinates or text than it holds.</exception>
     private OcadCoord[] ReadCoords()

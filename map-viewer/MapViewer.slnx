@@ -4,6 +4,7 @@
     <Project Path="src/Graphics2D/Graphics2D.csproj" />
     <Project Path="src/MapModel/MapModel.csproj" />
     <Project Path="src/Map_SkiaStd/Map_SkiaStd.csproj" />
+    <Project Path="src/OcadViewer.Comparison/OcadViewer.Comparison.csproj" />
     <Project Path="src/OcadViewer.Core/OcadViewer.Core.csproj" />
     <Project Path="src/OcadViewer.Merge/OcadViewer.Merge.csproj" />
     <Project Path="src/OcadViewer.Ocd/OcadViewer.Ocd.csproj" />
@@ -13,6 +14,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/OcadViewer.ArchitectureTests/OcadViewer.ArchitectureTests.csproj" />
+    <Project Path="tests/OcadViewer.Comparison.Tests/OcadViewer.Comparison.Tests.csproj" />
     <Project Path="tests/OcadViewer.Merge.Tests/OcadViewer.Merge.Tests.csproj" />
     <Project Path="tests/OcadViewer.Ocd.Tests/OcadViewer.Ocd.Tests.csproj" />
   </Folder>

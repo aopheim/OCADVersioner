@@ -1,6 +1,6 @@
 using OcadViewer.Ocd;
 
-namespace OcadViewer.Merge.Matching;
+namespace OcadViewer.Comparison;
 
 /// <summary>
 /// Decides whether two versions of the same thing are the same: the definition
@@ -8,7 +8,8 @@ namespace OcadViewer.Merge.Matching;
 /// </summary>
 /// <remarks>
 /// Content is compared, except for what OCAD rewrites without the user changing
-/// anything: an object's dates; the colour field of an object that has a symbol
+/// anything: an object's dates and the reserved byte OCAD sets when a map is
+/// opened for App Data Exchange; the colour field of an object that has a symbol
 /// (only graphic objects are drawn in it, yet OCAD sets it on symbol objects too);
 /// a symbol's selection flag, symbol-box status and own file position; and in
 /// parameter strings, whether a background map is shown and whether a terrain
@@ -18,7 +19,8 @@ namespace OcadViewer.Merge.Matching;
 /// </remarks>
 public sealed class ContentComparer(int toleranceUnits)
 {
-    private const ObjectFields Dates = ObjectFields.CreationDate | ObjectFields.ModificationDate;
+    /// <summary>What OCAD rewrites on every object by itself: the dates, and the reserved byte App Data Exchange sets.</summary>
+    private const ObjectFields Dates = ObjectFields.CreationDate | ObjectFields.ModificationDate | ObjectFields.Reserved;
     private const SymbolFields VolatileSymbolFields = SymbolFields.Selected | SymbolFields.BoxStatus | SymbolFields.FilePosition;
 
     /// <summary>Per type of parameter string, the fields OCAD rewrites by itself.</summary>
@@ -28,10 +30,24 @@ public sealed class ContentComparer(int toleranceUnits)
         [SettingType.PointCloud] = "l",
     };
 
+    /// <summary>Vertex moves up to this far on the ground are not changes. Absorbs rounding when OCAD re-saves.</summary>
+    public const double DefaultToleranceMeters = 0.1;
+
     public int ToleranceUnits { get; } = toleranceUnits;
 
-    public bool Same(OcadObject a, OcadObject b)
-        => a.SameContent(b, a.Symbol > 0 ? Dates | ObjectFields.Color : Dates, ToleranceUnits);
+    /// <summary>A comparer for a map at <paramref name="scale"/>, with the tolerance given in metres on the ground.</summary>
+    public static ContentComparer ForScale(double scale, double toleranceMeters = DefaultToleranceMeters)
+        => new(Ground.ToUnits(toleranceMeters, scale));
+
+    public bool Same(OcadObject a, OcadObject b) => Differences(a, b) == ObjectFields.None;
+
+    /// <summary>
+    /// What differs between two versions of one object, less what OCAD rewrites by
+    /// itself. <see cref="Same(OcadObject, OcadObject)"/> is this being empty, so a
+    /// label for a change and the decision that there is one cannot disagree.
+    /// </summary>
+    public ObjectFields Differences(OcadObject a, OcadObject b)
+        => a.Differences(b, a.Symbol > 0 ? Dates | ObjectFields.Color : Dates, ToleranceUnits);
 
     public bool Same(OcadSymbol a, OcadSymbol b) => a.SameContent(b, VolatileSymbolFields);
 

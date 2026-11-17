@@ -1,5 +1,5 @@
 using OcadViewer.Ocd;
-using OcadViewer.Merge.Matching;
+using OcadViewer.Comparison;
 
 namespace OcadViewer.Merge.Analysis;
 
@@ -15,7 +15,7 @@ public static class MergeAnalyzer
                 $"All three files must be saved in the same OCAD version (base is {@base.Version}, " +
                 $"the branches are {a.Version} and {b.Version}). Open them in OCAD and save them alike.");
 
-        ContentComparer comparer = new(options.ToleranceUnits(@base.Scale));
+        ContentComparer comparer = ContentComparer.ForScale(@base.Scale, options.ToleranceMeters);
 
         IReadOnlyList<ObjectItem> objects = Objects(@base, a, b, comparer);
         return new MergeAnalysis(@base, a, b, options,

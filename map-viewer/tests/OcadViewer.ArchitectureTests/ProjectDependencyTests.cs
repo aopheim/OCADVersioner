@@ -16,11 +16,14 @@ namespace OcadViewer.ArchitectureTests;
 ///   Graphics2D ← MapModel ← Map_SkiaStd ← OcadViewer.Core ← RenderCli
 ///                                              ↑
 ///                      OcadViewer.Versioning ← OcadViewer.Wasm
-///   OcadViewer.Ocd ←       OcadViewer.Merge      ←┘
+///
+///   OcadViewer.Ocd ← OcadViewer.Comparison ← OcadViewer.Merge
+///         ↑______________________________________|
 /// </code>
 ///
-/// OcadViewer.Ocd reads and edits OCAD files at the byte level; OcadViewer.Merge
-/// builds on it and nothing else.
+/// OcadViewer.Ocd reads and edits OCAD files at the byte level. OcadViewer.Comparison
+/// decides which object is which and whether it changed, for every feature that
+/// compares versions. OcadViewer.Merge builds on both and nothing else.
 ///
 /// Nothing in the compiler keeps it that way: one <c>using</c> of
 /// Microsoft.AspNetCore in the wrong project compiles. These tests do.
@@ -41,11 +44,13 @@ public sealed class ProjectDependencyTests
         ["OcadViewer.Core"] = ["Map_SkiaStd"],
         ["OcadViewer.Versioning"] = [],
         ["OcadViewer.Ocd"] = [],
-        ["OcadViewer.Merge"] = ["OcadViewer.Ocd"],
+        ["OcadViewer.Comparison"] = ["OcadViewer.Ocd"],
+        ["OcadViewer.Merge"] = ["OcadViewer.Comparison", "OcadViewer.Ocd"],
         ["OcadViewer.RenderCli"] = ["OcadViewer.Core"],
         ["OcadViewer.Wasm"] = ["OcadViewer.Core", "OcadViewer.Versioning"],
         ["OcadViewer.ArchitectureTests"] = ["OcadViewer.Versioning"],
-        ["OcadViewer.Merge.Tests"] = ["OcadViewer.Merge", "OcadViewer.Ocd"],
+        ["OcadViewer.Comparison.Tests"] = ["OcadViewer.Comparison", "OcadViewer.Ocd"],
+        ["OcadViewer.Merge.Tests"] = ["OcadViewer.Comparison", "OcadViewer.Merge", "OcadViewer.Ocd"],
         ["OcadViewer.Ocd.Tests"] = ["OcadViewer.Ocd"],
     };
 
@@ -129,11 +134,13 @@ public sealed class ProjectDependencyTests
 
     /// <summary>
     /// The domain projects. Versioning states the contract this app shares with the
-    /// Angular app; Ocd reads and edits OCAD files byte for byte; Merge decides what
-    /// to merge. All have to stay testable without a browser, a renderer or a
-    /// vendored assembly, so they reference nothing but each other.
+    /// Angular app; Ocd reads and edits OCAD files byte for byte; Comparison decides
+    /// identity and change; Merge decides what to merge. All have to stay testable
+    /// without a browser, a renderer or a vendored assembly, so they reference
+    /// nothing but each other.
     /// </summary>
-    private static readonly string[] DomainProjects = ["OcadViewer.Versioning", "OcadViewer.Ocd", "OcadViewer.Merge"];
+    private static readonly string[] DomainProjects =
+        ["OcadViewer.Versioning", "OcadViewer.Ocd", "OcadViewer.Comparison", "OcadViewer.Merge"];
 
     [TestCaseSource(nameof(DomainProjects))]
     public void TheDomainProjectsDependOnNothingButEachOther(string name)

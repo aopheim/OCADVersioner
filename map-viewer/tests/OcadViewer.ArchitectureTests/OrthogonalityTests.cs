@@ -234,6 +234,48 @@ public sealed class OrthogonalityTests
             + "this change - so the only thing crossing the boundary is \"zero means unchanged\".");
     }
 
+    /* ------------------------------------------- comparing versions of a map */
+
+    [Test]
+    public void WhichObjectIsWhichIsDecidedOnlyInComparison()
+    {
+        IReadOnlyList<SourceFile> offenders = Matching(
+            csharp, @"\b(class|record)\s+\w*(ObjectMatcher|ContentComparer)\b");
+
+        Assert.That(offenders.Select(f => f.RelativePath).Where(path => !InProject(path, "OcadViewer.Comparison")), Is.Empty,
+            "Identity and change are decided once, in OcadViewer.Comparison, so the diff table and "
+            + "the merge cannot tell a user two different stories about the same two versions.");
+    }
+
+    [Test]
+    public void OnlyComparisonAsksWhetherTwoRecordsAreTheSame()
+    {
+        // Ocd's SameContent and Differences take a list of fields to ignore. Which
+        // fields are noise is a decision about what a change is, made in one place.
+        IReadOnlyList<SourceFile> offenders = Matching(csharp, @"\.(SameContent|Differences)\(");
+
+        Assert.That(offenders.Select(f => f.RelativePath)
+                             .Where(path => !InProject(path, "OcadViewer.Comparison") && !InProject(path, "OcadViewer.Ocd")),
+                    Is.Empty,
+                    "Compare records through OcadViewer.Comparison's ContentComparer, which knows what "
+                    + "OCAD rewrites by itself.");
+    }
+
+    [Test]
+    public void OnlyOcdReadsTheOcadFormat()
+    {
+        // The file mark, and reading the object index by its entry size or the
+        // header's pointer to it, are the signs of a second OCAD parser.
+        IReadOnlyList<SourceFile> offenders = Matching(csharp, @"0x0CAD|\bOcadMark\b|IndexEntrySize|FirstObjectBlock");
+
+        Assert.That(offenders.Select(f => f.RelativePath).Where(path => !InProject(path, "OcadViewer.Ocd")), Is.Empty,
+            "OcadViewer.Ocd is the one reader of the OCAD format. A second one drifts from it: "
+            + "different versions accepted, different bounds checks, different fields kept.");
+    }
+
+    private static bool InProject(string relativePath, string project)
+        => relativePath.Replace('\\', '/').Contains($"/{project}/", StringComparison.Ordinal);
+
     /* ------------------------------------------------- contracts stated once */
 
     [Test]

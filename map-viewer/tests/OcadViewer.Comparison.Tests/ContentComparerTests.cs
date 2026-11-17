@@ -1,7 +1,7 @@
 using OcadViewer.Ocd;
-using OcadViewer.Merge.Matching;
+using OcadViewer.Comparison;
 
-namespace OcadViewer.Merge.Tests;
+namespace OcadViewer.Comparison.Tests;
 
 [TestFixture]
 public sealed class ContentComparerTests
@@ -56,9 +56,10 @@ public sealed class ContentComparerTests
     {
         // 0.1 m at 1:10 000 is 0.01 mm on paper: one coordinate unit.
         Assert.Multiple(() => {
-            Assert.That(MergeOptions.Default.ToleranceUnits(10000), Is.EqualTo(1));
-            Assert.That(MergeOptions.Default.ToleranceUnits(4000), Is.EqualTo(2));
-            Assert.That(new MergeOptions { OverlapBufferMeters = 10 }.OverlapBufferUnits(10000), Is.EqualTo(100));
+            Assert.That(ContentComparer.ForScale(10000).ToleranceUnits, Is.EqualTo(1));
+            Assert.That(ContentComparer.ForScale(4000).ToleranceUnits, Is.EqualTo(2));
+            Assert.That(Ground.ToUnits(10, 10000), Is.EqualTo(100));
+            Assert.That(Ground.MetresPerUnit(15000), Is.EqualTo(0.15));
         });
     }
 
