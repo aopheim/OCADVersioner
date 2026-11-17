@@ -36,19 +36,19 @@ public sealed class OverlapGroup
 /// <para>Distances are measured between what each branch changed (see
 /// <see cref="ChangedStretch"/>): a knoll dropped next to a newly drawn contour is
 /// the case to catch, and a contour edited at one end is not near a knoll by its
-/// other end. A change inside an area the other branch added also counts.</para>
+/// other end. A change inside a small area the other branch added, deleted or restyled also counts.</para>
 /// <para>Changes are joined transitively, so a chain of neighbours is one group.</para>
 /// </remarks>
 public static class OverlapDetector
 {
-    public static IReadOnlyList<OverlapGroup> Find(IReadOnlyList<ObjectItem> items, int distanceUnits)
+    public static IReadOnlyList<OverlapGroup> Find(IReadOnlyList<ObjectItem> items, int distanceUnits, int insideUpToUnits)
     {
         Dictionary<ObjectItem, ChangedStretch> stretch = new(ReferenceEqualityComparer.Instance);
         foreach (ObjectItem item in items) {
             if (item.Outcome == Outcome.OnlyA)
-                stretch[item] = ChangedStretch.Between(item.Base, item.A);
+                stretch[item] = ChangedStretch.Between(item.Base, item.A, insideUpToUnits);
             else if (item.Outcome == Outcome.OnlyB)
-                stretch[item] = ChangedStretch.Between(item.Base, item.B);
+                stretch[item] = ChangedStretch.Between(item.Base, item.B, insideUpToUnits);
         }
 
         ObjectItem[] fromA = [.. items.Where(i => i.Outcome == Outcome.OnlyA)];
