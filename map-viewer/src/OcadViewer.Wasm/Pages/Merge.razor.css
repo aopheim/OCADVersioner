@@ -22,9 +22,6 @@
 
 .merge-dot.side-a { background: #0E8A93; }
 .merge-dot.side-b { background: #E26A0A; }
-.text-a { color: #0B7A82; }
-.text-b { color: #B35309; }
-
 .merge-body {
     display: flex;
     flex-wrap: wrap;
@@ -45,14 +42,6 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-}
-
-.merge-label {
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--bs-secondary-color);
 }
 
 .merge-legend span {

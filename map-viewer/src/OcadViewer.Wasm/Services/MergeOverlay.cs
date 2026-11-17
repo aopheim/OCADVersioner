@@ -43,8 +43,32 @@ public static class MergeOverlay
         return features;
     }
 
-    public static string Json(MergeSession session)
-        => JsonSerializer.Serialize(Features(session), MergeOverlayJson.Default.IReadOnlyListOverlayFeature);
+    public static string Json(MergeSession session) => Json(Features(session));
+
+    /// <summary>
+    /// One file's versions of a conflict, for one pane of the conflict walker: base's
+    /// when <paramref name="side"/> is null, else that branch's. An overlap shows the
+    /// versions of all its members.
+    /// </summary>
+    public static IReadOnlyList<OverlayFeature> Versions(object source, Side? side)
+    {
+        IEnumerable<ObjectItem> items = source switch {
+            OverlapGroup group => group.Items,
+            ObjectItem item => [item],
+            _ => [],
+        };
+
+        return [.. items
+            .Select(item => (item, version: side is Side s ? item.Version(s) : item.Base))
+            .Where(x => x.version is not null)
+            .Select(x => Outline(x.item.Key,
+                                 side is Side owner ? ChangeSides.Of(owner) : ChangeSide.Both,
+                                 side is Side s ? Word(x.item.Change(s)) : "changed",
+                                 x.version, "accepted"))];
+    }
+
+    public static string Json(IReadOnlyList<OverlayFeature> features)
+        => JsonSerializer.Serialize(features, MergeOverlayJson.Default.IReadOnlyListOverlayFeature);
 
     /// <summary>
     /// An open conflict: base's shape and both branches' versions. Otherwise each

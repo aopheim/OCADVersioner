@@ -63,3 +63,16 @@
     border-color: var(--bs-body-color);
     color: #fff;
 }
+
+/* Small uppercase section labels and the branches' text colours, shared by
+   the merge screen and its conflict walker. */
+.merge-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+.text-a { color: #0B7A82; }
+.text-b { color: #B35309; }
