@@ -38,6 +38,14 @@ public sealed class DamagedFileTests
             WriteInt(bytes, record + file.Layout.ObjectCoordCountOffset, 1_000_000);
         })));
 
+    [TestCase(30000)]
+    [TestCase(-5)]
+    public void AnObjectClaimingMoreTextThanItsRecordHolds(int texts)
+        => Assert.Throws<OcadFormatException>(() => OcadFile.Read(Broken((bytes, file) => {
+            int record = BitConverter.ToInt32(bytes, file.ObjectIndex.EntryOffset(0) + FileLayout.IndexPosOffset);
+            BitConverter.TryWriteBytes(bytes.AsSpan(record + file.Layout.ObjectTextCountOffset), (short)texts);
+        })));
+
     [Test]
     public void ASymbolRecordOutsideTheFile()
         => Assert.Throws<OcadFormatException>(() => OcadFile.Read(Broken((bytes, file)

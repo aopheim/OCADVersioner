@@ -48,10 +48,11 @@ public sealed class OcadFile
             : DefaultScale;
     }
 
-    /// <summary>Reads <paramref name="bytes"/>, which are kept, not copied: do not change them afterwards.</summary>
+    /// <summary>Reads a copy of <paramref name="bytes"/>: changing them afterwards changes nothing here.</summary>
     /// <exception cref="OcadFormatException">Not an OCAD file, damaged, or an unsupported version.</exception>
     public static OcadFile Read(ReadOnlyMemory<byte> bytes)
     {
+        bytes = bytes.ToArray();
         ReadOnlySpan<byte> span = bytes.Span;
         if (span.Length < FileLayout.HeaderSize || BitConverter.ToInt16(span) != FileLayout.OcadMark)
             throw new OcadFormatException("This is not an OCAD file.");
