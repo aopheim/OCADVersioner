@@ -53,7 +53,7 @@
                     <summary>@L.Format("#_mergeCrossing", ("count", crossing.Count))</summary>
                     @foreach (ObjectItem item in crossing) {
                         <button type="button" class="btn btn-link btn-sm p-0 d-block text-start"
-                                @onclick="() => OnSelectItem.InvokeAsync(item.Key)">@MergeText.Title(Session.Analysis, item, L)</button>
+                                @onclick="() => OnSelectItem.InvokeAsync(item.Key)">@MergeText.Title(SymbolNames, item, L)</button>
                     }
                 </details>
             }
@@ -73,6 +73,14 @@
     [Parameter] public EventCallback<(object Source, Choice? Choice)> OnChoose { get; set; }
     [Parameter] public EventCallback<MergeRegion> OnRemove { get; set; }
     [Parameter] public EventCallback<string> OnSelectItem { get; set; }
+
+    private (MergeAnalysis Analysis, IReadOnlyDictionary<int, string> Names) symbolNames;
+
+    /// <summary>The symbols' names, worked out once per analysis.</summary>
+    private IReadOnlyDictionary<int, string> SymbolNames
+        => ReferenceEquals(symbolNames.Analysis, Session.Analysis)
+            ? symbolNames.Names
+            : (symbolNames = (Session.Analysis, MergeText.SymbolNames(Session.Analysis))).Names;
 
     private static string SideClass(MergeRegion region) => region.Suggested switch {
         Side.A => "side-a",
