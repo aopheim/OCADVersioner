@@ -11,7 +11,7 @@ namespace OcadViewer.Merge.Writing;
 /// first version a replacement, and a second version - "keep both" - an addition
 /// with a new identity.
 /// </remarks>
-public static class MergePlanner
+internal static class MergePlanner
 {
     /// <param name="preview">Plan what the map looks like so far: undecided conflicts
     /// stay as base. A preview is for showing, never for saving.</param>
