@@ -1,0 +1,66 @@
+@inherits LocalisedComponent
+
+@*
+    The list of versions down the left side. Mirrors Angular's ocad-version-list:
+    title, short date, description, and the three symbol counts.
+*@
+
+<div class="list-group">
+    @foreach (var item in Items) {
+        <button type="button"
+                class="list-group-item list-group-item-action @(item.Number == SelectedNumber ? "active" : "")"
+                disabled="@Disabled"
+                @onclick="() => OnSelected.InvokeAsync(item.Number)">
+            <div class="d-flex w-100 justify-content-between">
+                @* Angular's split: the title gets seven twelfths and wraps, the
+                   date five. Truncating the title instead let the date take the
+                   whole row in the narrow col-md-2 column, and the title vanished. *@
+                <h6 class="mb-1 col-7 pe-1 text-break">@DisplayTitle(item)</h6>
+                <small class="col-5">@DisplayDate(item)</small>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(item.Description)) {
+                <p class="mb-1 small">@item.Description</p>
+            }
+
+            <div class="d-flex justify-content-around small">
+                <span title="@L["#_addedSymbols"]">
+                    <i class="bi bi-plus-square mx-1"></i>@item.Added
+                </span>
+                <span title="@L["#_editedSymbols"]">
+                    <i class="bi bi-pencil mx-1"></i>@item.Edited
+                </span>
+                <span title="@L["#_deletedSymbols"]">
+                    <i class="bi bi-trash mx-1"></i>@item.Deleted
+                </span>
+            </div>
+        </button>
+    }
+</div>
+
+@code {
+    /// <param name="Number">The release number; 1 for V1. There is no row for the working file.</param>
+    public sealed record Item(
+        int Number, string Name, string Title, string Description,
+        DateTimeOffset? CreatedAt, int Added, int Edited, int Deleted);
+
+    [Parameter, EditorRequired] public IReadOnlyList<Item> Items { get; set; } = [];
+
+    /// <summary>The highlighted row, 0 for none - which is the working file's view.</summary>
+    [Parameter] public int SelectedNumber { get; set; }
+
+    /// <summary>True while the page is busy, so a second comparison cannot start on top of the first.</summary>
+    [Parameter] public bool Disabled { get; set; }
+
+    [Parameter] public EventCallback<int> OnSelected { get; set; }
+
+    private static string DisplayTitle(Item item)
+        => string.IsNullOrWhiteSpace(item.Title) ? item.Name : item.Title;
+
+    /// <summary>
+    /// A version written by hand, or by an older app, may carry no date. Saying
+    /// nothing is better than inventing one.
+    /// </summary>
+    private static string DisplayDate(Item item)
+        => item.CreatedAt is { } date ? date.ToLocalTime().ToString("g") : "";
+}

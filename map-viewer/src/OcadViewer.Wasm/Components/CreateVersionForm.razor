@@ -1,0 +1,67 @@
+@inherits LocalisedComponent
+
+@*
+    The "create a new version" form at the foot of the version list.
+
+    Extracted from the page, which had it inline while the version list and the
+    diff table beside it were components - so the page carried a form's three
+    fields and their state for no reason other than history.
+*@
+
+<div class="mt-auto py-3">
+    <h5>@L.Format("#_createNewVersion", ("fileName", FileName))</h5>
+
+    <div class="mb-2">
+        <label class="form-label small mb-1">@L["#_title"]</label>
+        <input class="form-control form-control-sm" @bind="title" disabled="@Busy"
+               placeholder="@L.Format("#_versionTitleHelper",
+                                      ("newVersionName", NextVersionName),
+                                      ("fileName", FileName))" />
+    </div>
+
+    <div class="mb-2">
+        <label class="form-label small mb-1">@L["#_description"]</label>
+        <textarea class="form-control form-control-sm" rows="3"
+                  @bind="description" disabled="@Busy"></textarea>
+    </div>
+
+    <button class="btn btn-primary btn-sm" @onclick="Submit"
+            disabled="@(Busy || string.IsNullOrEmpty(FileName))">
+        @L.Format("#_newVersionSubmitText",
+                  ("newVersionName", NextVersionName), ("fileName", FileName))
+    </button>
+
+    <p class="text-muted small mt-2 mb-0">
+        @L["#_copiesWorkingFileInto"] <code>Releases/@NextVersionName/</code>.
+        @L["#_symbolCountsSavedAsZero"]
+    </p>
+</div>
+
+@code {
+    /// <summary>The working file being copied, for the labels.</summary>
+    [Parameter, EditorRequired] public string FileName { get; set; }
+
+    /// <summary>What the new release will be called.</summary>
+    [Parameter, EditorRequired] public string NextVersionName { get; set; }
+
+    [Parameter] public bool Busy { get; set; }
+
+    /// <summary>Raised with the title and description the user typed.</summary>
+    [Parameter] public EventCallback<(string Title, string Description)> OnCreate { get; set; }
+
+    private string title;
+    private string description;
+
+    private async Task Submit() => await OnCreate.InvokeAsync((title, description));
+
+    /// <summary>
+    /// Empties the fields. The page calls this once the version actually exists:
+    /// clearing on submit would throw away what the user typed whenever the write
+    /// failed, and a failed write is exactly when they want it back.
+    /// </summary>
+    public void Reset()
+    {
+        title = description = null;
+        StateHasChanged();
+    }
+}

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The project-folder domain: what a release is called, what its metadata looks
+    like on disk, and which version compares against which.
+
+    It has no dependencies at all, and that is the point. The rules here are a
+    contract with the Angular app - both read and write the same folders - so they
+    have to be testable without a browser, a renderer or a vendored assembly.
+    OcadViewer.ArchitectureTests enforces that emptiness.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

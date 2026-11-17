@@ -1,0 +1,20 @@
+{
+    "version": "0.0.1",
+    "configurations": [
+        {
+            "name": "map-viewer",
+            "runtimeExecutable": "dotnet",
+            "runtimeArgs": [
+                "run",
+                "--project",
+                "map-viewer/src/OcadViewer.Wasm/OcadViewer.Wasm.csproj",
+                "-c",
+                "Release",
+                "--no-build",
+                "--launch-profile",
+                "http"
+            ],
+            "port": 5001
+        }
+    ]
+}

@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Thin wrapper over vendored PurplePen MapModel sources (BSD 3-Clause,
+    (c) Peter Golde). Sources unmodified; see vendor/UPSTREAM.md.
+
+    This is the OCAD parser (OcadImport/OcadFileFormat/InputOutput) plus the map
+    model (Map/SymDef/Symbol/SymPath/Glyph) that carries all the symbol rendering
+    logic. Every vendored .cs is compiled - InputOutput.cs references OcadExport
+    and the OpenMapper importers, so excluding them would require editing source.
+    Size reduction is the IL trimmer's job, not ours.
+
+    Differences from upstream MapModel.csproj, all deliberate:
+      - AllowUnsafeBlocks hoisted out of the per-configuration groups, so it holds
+        for any configuration rather than only Debug/Release/StorePkg.
+      - CodeAnalysisRuleSet dropped (upstream Release/StorePkg paths name files
+        that do not exist - 'AllRules.ruset' is a typo upstream).
+      - EmbeddedResource carries an explicit LogicalName; see below.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>MapModel</AssemblyName>
+    <!-- Must stay PurplePen.MapModel: AuthorityCodeHandler.cs:75 resolves the
+         embedded projection table by hardcoded name. -->
+    <RootNamespace>PurplePen.MapModel</RootNamespace>
+
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
+
+    <!-- Upstream defines TEST in all three configurations. Some code is
+         #if TEST guarded, so dropping it would change behaviour. -->
+    <DefineConstants>$(DefineConstants);TEST</DefineConstants>
+
+    <NoWarn>$(NoWarn);NU1510</NoWarn>
+    <IsTrimmable>false</IsTrimmable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(VendorDir)MapModel\*.cs" />
+    <Compile Include="$(VendorDir)MapModel\Projections\*.cs" />
+    <Compile Include="$(VendorDir)MapModel\DebugCode\*.cs" />
+    <Compile Include="$(VendorDir)MapModel\Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Projections/AuthorityCodeHandler.cs:75 does
+           GetManifestResourceStream("PurplePen.MapModel.Projections.AuthorityCodeToProj4.ds")
+         Because the source lives outside the project directory, the SDK would
+         derive the wrong name. Pin it explicitly. -->
+    <EmbeddedResource Include="$(VendorDir)MapModel\Projections\AuthorityCodeToProj4.ds"
+                      LogicalName="PurplePen.MapModel.Projections.AuthorityCodeToProj4.ds" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Prune="false" is required: on .NET 10 the SDK would otherwise prune this
+         as in-framework, but CodePagesEncodingProvider (Util.cs:57, used for
+         legacy OCAD 6-8 Delphi strings) is not in the browser-wasm framework. -->
+    <PackageReference Include="System.Text.Encoding.CodePages" Prune="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Graphics2D\Graphics2D.csproj" />
+    <ProjectReference Include="..\DotSpatial.Projections\DotSpatial.Projections.csproj" />
+  </ItemGroup>
+
+</Project>

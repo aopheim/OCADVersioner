@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Reads and edits OCAD map files (.ocd) at the byte level: objects, symbols and
+    parameter strings as records, and an editor that writes changes into a copy
+    of a file byte-faithfully. It is the only project that knows where anything
+    sits in an OCAD file; everything about byte offsets and index blocks is
+    internal, and the public surface is what a caller needs to read a map and
+    say what to change in it.
+
+    It has no dependencies. It reads the format itself rather than going through
+    PurplePen's MapModel, because a drawing model keeps only what it can draw and
+    cannot promise that everything else comes out exactly as it went in.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OcadViewer.Ocd.Tests" />
+    <!-- The merge engine's tests nudge coordinates (WithCoords) and build files OCAD
+         cannot be made to write, such as a string tied to an object. Tests only. -->
+    <InternalsVisibleTo Include="OcadViewer.Merge.Tests" />
+  </ItemGroup>
+
+</Project>

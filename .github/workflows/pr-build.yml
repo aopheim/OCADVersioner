@@ -1,27 +1,50 @@
 name: PR build
 
+# No `types:` filter, so this runs on opened, reopened and every push to the
+# branch. With `types: [opened]` a required check could only ever report on the
+# first commit: push a fix for a failing build and nothing re-ran, leaving the
+# PR gated on a verdict about code that was no longer there.
+#
+# No `branches:` filter either: stacked pull requests target the branch below
+# them, not develop, and their builds and tests matter just as much.
 on:
     pull_request:
-        types: [opened]
-        branches:
-            - main
-            - develop
 
 jobs:
-    build:
+    map-viewer:
         runs-on: ubuntu-latest
+
+        # Every dotnet command runs from map-viewer so that map-viewer/global.json
+        # picks the SDK. The runner image ships a newer SDK than the app targets,
+        # and without the pin `dotnet` uses that one: its `wasm-tools` is not the
+        # workload a net10.0 app needs (wasm-tools-net10), and the build fails
+        # with NETSDK1147.
+        defaults:
+            run:
+                working-directory: map-viewer
 
         steps:
             - name: Checkout repo
-              uses: actions/checkout@v2
+              uses: actions/checkout@v4
 
-            - name: Use Node.js
-              uses: actions/setup-node@v2
+            - name: Use .NET
+              uses: actions/setup-dotnet@v4
               with:
-                  node-version: '20.9'
+                  global-json-file: map-viewer/global.json
 
-            - name: Run yarn build:pr
-              run: |
-                  cd ocad-versioner
-                  yarn install
-                  yarn build:pr
+            - name: Show the SDK in use
+              run: dotnet --version
+
+            # SkiaSharp and HarfBuzz ship native WebAssembly assets, so even a
+            # non-AOT build goes through the wasm native toolchain.
+            - name: Install the wasm-tools workload
+              run: dotnet workload install wasm-tools
+
+            # AOT is a publish-only setting, so this stays a normal build.
+            - name: Build
+              run: dotnet build MapViewer.slnx -c Release
+
+            # The solution rather than the one test project, so a suite added
+            # later is picked up without touching this file.
+            - name: Test
+              run: dotnet test MapViewer.slnx -c Release --no-build

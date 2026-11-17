@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DotSpatial.Projections/DotSpatial.Projections.csproj" />
+    <Project Path="src/Graphics2D/Graphics2D.csproj" />
+    <Project Path="src/MapModel/MapModel.csproj" />
+    <Project Path="src/Map_SkiaStd/Map_SkiaStd.csproj" />
+    <Project Path="src/OcadViewer.Core/OcadViewer.Core.csproj" />
+    <Project Path="src/OcadViewer.Merge/OcadViewer.Merge.csproj" />
+    <Project Path="src/OcadViewer.Ocd/OcadViewer.Ocd.csproj" />
+    <Project Path="src/OcadViewer.RenderCli/OcadViewer.RenderCli.csproj" />
+    <Project Path="src/OcadViewer.Versioning/OcadViewer.Versioning.csproj" />
+    <Project Path="src/OcadViewer.Wasm/OcadViewer.Wasm.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OcadViewer.ArchitectureTests/OcadViewer.ArchitectureTests.csproj" />
+    <Project Path="tests/OcadViewer.Merge.Tests/OcadViewer.Merge.Tests.csproj" />
+    <Project Path="tests/OcadViewer.Ocd.Tests/OcadViewer.Ocd.Tests.csproj" />
+  </Folder>
+</Solution>

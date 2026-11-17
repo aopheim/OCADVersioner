@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Thin wrapper over vendored PurplePen sources (BSD 3-Clause, (c) Peter Golde).
+    The sources are unmodified; this project file is ours. See vendor/UPSTREAM.md.
+
+    Differences from upstream Graphics2D.csproj, all deliberate:
+      - CodeAnalysisRuleSet dropped (upstream paths point at files that are either
+        absent or unreferenced; no analyzers are used).
+      - net48 conditional framework references dropped; we only target net10.0.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Graphics2D</AssemblyName>
+    <RootNamespace>PurplePen.Graphics2D</RootNamespace>
+
+    <!-- Upstream ships its own AssemblyInfo.cs, which pins AssemblyVersion to
+         Graphics2D/VersionNumber.cs. Keep both or the version constant is lost. -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(VendorDir)Graphics2D\*.cs" />
+    <Compile Include="$(VendorDir)Graphics2D\Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+
+</Project>

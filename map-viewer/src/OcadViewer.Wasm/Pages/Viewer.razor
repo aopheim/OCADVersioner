@@ -1,0 +1,237 @@
+@page "/viewer"
+@using OcadViewer.Versioning
+@using OcadViewer.Wasm.Components
+@using OcadViewer.Wasm.Services
+@inherits BusyPage
+@inject IJSRuntime JS
+
+<PageTitle>@L["#_OCADVersioner"]</PageTitle>
+
+@*
+    A plain viewer for map files from this device - a phone as much as a laptop.
+
+    No project folder: the File System Access API does not exist on phones, and
+    looking at a map someone sent you should not need one. Each pane takes a file
+    of its own, chosen or dropped, and with two maps loaded the change overlay
+    compares them exactly as the workspace compares two versions - the panes, the
+    overlay and its switch are the workspace's own components.
+
+    Nothing is remembered across a reload. A browser cannot reopen a file it was
+    handed once, so the files would be gone anyway, and a remembered mode with
+    empty panes would only be a surprise.
+*@
+<div class="container-fluid viewerPage d-flex flex-column">
+
+<BusyBar Busy="Busy" />
+
+<div class="d-flex align-items-center gap-1 gap-sm-2 py-1 flex-nowrap">
+    <div class="btn-group" role="group" aria-label="@L["#_howManyMaps"]">
+        <button class="btn @(single ? "btn-primary" : "btn-outline-secondary")"
+                @onclick="() => SetSingle(true)" disabled="@Busy" title="@L["#_oneMap"]">
+            <i class="bi bi-square"></i>
+        </button>
+        <button class="btn @(single ? "btn-outline-secondary" : "btn-primary")"
+                @onclick="() => SetSingle(false)" disabled="@Busy" title="@L["#_twoMapsCompared"]">
+            <i class="bi bi-layout-split"></i>
+        </button>
+    </div>
+
+    @* Always on the page, even with one map, so its state and its keyboard
+       shortcut survive a trip to single-map mode and back. *@
+    <ChangeOverlayToggle @ref="overlay" MapPair="mapPair"
+                         Older="@KeyFor(Older)" Newer="@KeyFor(Newer)"
+                         OlderLabel="@(files[Older] ?? PaneLabel(Older))"
+                         Available="Comparing"
+                         Busy="Busy" Run="Run" Large="true" />
+
+    @* In the toolbar rather than a line of its own, so a message coming and
+       going does not resize the maps under the user's finger. *@
+    @if (Status is not null) {
+        <span class="small text-truncate @(Failed ? "text-danger" : "text-muted")"
+              title="@Status">@Status</span>
+    }
+
+    <div class="ms-auto d-flex align-items-center">
+        <a href="./" title="@L["#_OCADVersioner"]">
+            <i class="bi bi-house cursorPointer mx-1 h4 noColor"></i>
+        </a>
+        <a href="about" title="@L["#_about"]">
+            <i class="bi bi-book cursorPointer mx-1 h4 noColor"></i>
+        </a>
+    </div>
+</div>
+
+<div class="flex-grow-1 viewerMaps pb-1">
+    <OcadMapPair @ref="mapPair" Fill="true" OnlySide="ShownAlone">
+        <PaneContent Context="side">
+            @* Visually hidden but still focusable, so the picker can be reached
+               with Tab and opened with Enter or Space; the label after it shows
+               the focus ring. Not display:none, which would take it out of the
+               tab order altogether. *@
+            <input type="file" id="@InputId(side)" class="visually-hidden paneFile"
+                   @ref="inputs[side]" @onchange="e => Choose(side, e)" />
+
+            @* A label, not a button: tapping it opens the input's picker natively,
+               which is the only way some mobile browsers allow it at all. *@
+            @if (files[side] is null) {
+                <label for="@InputId(side)" class="paneEmpty">
+                    <i class="bi bi-folder2-open display-6"></i>
+                    <span class="fw-medium">@PaneLabel(side)</span>
+                    <span class="text-muted small">@L["#_tapToChooseMap"]</span>
+                </label>
+            }
+            else {
+                <label for="@InputId(side)" class="btn btn-light btn-sm border paneButton"
+                       title="@L["#_chooseAnotherMap"]">
+                    <i class="bi bi-folder2-open"></i> @PaneLabel(side): @files[side]
+                </label>
+            }
+        </PaneContent>
+    </OcadMapPair>
+</div>
+
+</div>
+
+@code {
+    /// <summary>
+    /// Older on the left - on top when the panes stack - and newer on the right:
+    /// the workspace's order, so time reads the same way on both pages, and the
+    /// overlay lands on the pane the eye ends up on.
+    /// </summary>
+    private const MapSide Older = MapSide.Left;
+    private const MapSide Newer = MapSide.Right;
+
+    private static readonly MapSide[] Sides = [Older, Newer];
+
+    private OcadMapPair mapPair;
+    private ChangeOverlayToggle overlay;
+
+    /// <summary>One map or two. Two on arrival, because comparing is the point.</summary>
+    private bool single;
+
+    /// <summary>The file each pane is showing, by name; null for an empty pane.</summary>
+    private readonly Dictionary<MapSide, string> files = Sides.ToDictionary(s => s, _ => (string)null);
+
+    private readonly Dictionary<MapSide, ElementReference> inputs = [];
+
+    private IJSObjectReference dropModule;
+    private readonly List<IJSObjectReference> drops = [];
+
+    /// <summary>
+    /// How many times each pane has been given a file, so a load that had to
+    /// wait can tell whether a newer choice has replaced it meanwhile.
+    /// </summary>
+    private readonly Dictionary<MapSide, int> choices = Sides.ToDictionary(s => s, _ => 0);
+
+    private bool BothLoaded => Sides.All(s => files[s] is not null);
+
+    /// <summary>Whether the change overlay has two visible maps to compare.</summary>
+    private bool Comparing => !single && BothLoaded;
+
+    /// <summary>
+    /// The pane shown in single-map mode, or null with two maps.
+    /// </summary>
+    /// <remarks>
+    /// The older pane, unless only the newer one has a map - switching to one
+    /// map must not hide the only map there is.
+    /// </remarks>
+    private MapSide? ShownAlone
+        => !single ? null
+         : files[Older] is null && files[Newer] is not null ? Newer
+         : Older;
+
+    /// <summary>
+    /// The name a pane's map is held under.
+    /// </summary>
+    /// <remarks>
+    /// One per pane rather than the file's own name: two files called the same
+    /// - "map.ocd" from two people - must not replace each other, and a file
+    /// chosen again has to be read again anyway, since it may have changed.
+    /// </remarks>
+    private static string KeyFor(MapSide side) => $"chosen:{side}";
+
+    private static string InputId(MapSide side) => $"mapFile{side}";
+
+    private string PaneLabel(MapSide side)
+        => L[single ? "#_map" : side == Older ? "#_older" : "#_newer"];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        // Both inputs exist by now: the panes render before the page's own
+        // OnAfterRenderAsync, and the hidden one is rendered all the same.
+        dropModule = await JS.ImportAsync("./js/fileDrop.js");
+        foreach (MapSide side in Sides)
+            drops.Add(await dropModule.InvokeAsync<IJSObjectReference>("acceptDrops", inputs[side]));
+    }
+
+    /// <summary>A file was chosen in, or dropped on, a pane.</summary>
+    private async Task Choose(MapSide side, ChangeEventArgs e)
+    {
+        string name = FileNameOf(e.Value as string);
+
+        // The picker was opened and closed again.
+        if (string.IsNullOrEmpty(name))
+            return;
+
+        int choice = ++choices[side];
+
+        // Waits rather than being dropped if something else is running: a file
+        // dropped during a long parse is still what the user wants to see.
+        await RunWhenIdle(() => L.Format("#_loadingMap", ("name", name)), async () => {
+            // A newer choice for this pane arrived while this one waited. The
+            // input holds that one now, and it will load it itself.
+            if (choice != choices[side])
+                return;
+
+            // Checked here rather than filtered in the picker: some phones grey
+            // out every file whose type they do not recognise.
+            if (!FolderLayout.IsMapFile(name))
+                throw new LocalisedException(() =>
+                    L.Format("#_notAnOcadMap", ("name", name), ("extension", FolderLayout.MapExtension)));
+
+            await mapPair.ShowFileAsync(side, KeyFor(side), inputs[side]);
+            files[side] = name;
+
+            // Rebuilt for the new pair if it is on; free if it is off. Read from
+            // fields, not from the toggle's parameters, which predate this load.
+            if (Comparing)
+                await overlay.ApplyAsync(KeyFor(Older), KeyFor(Newer));
+        });
+    }
+
+    private async Task SetSingle(bool value)
+    {
+        if (single == value)
+            return;
+
+        single = value;
+
+        // A file chosen while in single-map mode made the overlay's mask stale,
+        // and the workspace took it off the screen. Back to two maps, the switch
+        // may still say it is on, so bring the picture back in line with it.
+        if (Comparing)
+            await Run(() => L["#_findingChanges"], () => overlay.ApplyAsync(KeyFor(Older), KeyFor(Newer)));
+    }
+
+    /// <summary>
+    /// The file's name, from the input's value.
+    /// </summary>
+    /// <remarks>
+    /// Browsers report a chosen file as <c>C:\fakepath\name</c> whatever the
+    /// platform, and .NET in WebAssembly does not treat a backslash as a
+    /// separator, so the split is done by hand.
+    /// </remarks>
+    private static string FileNameOf(string value)
+        => value?.Split('\\', '/').LastOrDefault();
+
+    protected override async ValueTask DisposeAsyncCore()
+    {
+        foreach (IJSObjectReference drop in drops)
+            await drop.ReleaseAsync("dispose");
+
+        await dropModule.ReleaseAsync();
+    }
+}
