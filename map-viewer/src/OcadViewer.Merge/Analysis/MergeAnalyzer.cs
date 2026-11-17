@@ -6,12 +6,12 @@ namespace OcadViewer.Merge.Analysis;
 /// <summary>Compares two branches with their common base.</summary>
 public static class MergeAnalyzer
 {
-    /// <exception cref="OcadFormatException">The files are not all the same OCAD version.</exception>
+    /// <exception cref="MergeException">The files are not all the same OCAD version.</exception>
     public static MergeAnalysis Analyze(OcadFile @base, OcadFile a, OcadFile b, MergeOptions options = null)
     {
         options ??= MergeOptions.Default;
         if (a.Version != @base.Version || b.Version != @base.Version)
-            throw new OcadFormatException(
+            throw new MergeException(
                 $"All three files must be saved in the same OCAD version (base is {@base.Version}, " +
                 $"the branches are {a.Version} and {b.Version}). Open them in OCAD and save them alike.");
 
