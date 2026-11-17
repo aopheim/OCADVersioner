@@ -33,9 +33,11 @@ public enum ConflictKind
     /// <summary>Clean changes from both branches lie close together in the terrain.</summary>
     Overlap,
     /// <summary>
-    /// One branch deleted a symbol that objects in the merge still use: the other
-    /// branch's new or edited objects, or objects the deleting branch kept (OCAD
+    /// A branch - or both - deleted a symbol that objects in the merge still use: the
+    /// other branch's new or edited objects, or objects a deleting branch kept (OCAD
     /// asks whether to delete them with the symbol). Taking the deletion removes them.
+    /// Never on an item from the analysis: it depends on the decisions, so
+    /// <see cref="Decisions.MergeResolution.ConflictOf"/> reports it.
     /// </summary>
     SymbolInUse,
 }

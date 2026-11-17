@@ -155,6 +155,7 @@
     "#_mergeReject": "Reject",
     "#_mergeSymbolKeptForObjects": "Kept, because objects in the merge use it ({{count}})",
     "#_mergeSymbolGoesWith": "Taking the deletion also removes the objects that use it ({{count}})",
+    "#_mergeSymbolPickOne": "Objects in the merge use it: take one of the two versions ({{count}})",
     "#_mergeAccept": "Accept again",
     "#_mergeRejected": "Rejected",
     "#_mergeChange": "Change",

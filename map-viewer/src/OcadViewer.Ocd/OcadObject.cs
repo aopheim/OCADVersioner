@@ -8,6 +8,9 @@ namespace OcadViewer.Ocd;
 /// </remarks>
 public sealed class OcadObject
 {
+    /// <summary>Bytes the record uses, checked against the record when it is read.</summary>
+    private int usedLength;
+
     /// <summary>The 1-based entry in the object index. A position, not an identity: OCAD reuses entries.</summary>
     public int Entry { get; }
 
@@ -53,7 +56,7 @@ public sealed class OcadObject
     internal FileLayout Layout => File.Layout;
 
     /// <summary>The bytes the record actually uses, without the index's spare room.</summary>
-    internal ReadOnlySpan<byte> UsedRecord => Record.Span[..Layout.ObjectRecordSize(Record.Span)];
+    internal ReadOnlySpan<byte> UsedRecord => Record.Span[..usedLength];
 
     internal OcadObject(OcadFile file, int entry, ReadOnlyMemory<byte> indexEntry, ReadOnlyMemory<byte> record)
     {
@@ -132,13 +135,16 @@ public sealed class OcadObject
 
     private static bool InRange(int offset, int start, int length) => start >= 0 && offset >= start && offset < start + length;
 
+    /// <exception cref="OcadFormatException">The record claims more coordinates or text than it holds.</exception>
     private OcadCoord[] ReadCoords()
     {
         ReadOnlySpan<byte> record = Record.Span;
-        int count = BitConverter.ToInt32(record[Layout.ObjectCoordCountOffset..]);
-        if (count < 0 || Layout.ObjectHeaderSize + (long)count * OcadCoord.Size > record.Length)
-            throw new OcadFormatException($"Object {Entry} claims more coordinates than its record holds.");
+        long used = Layout.ObjectRecordSize(record);
+        if (used < 0 || used > record.Length)
+            throw new OcadFormatException($"Object {Entry} claims more coordinates or text than its record holds.");
 
+        usedLength = (int)used;
+        int count = BitConverter.ToInt32(record[Layout.ObjectCoordCountOffset..]);
         OcadCoord[] coords = new OcadCoord[count];
         for (int i = 0; i < count; i++)
             coords[i] = OcadCoord.Read(record[(Layout.ObjectHeaderSize + i * OcadCoord.Size)..]);

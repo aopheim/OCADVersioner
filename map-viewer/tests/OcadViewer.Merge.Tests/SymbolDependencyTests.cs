@@ -35,7 +35,8 @@ public sealed class SymbolDependencyTests
     /// <summary>Decides every open conflict and overlap other than the ones a test is about.</summary>
     private static void DecideTheRest(MergeAnalysis analysis, MergeDecisions decisions)
     {
-        foreach (MergeItem item in analysis.AllItems.Where(i => i.Outcome == Outcome.Conflict && !decisions.Items.ContainsKey(i.Key)))
+        MergeResolution open = new(analysis, decisions);
+        foreach (MergeItem item in analysis.AllItems.Where(i => open.NeedsDecision(i) && !decisions.Items.ContainsKey(i.Key)))
             decisions.Decide(item, Choice.A);
         foreach (OverlapGroup group in analysis.Overlaps.Where(g => !decisions.Overlaps.ContainsKey(g.Key)))
             decisions.DecideOverlap(group.Key, Choice.Both);
@@ -88,13 +89,107 @@ public sealed class SymbolDependencyTests
     [Test]
     public void DeletingASymbolTheOtherBranchStillUsesIsAConflict()
     {
-        SymbolItem boulder = Symbol(Analyse("kari_symbols.ocd", "ola_symbols.ocd"), Boulder);
+        MergeAnalysis analysis = Analyse("kari_symbols.ocd", "ola_symbols.ocd");
+        SymbolItem boulder = Symbol(analysis, Boulder);
+        MergeResolution resolution = new(analysis, new MergeDecisions());
 
         Assert.Multiple(() => {
-            Assert.That(boulder.Outcome, Is.EqualTo(Outcome.Conflict));
-            Assert.That(boulder.Conflict, Is.EqualTo(ConflictKind.SymbolInUse));
             Assert.That(boulder.ChangeB, Is.EqualTo(ChangeKind.Deleted));
+            Assert.That(resolution.ConflictOf(boulder), Is.EqualTo(ConflictKind.SymbolInUse));
+            Assert.That(resolution.IsResolved(boulder), Is.False);
+            Assert.That(resolution.Unresolved, Does.Contain(boulder));
         });
+    }
+
+    [Test]
+    public void RejectingTheObjectsThatStillUseADeletedSymbolLetsTheDeletionThrough()
+    {
+        // The conflict follows the decisions: once Kari's new boulder is rejected,
+        // nothing in the merge uses the symbol any more.
+        MergeAnalysis analysis = Analyse("kari_symbols.ocd", "ola_symbols.ocd");
+        MergeDecisions decisions = new();
+        decisions.Decide(analysis.Objects.Single(i => i.A?.CreatedAt == KarisNewBoulder), Choice.Base);
+        MergeResolution resolution = new(analysis, decisions);
+        SymbolItem boulder = Symbol(analysis, Boulder);
+
+        Assert.Multiple(() => {
+            Assert.That(resolution.ConflictOf(boulder), Is.Null);
+            Assert.That(resolution.ChoiceFor(boulder), Is.EqualTo(Choice.B), "Ola's deletion, accepted by default");
+        });
+    }
+
+    [Test]
+    public void ASymbolBothDeletedWhileObjectsStillUseItIsAConflict()
+    {
+        // Both deleted symbol 204 answering No: their boulders stay in both files.
+        MergeAnalysis analysis = Analyse("ola_symbols_kept.ocd", "ola_symbols_kept.ocd");
+        SymbolItem boulder = Symbol(analysis, Boulder);
+        MergeResolution resolution = new(analysis, new MergeDecisions());
+
+        Assert.Multiple(() => {
+            Assert.That(boulder.Outcome, Is.EqualTo(Outcome.BothSame));
+            Assert.That(resolution.ConflictOf(boulder), Is.EqualTo(ConflictKind.SymbolInUse));
+            Assert.That(resolution.UsersOf(Boulder), Has.Count.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public void KeepingObjectsAMapperDeletedWithTheSymbolMakesItAConflict()
+    {
+        // Kari deleted the boulders with their symbol (Yes), Ola kept them (No). By
+        // default Kari's deletions go through and nothing uses the symbol; keeping the
+        // boulders brings the question back.
+        MergeAnalysis analysis = Analyse("ola_symbols.ocd", "ola_symbols_kept.ocd");
+        SymbolItem boulder = Symbol(analysis, Boulder);
+        MergeDecisions decisions = new();
+
+        Assert.That(new MergeResolution(analysis, decisions).ConflictOf(boulder), Is.Null, "by default");
+
+        foreach (ObjectItem item in analysis.Objects.Where(i => i.Base?.Symbol == Boulder))
+            decisions.Decide(item, Choice.Base);
+
+        Assert.That(new MergeResolution(analysis, decisions).ConflictOf(boulder), Is.EqualTo(ConflictKind.SymbolInUse));
+    }
+
+    [Test]
+    public void LeavingOutASymbolBothAddedWhileObjectsUseItIsOverruled()
+    {
+        // Both duplicated symbol 101 into 101.004 differently; Kari also drew with hers.
+        MergeAnalysis analysis = MergeAnalyzer.Analyze(Fixtures.Base, KariSettingsWithAnObjectUsing(101004), Fixtures.Read("ola_settings.ocd"));
+        SymbolItem added = Symbol(analysis, 101004);
+        MergeDecisions leaveOut = new(), takeOla = new();
+        leaveOut.Decide(added, Choice.Base);
+        takeOla.Decide(added, Choice.B);
+        MergeResolution overruled = new(analysis, leaveOut), decided = new(analysis, takeOla);
+
+        Assert.Multiple(() => {
+            Assert.That(added.Conflict, Is.EqualTo(ConflictKind.BothAdded));
+            Assert.That(overruled.IsOverruled(added), Is.True);
+            Assert.That(overruled.IsResolved(added), Is.False);
+            Assert.That(decided.IsOverruled(added), Is.False);
+            Assert.That(decided.ChoiceFor(added), Is.EqualTo(Choice.B));
+        });
+    }
+
+    /// <summary>
+    /// kari_settings.ocd with base's knoll added again as a new object using symbol
+    /// <paramref name="symbol"/>: no fixture draws with the duplicated symbol.
+    /// </summary>
+    internal static OcadFile KariSettingsWithAnObjectUsing(int symbol)
+    {
+        OcadFile kari = Fixtures.Read("kari_settings.ocd");
+        OcadEditor editor = new(kari);
+        DateTime drawn = new(2026, 11, 17, 13, 0, 0);
+        editor.Add(kari.Objects.Single(o => o.CreatedAt == Fixtures.Created.Knoll).WithCreatedAt(drawn));
+        byte[] bytes = editor.ToArray();
+
+        OcadFile written = OcadFile.Read(bytes);
+        OcadObject copy = written.Objects.Single(o => o.CreatedAt == drawn);
+        int entry = written.ObjectIndex.EntryOffset(copy.Entry - 1);
+        int record = BitConverter.ToInt32(bytes, entry + FileLayout.IndexPosOffset);
+        BitConverter.TryWriteBytes(bytes.AsSpan(entry + FileLayout.IndexSymbolOffset), symbol);
+        BitConverter.TryWriteBytes(bytes.AsSpan(record), symbol);
+        return OcadFile.Read(bytes);
     }
 
     [Test]
@@ -163,9 +258,11 @@ public sealed class SymbolDependencyTests
         MergeAnalysis analysis = Analyse("base.ocd", "ola_symbols_kept.ocd");
         SymbolItem boulder = Symbol(analysis, Boulder);
 
+        MergeResolution resolution = new(analysis, new MergeDecisions());
+
         Assert.Multiple(() => {
-            Assert.That(boulder.Conflict, Is.EqualTo(ConflictKind.SymbolInUse));
-            Assert.That(new MergeResolution(analysis, new MergeDecisions()).UsersOf(Boulder), Has.Count.EqualTo(2));
+            Assert.That(resolution.ConflictOf(boulder), Is.EqualTo(ConflictKind.SymbolInUse));
+            Assert.That(resolution.UsersOf(Boulder), Has.Count.EqualTo(2));
         });
     }
 
