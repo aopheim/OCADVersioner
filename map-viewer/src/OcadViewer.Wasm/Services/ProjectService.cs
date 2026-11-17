@@ -98,6 +98,14 @@ public sealed class ProjectService(IJSRuntime js) : IAsyncDisposable
     public MapSource SourceFor(string versionName)
         => FolderLayout.SourceFor(versionName, Project?.CurrentFileName);
 
+    /// <summary>A file's contents, by its path relative to the project folder.</summary>
+    /// <remarks>
+    /// For comparing versions. The renderer reads its own copy in JavaScript, so map
+    /// bytes it draws never cross into .NET twice.
+    /// </remarks>
+    public async Task<byte[]> ReadBytesAsync(string path)
+        => await (await ModuleAsync()).InvokeAsync<byte[]>("readBytes", path);
+
     /// <summary>
     /// Whether this version has to be re-read every time it is shown.
     /// </summary>

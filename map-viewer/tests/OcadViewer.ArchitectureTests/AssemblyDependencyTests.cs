@@ -47,7 +47,8 @@ public sealed class AssemblyDependencyTests
     /// </summary>
     [TestCase("OcadViewer.Versioning")]
     [TestCase("OcadViewer.Ocd")]
-    [TestCase("OcadViewer.Merge", "OcadViewer.Ocd")]
+    [TestCase("OcadViewer.Comparison", "OcadViewer.Ocd")]
+    [TestCase("OcadViewer.Merge", "OcadViewer.Comparison", "OcadViewer.Ocd")]
     public void TheDomainProjectsReferenceOnlyTheFrameworkAndEachOther(string assembly, params string[] allowed)
     {
         IReadOnlyList<string> references = ReferencesOf(assembly);
@@ -60,22 +61,6 @@ public sealed class AssemblyDependencyTests
         Assert.That(offending, Is.Empty,
             $"{assembly} must stay free of everything but the framework, so its rules can be tested "
             + "directly. References found: " + string.Join(", ", references));
-    }
-
-    [Test]
-    public void TheDiffKnowsNothingAboutRenderingOrTheBrowser()
-    {
-        IReadOnlyList<string> references = ReferencesOf("OcadViewer.Diff");
-
-        string[] offending = [.. references.Where(reference =>
-            reference.StartsWith("SkiaSharp", StringComparison.Ordinal)
-            || reference is "Map_SkiaStd" or "OcadViewer.Core"
-            || BrowserAndUi.Any(prefix => reference.StartsWith(prefix, StringComparison.Ordinal)))];
-
-        Assert.That(offending, Is.Empty,
-            "The diff compares what a map contains, not what it looks like. It reads the parsed "
-            + "Map and the file's object index, and nothing that draws. References found: "
-            + string.Join(", ", references));
     }
 
     [TestCase("MapModel")]
@@ -106,6 +91,7 @@ public sealed class AssemblyDependencyTests
     [TestCase("OcadViewer.Core")]
     [TestCase("OcadViewer.RenderCli")]
     [TestCase("OcadViewer.Wasm")]
+    [TestCase("OcadViewer.Comparison")]
     [TestCase("OcadViewer.Merge")]
     [TestCase("OcadViewer.Ocd")]
     [TestCase("OcadViewer.Versioning")]

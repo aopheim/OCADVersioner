@@ -24,7 +24,7 @@ import { paint, coverage, boundsOf } from './changeMask.js';
  * Builds the viewer over two elements.
  * @returns {Promise<{parse: Function, draw: Function, showFile: Function, showChanges: Function,
  *                    zoomToChanges: Function, zoomTo: Function, setMapVisible: Function, reset: Function,
- *                    showing: Function, stats: object, storeHandle: Function, dispose: Function}>}
+ *                    showing: Function, stats: object, dispose: Function}>}
  */
 export async function createWorkspace(leftEl, rightEl) {
     const tiles = await createTileSource();
@@ -290,9 +290,6 @@ export async function createWorkspace(leftEl, rightEl) {
         showing: () => view.showing(),
 
         stats: view.stats,
-
-        /** The handle of the .NET store the maps are parsed into, for the object diff. */
-        storeHandle: () => tiles.store,
 
         dispose() {
             forgetChanges();

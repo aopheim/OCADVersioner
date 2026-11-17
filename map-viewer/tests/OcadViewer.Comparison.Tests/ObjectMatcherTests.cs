@@ -1,7 +1,7 @@
 using OcadViewer.Ocd;
-using OcadViewer.Merge.Matching;
+using OcadViewer.Comparison;
 
-namespace OcadViewer.Merge.Tests;
+namespace OcadViewer.Comparison.Tests;
 
 [TestFixture]
 public sealed class ObjectMatcherTests

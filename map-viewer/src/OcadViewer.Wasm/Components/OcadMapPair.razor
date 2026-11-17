@@ -1,4 +1,3 @@
-@using OcadViewer.Core
 @using OcadViewer.Versioning
 @using OcadViewer.Wasm.Services
 @implements IAsyncDisposable
@@ -93,18 +92,7 @@
     {
         module = await JS.ImportAsync("./js/mapWorkspace.js");
         workspace = await module.InvokeAsync<IJSObjectReference>("createWorkspace", leftEl, rightEl);
-        Maps = TileInterop.StoreFor(await workspace.InvokeAsync<int>("storeHandle"));
     }
-
-    /// <summary>
-    /// The parsed maps these panes draw from; null until the panes are set up.
-    /// </summary>
-    /// <remarks>
-    /// For the object diff, which reads the same parses rather than parsing
-    /// again, and so describes exactly what is on screen. Each pair has its own
-    /// store, gone when the pair is disposed.
-    /// </remarks>
-    public MapStore Maps { get; private set; }
 
     /// <summary>
     /// Makes sure a version is parsed, reading its file only if it has to.

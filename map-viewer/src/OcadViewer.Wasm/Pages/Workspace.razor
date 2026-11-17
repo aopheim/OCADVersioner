@@ -1,5 +1,4 @@
 @page "/"
-@using OcadViewer.Diff
 @using OcadViewer.Versioning
 @using OcadViewer.Wasm.Components
 @using OcadViewer.Wasm.Services
@@ -61,7 +60,7 @@
         @* The map under the overlay, off to see the changes alone. *@
         <button class="btn btn-sm @(showMap ? "btn-outline-secondary" : "btn-primary")"
                 @onclick="ToggleMap"
-                title="@(showMap ? "Hide" : "Show") the map, leaving only the changes (@MapKey.ToUpperInvariant())">
+                title="@L[showMap ? "#_hideMap" : "#_showMap"] (@MapKey.ToUpperInvariant())">
             <i class="bi @(showMap ? "bi-map" : "bi-map-fill")"></i>
         </button>
         <KeyboardShortcut Key="@MapKey" OnPressed="ToggleMap" />
@@ -112,18 +111,18 @@
                 <VersionPicker Options="PickerOptions(includeWorkingFile: false)"
                                Value="@Comparison.Older" OnPicked="PickOlder"
                                Disabled="Blocked" Generation="picks"
-                               Title="The older map, on the left" />
+                               Title="@L["#_olderMapOnTheLeft"]" />
                 <i class="bi bi-arrows"></i>
                 <VersionPicker Options="PickerOptions(includeWorkingFile: true)"
                                Value="@Comparison.Newer" OnPicked="PickNewer"
                                Disabled="Blocked" Generation="picks"
-                               Title="The newer map, on the right" />
+                               Title="@L["#_newerMapOnTheRight"]" />
             </div>
 
             <OcadMapPair @ref="mapPair" />
 
-            <DiffTable Diff="diff" Available="DiffSource.IsAvailable"
-                       UnavailableReasonKey="@DiffSource.UnavailableReasonKey"
+            <DiffTable Diff="diff.Diff" Available="diff.IsAvailable"
+                       UnavailableReasonKey="@diff.UnavailableReasonKey"
                        OnZoom="ZoomToObject" />
         </div>
     </div>
@@ -141,8 +140,16 @@
     /// <summary>Set when a project has just opened and the maps still need loading.</summary>
     private bool comparisonPending;
 
-    private MapDiff diff = MapDiff.Empty;
+    /// <summary>The table's rows for the pair on screen; empty while a pair is loading.</summary>
+    private DiffResult diff = DiffResult.None;
     private string georeference;
+
+    /// <summary>
+    /// Whether the pair on screen came from the list (or opening the project), and
+    /// so follows the folder rule, rather than from the dropdowns. It decides what a
+    /// version shown against itself means; see <see cref="ShowComparison"/>.
+    /// </summary>
+    private bool pairFromList = true;
 
     /// <summary>
     /// Which load is the current one. Each <see cref="ShowComparison"/> takes the
@@ -258,7 +265,10 @@
     /// </remarks>
     private void OnProjectLoaded()
     {
-        comparison = Project.ComparisonFor(0);
+        SetComparisonFromList(0);
+        DiffSource.Reset();
+        diff = DiffResult.None;
+        showMap = true;
         overlay?.Reset();
         comparisonPending = true;
         StateHasChanged();
@@ -277,8 +287,19 @@
         // names with the last one's, so nothing parsed before can be trusted.
         await Run(() => L["#_loading"], async () => {
             await mapPair.ResetAsync();
+            await mapPair.SetMapVisibleAsync(true);
             await ShowComparison();
         });
+    }
+
+    /// <summary>
+    /// The pair the folder rule gives for a version - it and the one before it, or
+    /// the working file and the newest release for 0.
+    /// </summary>
+    private void SetComparisonFromList(int number)
+    {
+        comparison = Project.ComparisonFor(number);
+        pairFromList = true;
     }
 
     private async Task Refresh()
@@ -288,7 +309,7 @@
             // Keep the pair being looked at, unless a release in it has been
             // deleted from the folder meanwhile.
             if (!Project.Contains(comparison.Newer) || !Project.Contains(comparison.Older))
-                comparison = Project.ComparisonFor(0);
+                SetComparisonFromList(0);
 
             await ShowComparison();
         });
@@ -311,7 +332,7 @@
     /// </remarks>
     private async Task SelectVersion(int number)
         => await RunTakingOver(() => L["#_loading"], async () => {
-            comparison = Project.ComparisonFor(number == NumberOf(comparison.Newer) ? 0 : number);
+            SetComparisonFromList(number == NumberOf(comparison.Newer) ? 0 : number);
             await ShowComparison();
         });
 
@@ -328,6 +349,7 @@
         => await RunTakingOver(() => L["#_loading"], async () => {
             picks++;
             comparison = ProjectService.Ordered(picked, otherSide);
+            pairFromList = false;
             await ShowComparison();
         });
 
@@ -339,7 +361,7 @@
         await Run(() => L.Format("#_creatingNewVersion", ("newVersionName", creating)), async () => {
             await Project.CreateVersionAsync(entry.Title, entry.Description);
             versionForm?.Reset();
-            comparison = Project.ComparisonFor(0);
+            SetComparisonFromList(0);
             await ShowComparison();
         });
     }
@@ -362,6 +384,11 @@
         (string newer, string older) = Comparison;
         int mine = ++loadGeneration;
         bool Superseded() => mine != loadGeneration;
+
+        // The rows on screen belong to the last pair. Left there while this one
+        // loads, they would sit under the new maps, and their zoom buttons would
+        // frame objects from versions no longer shown.
+        diff = DiffResult.None;
 
         // Older on the left, newer on the right: time runs that way, and the
         // overlay - which is painted on the newer map - then sits where the eye
@@ -388,18 +415,17 @@
                 Report(() => L.Format("#_drawingMap", ("name", Label(version))), (i + 0.5) * share);
                 Task drawn = mapPair.DrawAsync(side, version);
 
-                // The diff is read from the parses, not the tiles, so the table
+                // The diff reads the files itself, not the tiles, so the table
                 // can fill while the last pane draws.
                 if (i == maps.Length - 1) {
-                    // A version shown against itself is either the oldest release,
-                    // which has nothing before it and so is all new, or a pair
-                    // picked by hand, which has no changes. The folder rule tells
-                    // them apart: it pairs a version with itself only when nothing
-                    // comes before it.
-                    bool nothingBefore = older == newer && Project.ComparisonFor(NumberOf(newer)).Older == newer;
-                    diff = await DiffSource.CompareAsync(mapPair.Maps, nothingBefore ? null : older, newer);
+                    // A version shown against itself is either the oldest release
+                    // from the list, which has nothing before it and so is all new,
+                    // or a pair picked in the dropdowns, which has no changes.
+                    bool nothingBefore = pairFromList && older == newer;
+                    DiffResult result = await DiffSource.CompareAsync(nothingBefore ? null : older, newer);
                     if (Superseded())
                         return;
+                    diff = result;
                     StateHasChanged();
                 }
 
@@ -430,18 +456,23 @@
     /// <remarks>
     /// Not run through <see cref="BusyPage.Run"/>: hiding a pane is instant, and
     /// works while the overlay is still being computed. Hiding the map with the
-    /// overlay off would leave nothing to look at, so it turns the overlay on.
+    /// overlay off would leave nothing to look at, so it turns the overlay on
+    /// first - and leaves the map alone if the overlay could not come on, which
+    /// it cannot while the page is busy.
     /// </remarks>
     private async Task ToggleMap()
     {
         if (mapPair is null)
             return;
 
+        if (showMap) {
+            await overlay.TurnOnAsync();
+            if (!overlay.IsOn)
+                return;
+        }
+
         showMap = !showMap;
         await mapPair.SetMapVisibleAsync(showMap);
-
-        if (!showMap)
-            await overlay.TurnOnAsync();
     }
 
     /// <summary>Frames one object from the diff table on both maps.</summary>
@@ -449,7 +480,7 @@
     /// Not run through <see cref="BusyPage.Run"/>: it is a viewport move, with
     /// nothing to wait for and nothing that can half-finish.
     /// </remarks>
-    private async Task ZoomToObject(PaperBounds where)
+    private async Task ZoomToObject(PaperRect where)
     {
         if (where is null || mapPair is null)
             return;

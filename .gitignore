@@ -44,7 +44,7 @@ map-viewer/src/OcadViewer.Wasm/wwwroot/fonts/
 map-viewer/src/OcadViewer.Wasm/wwwroot/testmaps/
 
 # The 9.8 MB benchmark map is passed around by hand, not committed
-map-viewer/testdata/large_map.ocd
+map-viewer/tests/TestData/large_map.ocd
 
 # Generated into the Blazor app by MSBuild from the repo root
 map-viewer/src/OcadViewer.Wasm/wwwroot/third-party-notices.txt

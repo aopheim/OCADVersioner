@@ -14,8 +14,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Map_SkiaStd\Map_SkiaStd.csproj" />
-    <!-- A diff snapshot is taken beside every parsed map, while the bytes are in hand. -->
-    <ProjectReference Include="..\OcadViewer.Diff\OcadViewer.Diff.csproj" />
   </ItemGroup>
 
   <ItemGroup>

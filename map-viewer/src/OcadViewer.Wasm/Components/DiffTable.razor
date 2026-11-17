@@ -1,4 +1,3 @@
-@using OcadViewer.Diff
 @using OcadViewer.Wasm.Services
 @inherits LocalisedComponent
 
@@ -51,7 +50,7 @@
         <tbody>
             @if (Rows().Count == 0) {
                 <tr>
-                    <td colspan="9" class="text-center text-muted py-3">
+                    <td colspan="@ColumnCount" class="text-center text-muted py-3">
                         @L[Available ? "#_noSymbolsInCategory" : "#_nothingToShow"]
                     </td>
                 </tr>
@@ -59,7 +58,7 @@
             @foreach (var symbol in Rows()) {
                 @* data-bounds is the same rectangle the button zooms to, readable from the
                    console - which is how the table was checked against the change overlay. *@
-                <tr data-bounds="@BoundsAttribute(symbol.Bounds)">
+                <tr @key="symbol" data-bounds="@BoundsAttribute(symbol.Bounds)">
                     <td class="py-0 align-middle">
                         <button type="button" class="btn btn-link btn-sm p-0"
                                 title="@L["#_zoomToObject"]" aria-label="@L["#_zoomToObject"]"
@@ -69,7 +68,7 @@
                         </button>
                     </td>
                     <th scope="row">@symbol.SymbolNumber</th>
-                    <td>@symbol.SymbolName</td>
+                    <td>@NameOf(symbol)</td>
 
                     @if (symbol is AddedSymbol added) {
                         <td>@Metres(added.LengthInMeters)</td>
@@ -103,7 +102,7 @@
     [Parameter] public string UnavailableReasonKey { get; set; }
 
     /// <summary>Asks the page to frame one object on both maps.</summary>
-    [Parameter] public EventCallback<PaperBounds> OnZoom { get; set; }
+    [Parameter] public EventCallback<PaperRect> OnZoom { get; set; }
 
     private DiffTableView Current { get; set; } = DiffTableView.Added;
 
@@ -123,23 +122,35 @@
         _ => []
     };
 
+    /// <summary>Zoom, number, name, two or four measures, two dates.</summary>
+    private int ColumnCount => Current == DiffTableView.Updated ? 9 : 7;
+
+    /// <summary>
+    /// An object without a symbol has no name in the map; its name is then a
+    /// translation key for what it is, a graphic or an image object.
+    /// </summary>
+    private string NameOf(DiffSymbol symbol)
+        => symbol.SymbolNumber.Length == 0 ? L[symbol.SymbolName] : symbol.SymbolName;
+
     // Blank rather than "0" when a measure does not apply to this symbol kind -
     // a zero length on a point symbol would read as a measurement, not an absence.
     private string Metres(double? value) => value is null ? "" : $"{value:N0} {L["#_mAbbreviation"]}";
     private string SquareMetres(double? value) => value is null ? "" : $"{value:N0} {L["#_m2Abbreviation"]}";
     private static string Percent(double? value) => value is null ? "" : $"{value:N1} %";
 
-    private static readonly (ObjectChanges Change, string Key)[] ChangeKeys = [
-        (ObjectChanges.Symbol, "#_changeSymbol"),
-        (ObjectChanges.Geometry, "#_changeGeometry"),
-        (ObjectChanges.Angle, "#_changeAngle"),
-        (ObjectChanges.Text, "#_changeText"),
+    private static readonly (ChangeKinds Change, string Key)[] ChangeKeys = [
+        (ChangeKinds.Symbol, "#_changeSymbol"),
+        (ChangeKinds.Geometry, "#_changeGeometry"),
+        (ChangeKinds.Angle, "#_changeAngle"),
+        (ChangeKinds.Text, "#_changeText"),
+        (ChangeKinds.Visibility, "#_changeVisibility"),
+        (ChangeKinds.Other, "#_changeOther"),
     ];
 
-    private string ChangeNames(ObjectChanges changes)
+    private string ChangeNames(ChangeKinds changes)
         => string.Join(", ", ChangeKeys.Where(c => changes.HasFlag(c.Change)).Select(c => L[c.Key]));
 
-    private static string BoundsAttribute(PaperBounds b)
+    private static string BoundsAttribute(PaperRect b)
         => b is null ? null : FormattableString.Invariant($"{b.MinX},{b.MinY},{b.MaxX},{b.MaxY}");
 
     private static string Date(DateTimeOffset? value)

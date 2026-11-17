@@ -1,81 +1,56 @@
-# The C# diff
+# The diff table
 
-> **Status: objects done, wired into the diff table.** Symbols, colours,
-> georeferencing and templates are next, one PR each, behind the same interface.
+> **Status: objects, on OcadViewer.Comparison.** Which object is which, whether
+> it changed and how much are decided in `OcadViewer.Comparison` - the same
+> answers the merge gets. See **COMPARISON.md** for those rules and why. This
+> document is about the table in the Blazor app that shows them.
 
-The diff answers *which map objects were added, edited and deleted between two
-versions*. It replaces the Angular app's `json-diff-service.ts`, which compares two
-GeoJSON files produced by `ocad2geojson`. This one reads the `.ocd` files themselves.
+The table answers *which map objects were added, edited and deleted between two
+versions*. It replaces the Angular app's `json-diff-service.ts`, which compared two
+GeoJSON files produced by `ocad2geojson`.
 
-Read this beside `PLAN.md`, whose section *The diff — deferred* records why it was
-put off and what was known at the time. That section is still true about the
-change overlay; this document supersedes it for the diff.
-
-## Decisions
-
-| Question | Decision | Why |
-|---|---|---|
-| Input | The `.ocd` bytes plus the parsed PurplePen `Map` | No `ocad2geojson`, no second parser, no AGPL dependency. |
-| Object identity | Matched in three passes, most certain first (`ObjectMatcher`): **identical content in the same entry**, then **identical content in any entry**, then **the same creation date** | Within one OCAD file an object keeps its index entry. But a map rebuilt by copying its objects into another file gets every object a new entry, and can have every date shifted by whole hours. Bymarkabasen did both (see below), so the entry is evidence, not identity. The Angular app matched GeoJSON ids that `ocad2geojson` regenerates on every read ([ocad2geojson#25](https://github.com/perliedman/ocad2geojson/issues/25)). |
-| Pairing by creation date | Same creation date to the millisecond, after any **whole-hour shift** shared by most identical objects. Then either the **same entry** (when most identical objects kept theirs), or **within 10 mm on paper and modified since** | An edit keeps the creation date. Imports stamp thousands of objects with one date, so the date alone is not enough. Among several candidates, the same symbol wins, then the same entry, then the nearest. |
-| Different creation date | **Deleted + added**, whatever the entry | Creation dates are copied with an object, not invented, so a different date means a different object. |
-| Symbol changed | **Edited**, with the old and new symbol | It is the same object, if the rules above pair it. |
-| Deleted / hidden objects | **Ignored**; only OCAD's *normal* status counts | OCAD keeps deleted objects in the file for undo. An object that turns from normal to deleted is reported deleted. |
-| What an edit carries | Point movement (m), line length change (%), area change (%), and **which properties changed**: symbol, geometry, angle, text | |
-| Curves | Control points skipped; the chord between on-curve points is measured | Good for gentle curves, short on tight ones. Proper flattening (the Angular app's [#23](https://github.com/aopheim/OCADVersioner/issues/23)) is not done. |
-| First release (no predecessor) | Every object is **added** | Same as the Angular app. |
-| OCAD versions | 9, 10, 11, 12, 2018. OCAD 9 has no timestamps, so the entry alone pairs objects | OCAD 8 and older use a different index layout. OpenOrienteering maps are shown but not compared. |
-| Vendored code | **Untouched** | PurplePen's importer reads index entries, status and timestamps, then throws them away. Rather than patch it, `OcadObjectIndexReader` reads the index itself, following PurplePen's `OcadFileFormat.cs` as the specification. |
+An earlier version of this branch had its own reader, matcher and snapshot
+(`OcadViewer.Diff`). The architectural review found they disagreed with the merge
+engine on the same files, so they were replaced by `OcadViewer.Comparison`.
+The sections further down that check the table in the browser record what was
+measured with that earlier engine; the method still applies.
 
 ## Shape
 
 ```
-OcadViewer.Diff            references MapModel only - no renderer, no Skia, no host
-  OcadObjectIndexReader    .ocd bytes -> every object: index entry, status, symbol,
-                           kind, angle, text, created/modified, coordinates
-  OcadMapSnapshot          one version: its normal objects by index entry, symbol
-                           names from the Map, metres per OCAD unit from the scale
-  IOcadDiffService         Compare(older?, newer) -> ObjectDiff
-  ObjectMatcher            which old object each new one is: content, entry,
-                           creation date (the table above)
-  OcadDiffService          pairs -> edits with measures; the rest added/deleted
-  ObjectDiff               Added / Edited / Deleted, each with ObjectSymbol, dates
-                           and measures
-
-OcadViewer.Core
-  MapStore.Load            takes a snapshot beside every parsed map, while the
-                           bytes are in hand; StoredMap.Snapshot (null when the
-                           diff cannot read the file)
+OcadViewer.Comparison      (see COMPARISON.md)
+  VersionDiff.Compare      older?, newer OcadFile -> Added / Changed / Deleted,
+                           with which fields changed, metres, m², movement, bounds
 
 OcadViewer.Wasm
-  OcadMapPair.Maps         the panes' own MapStore, which the diff reads too,
-                           so a version is parsed once
-  OcadDiffSource           IDiffSource: snapshots from the store -> table rows
-  DiffTable.razor          gains a "Changes" column on the Edited tab, and a zoom
-                           button per row that frames the object on both maps
+  ComparisonCache          one OcadFile per version, read through ProjectService;
+                           releases once, the working file every time
+  OcadDiffSource           IDiffSource: versions from the cache -> table rows;
+                           returns a DiffResult (rows, or why there are none)
+  DiffTable.razor          Added / Edited / Deleted tabs, a Changes column on the
+                           Edited tab, a zoom button per row
+  Workspace.razor          clears the table when a new pair starts loading, and
+                           shows a result only if its pair is still the one asked for
 ```
 
-Every result carries `PaperBounds`: the box around the object's coordinates in
-paper millimetres (OCAD units ÷ 100, Y up, as PurplePen draws them). An edited
-object's box covers where it was and where it is now. The row's zoom button
-passes it to `mapWorkspace.zoomTo`, which pads it by 8 mm so a point gets a
-sensible frame. Each row also carries the box as `data-bounds`, which is how the
-table was checked against the change overlay (below).
+The renderer's `MapStore` knows nothing about comparing. The price is that each
+compared version's bytes are read twice from the open folder: once by the
+renderer in JavaScript, once by the cache.
 
-The snapshot is taken at load, not at comparison, because only the load sees the
-bytes. MapStore keeps maps by version name, so comparing V3 with V2 after V2 with
-V1 reads and parses nothing new.
+Every row carries a rectangle in paper millimetres (OCAD units ÷ 100, Y up, as
+PurplePen draws them). An edited object's covers where it was and where it is
+now. The zoom button passes it to `mapWorkspace.zoomTo`, which pads it by 8 mm
+so a point gets a sensible frame. Each row also carries it as `data-bounds`,
+which is how the table was checked against the change overlay (below).
 
-`ProjectDependencyTests` records the new edges (`Diff → MapModel`,
-`Core → Diff`, `Wasm → Diff`, `Diff.Tests → Core, Diff`), and
-`AssemblyDependencyTests.TheDiffKnowsNothingAboutRenderingOrTheBrowser` checks the
-compiled assembly.
+A version shown against itself means two things. Picked from the list, it is the
+oldest release, which has nothing before it, so every object is added - as in the
+Angular app. Picked in the dropdowns, it is an ordinary comparison with no changes.
 
 ## Tests
 
-`tests/OcadViewer.Diff.Tests` (NUnit) drives everything with real `.ocd` files in
-`Fixtures/`, copied from `ocad-versioner/src/assets/tests` so they outlive the
-Angular app. What each contains, as read from its object index:
+The comparison is tested in `tests/OcadViewer.Comparison.Tests`, on the files in
+`tests/TestData/diff`. What each contains, as read from its object index:
 
 | Fixture | Normal objects |
 |---|---|
@@ -93,7 +68,7 @@ Made from those in OCAD 2020.8, which still saves the 2018 format:
 | `blank` | File, New, symbols loaded from `point_line_area` | no index entries at all |
 | `point_line_area_imported` | `point_line_area` imported into `blank`, offset 0 | entries 1-3 instead of 3-5, same coordinates and creation dates, new modification dates |
 | `point_line_area_pasted` | its objects copied and pasted into `blank` | as imported, but every object shifted by (-1.27, +1.18) mm |
-| `point_line_area_app_exchange` | File › OCAD App Data Exchange opened, nothing exported | OCAD saved first: entries 1-3, undo entries gone, every date -1 h (to UTC) |
+| `point_line_area_app_exchange` | File › OCAD App Data Exchange opened, nothing exported | OCAD saved first: entries 1-3, undo entries gone, every date -1 h (to UTC), and header byte 55 set on every object |
 | `point_line_area_optimized` | Map › Optimize / Repair | entries 1-3, undo entries gone, dates kept |
 | `point_line_area_cut` | contour cut in two (Cut Line) | entry 3 one half; new entry 6 the other, **with the contour's creation date** |
 | `point_line_area_duplicated` | knoll duplicated | new entry 6, **with the original's creation date** |
@@ -101,65 +76,22 @@ Made from those in OCAD 2020.8, which still saves the 2018 format:
 | `point_line_area_text_edited` | the text changed to "Knolls" | same entry and creation date; the box widened |
 | `point_line_area_symbol_hidden` | Symbol › Hide Objects on 403.0 | symbol 403.0's status 0 → 2; no object changed |
 
-`OcadCommandTests` checks the diff of each against `point_line_area`. A cut or a
-duplicate shows that a creation date is shared by different objects, not only
-in imports; the same-entry and identical-content passes keep them apart. An
-edited text is reported as a text **and** a geometry change, because its box is
-stored as coordinates.
-
-The imported copy is the Bymarkabasen rebuild made by OCAD itself: renumbered,
-creation dates kept, modification dates restamped. It must diff as empty; the
-pasted one as three geometry edits under their new entries.
-
-Cases no OCAD-saved fixture shows (a reused index entry, objects trading entries,
-dates shifted by whole hours, a batch sharing one creation date) are made by
-patching a copy's bytes in the test (`OcadBytes`). `RenumberedObjectsTests`
-rebuilds the remaining Bymarkabasen situations in miniature this way.
-
-The comparison tests build snapshots from the object index alone
-(`Fixture.Snapshot`, at the fixtures' 1:15 000), because that is all the
-comparison reads. Only `ParsedSnapshotTests` and `MapStoreSnapshotTests` load
-PurplePen, for symbol names, scale and the store.
-
-### Real maps, as a baseline that is never committed
-
-`RealMapTests` runs the diff on real projects, release by release: Bymarkabasen
-and Storigarden. The maps are copyrighted, so **they are never copied into this
-repository**. The tests read them in place and only read them. They look in the
-folder named by `OCAD_REAL_MAPS` (default `C:\repos`: `BIL-kart\Bymarkabasen`,
-`ocad-storigarden`), and are ignored on any machine without them, CI included.
-Each pair checks three things:
-
-- the **baseline counts**, each checked by hand when recorded (below). A rule
-  change that moves one has to explain why;
-- **the counts add up**: added − deleted equals the change in object count;
-- **nothing identical is reported as deleted and added**.
-
-```bash
-dotnet test map-viewer/tests/OcadViewer.Diff.Tests                       # Debug
-dotnet test map-viewer/tests/OcadViewer.Diff.Tests --filter TestCategory=RealMaps
-dotnet test map-viewer/tests/OcadViewer.ArchitectureTests -c Release
-```
-
-**The Windows application control policy described in `PLAN.md` gets in the way
-here.** It blocks freshly built assemblies (`0x800711C7`), and its verdicts are
-not stable. Over one day it blocked the Release `Graphics2D.dll`, then the Debug
-`MapModel.dll`, then `OcadViewer.Diff.dll` itself. The next day it let the whole
-suite run again. When it blocks, check in the browser instead (below), where
-WebAssembly is not subject to the policy.
+The app side - the cache, the rows, the page - has no unit tests; it is checked in
+the browser (below).
 
 ## Not yet done
 
-- **Symbols, colours, georeferencing and scale, templates and settings.** Next PRs.
-  They come from the parsed `Map`, which already reads all of them. The interface
-  will grow a result per category rather than overloading `ObjectDiff`. The
-  symbol diff must include a symbol shown or hidden (its status): in Bymarkabasen
-  V1 → V2 that alone redrew a boundary line around the whole map.
+- **Real-map baselines.** The earlier branch had `RealMapTests`, which diffed
+  Bymarkabasen and Storigarden in place (copyrighted, never committed) against
+  hand-checked counts. They went with `OcadViewer.Diff`. Their counts were for the
+  earlier matcher, so they have to be re-recorded on Comparison before coming back.
+- **Symbols, colours, georeferencing and scale, templates and settings.** Next
+  PRs, as further results from Comparison. A symbol hidden in the symbol box is
+  *not* reported: OCAD sets that status itself (COMPARISON.md).
 - **Version metadata counts.** `ProjectService.CreateVersionAsync` still writes
-  zero added/edited/deleted counts into `V<n>.json`. Filling them from this diff
-  needs the working file and the newest release both parsed when a version is
-  created.
-- **Exact curve lengths**, see above.
+  zero added/edited/deleted counts into `V<n>.json`. The cache can now provide
+  both files when a version is created.
+- **Exact curve lengths.** Control points are skipped and the chord measured.
 
 ## Checking the table in the browser, without the folder picker
 

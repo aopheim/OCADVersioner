@@ -62,8 +62,8 @@
          : "";
 
     private string RowTitle(Item item)
-        => item.Number == SelectedNumber ? "On the right"
-         : item.Number == OtherNumber ? "On the left"
+        => item.Number == SelectedNumber ? L["#_onTheRight"]
+         : item.Number == OtherNumber ? L["#_onTheLeft"]
          : null;
 
     /// <summary>True while the page is busy, so a second comparison cannot start on top of the first.</summary>

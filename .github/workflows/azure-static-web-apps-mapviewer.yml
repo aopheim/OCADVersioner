@@ -2,10 +2,9 @@ name: MapViewer Deploy
 
 # develop deploys to the DEV Static Web App (thankful-coast).
 #
-# main deploys to the Blazor app's OWN Static Web App, not to icy-pond, which
-# keeps serving the last Angular build until the production domain is moved.
-# That resource and its token do not exist yet; until they do, main skips the
-# deploy (skip_deploy_on_missing_secrets).
+# main deploys to the PROD Static Web App (icy-pond), the one the production
+# domain points at. It used to serve the Angular app; the Blazor app replaces it
+# there, so the domain and its settings stay as they are.
 #
 # It is built here and uploaded prebuilt, because Oryx cannot build .NET 10
 # Blazor WebAssembly and has no wasm-tools workload.
@@ -76,10 +75,8 @@ jobs:
               id: builddeploy
               uses: Azure/static-web-apps-deploy@v1
               with:
-                  # develop -> thankful-coast (DEV). main -> the Blazor app's own
-                  # Static Web App; rename that secret to the Azure-generated name
-                  # once the resource exists, the way thankful-coast's is named.
-                  azure_static_web_apps_api_token: ${{ github.ref == 'refs/heads/develop' && secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_COAST_0330E1403 || secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MAPVIEWER }}
+                  # develop -> thankful-coast (DEV). main -> icy-pond (PROD).
+                  azure_static_web_apps_api_token: ${{ github.ref == 'refs/heads/develop' && secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_COAST_0330E1403 || secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_ICY_POND_0F7B2AA03 }}
                   repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
                   action: 'upload'
                   app_location: '/publish/wwwroot' # Already published - see skip_app_build
@@ -88,11 +85,11 @@ jobs:
                   # Load-bearing. Without it the deploy hands the directory to
                   # Oryx, which cannot build this and will not admit why.
                   skip_app_build: true
-                  # No deployment_environment: each branch now has its own Static
-                  # Web App, so both deploy to that app's production environment.
-                  # Lets the workflow land before the Azure resource and its
-                  # token exist, rather than failing every push until they do.
-                  skip_deploy_on_missing_secrets: true
+                  # No deployment_environment: each branch has its own Static Web
+                  # App, so both deploy to that app's production environment.
+                  # No skip_deploy_on_missing_secrets either: both tokens exist,
+                  # and a missing one should fail the run, not pass it green
+                  # with nothing deployed.
 
             # Azure Static Web Apps compresses dynamically and does NOT serve the
             # .br companions the publish produces. Once this is live, check

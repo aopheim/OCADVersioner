@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 
 using OcadViewer.Core;
-using OcadViewer.Diff;
 using OcadViewer.Wasm;
 using OcadViewer.Wasm.Services;
 
@@ -19,9 +18,8 @@ builder.Services.AddScoped<ProjectService>();
 builder.Services.AddScoped<Localiser>();
 builder.Services.AddScoped<AppSettingsService>();
 
-// The diff is stateless; the table's source remembers whether the last pair could
-// be compared, so it lives as long as the page.
-builder.Services.AddSingleton<IOcadDiffService, OcadDiffService>();
+// The versions being compared, parsed once each, as long as the project is open.
+builder.Services.AddScoped<ComparisonCache>();
 builder.Services.AddScoped<IDiffSource, OcadDiffSource>();
 
 builder.Services.AddScoped<TelemetryService>();

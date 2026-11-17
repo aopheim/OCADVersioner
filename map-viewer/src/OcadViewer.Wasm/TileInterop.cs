@@ -151,13 +151,7 @@ public static partial class TileInterop
             new ChangeMaskPlan(width, height,
                                RectangleF.FromLTRB((float)minX, (float)minY, (float)maxX, (float)maxY)));
 
-    /// <summary>The store behind a handle.</summary>
-    /// <remarks>
-    /// Internal rather than private for the object diff, which reads the parses a
-    /// workspace's panes are drawn from - so a version is parsed once, and the
-    /// table describes exactly what is on screen.
-    /// </remarks>
-    internal static MapStore StoreFor(int store)
+    private static MapStore StoreFor(int store)
         => Stores.TryGetValue(store, out MapStore maps)
             ? maps
             : throw new InvalidOperationException($"Map store {store} does not exist; it was never created or has been disposed.");

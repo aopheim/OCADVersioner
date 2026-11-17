@@ -21,12 +21,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\OcadViewer.Comparison\OcadViewer.Comparison.csproj" />
     <ProjectReference Include="..\..\src\OcadViewer.Merge\OcadViewer.Merge.csproj" />
     <ProjectReference Include="..\..\src\OcadViewer.Ocd\OcadViewer.Ocd.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\TestData\merge\*.ocd" Link="merge\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="..\TestData\Fixtures.cs" Link="Fixtures.Shared.cs" />
+    <None Include="..\TestData\merge\*.ocd" Link="TestData\merge\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

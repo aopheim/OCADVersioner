@@ -2,7 +2,7 @@ using OcadViewer.Merge.Analysis;
 using OcadViewer.Merge.Decisions;
 using OcadViewer.Merge.Writing;
 using OcadViewer.Ocd;
-using static OcadViewer.Merge.Tests.Fixtures.Symbols;
+using static OcadViewer.TestData.Fixtures.Symbols;
 
 namespace OcadViewer.Merge.Tests;
 
