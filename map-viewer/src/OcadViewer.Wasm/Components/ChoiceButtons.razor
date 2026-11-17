@@ -6,7 +6,7 @@
 @* The decision buttons for one item or overlap, wherever a decision can be made. *@
 <div class="choice-buttons @(Large ? "large" : null)">
     @foreach (ChoiceOption option in MergeChoices.For(Source, Session, LabelA, LabelB, L)) {
-        <button type="button" disabled="@Disabled" aria-pressed="@option.Current"
+        <button type="button" disabled="@(Disabled || !option.Enabled)" aria-pressed="@option.Current"
                 class="btn @(Large ? null : "btn-sm") merge-choice @(option.Side is null ? null : "side-" + option.Side) @(option.Current ? "chosen" : null)"
                 @onclick="() => OnChoose.InvokeAsync((Source, option.Choice))">
             @option.Label

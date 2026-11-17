@@ -42,4 +42,10 @@ public sealed class PublicSurfaceTests
 
         Assert.That(exposing, Is.Empty);
     }
+
+    [Test]
+    public void ObjectsCannotBeMovedFromOutside()
+        // The index keeps an extent that includes the symbol size, which a move cannot
+        // recompute; a moved object written to a file would carry a stale extent.
+        => Assert.That(typeof(OcadObject).GetMethod(nameof(OcadObject.WithCoords), BindingFlags.Public | BindingFlags.Instance), Is.Null);
 }
