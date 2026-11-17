@@ -1,6 +1,6 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using OcadViewer.Ocd
-@using OcadViewer.Merge.Matching
+@using OcadViewer.Merge.Analysis
 @using OcadViewer.Versioning
 @using OcadViewer.Wasm.Services
 @inherits LocalisedComponent
@@ -93,11 +93,14 @@
     private readonly Dictionary<MergeRole, string> errors = [];
     private IReadOnlyList<MergeProgress> unfinished = [];
     private MergeProgress resumable;
+
+    /// <summary>How much of base each copy still has, worked out once when a file is picked.</summary>
+    private readonly Dictionary<MergeRole, int> shared = [];
     private bool Busy;
 
     private bool HaveAll => inputs.Count == 3;
 
-    private bool SameVersion => HaveAll && inputs.Values.Select(i => i.File.Version).Distinct().Count() == 1;
+    private bool SameVersion => HaveAll && MergeCheck.SameVersion(inputs[MergeRole.Base].File, inputs[MergeRole.A].File, inputs[MergeRole.B].File);
 
     private bool CanStart => SameVersion && !Busy;
 
@@ -106,20 +109,22 @@
         Busy = true;
         errors.Remove(role);
         try {
-            using MemoryStream copy = new();
+            byte[] bytes = new byte[e.File.Size];
             await using (Stream stream = e.File.OpenReadStream(MaxFileSize))
-                await stream.CopyToAsync(copy);
+                await stream.ReadExactlyAsync(bytes);
 
-            MergeInput input = MergeInput.Read(e.File.Name, copy.ToArray());
+            MergeInput input = MergeInput.Read(e.File.Name, bytes);
             inputs[role] = input;
             if (role != MergeRole.Base && string.IsNullOrWhiteSpace(labels[role]))
                 labels[role] = input.DefaultLabel;
+            Measure(role);
             resumable = HaveAll
                 ? await ProgressStore.LoadAsync(MergeProgress.KeyFor(inputs[MergeRole.Base], inputs[MergeRole.A], inputs[MergeRole.B]))
                 : null;
         }
         catch (Exception ex) when (ex is OcadFormatException or IOException) {
             inputs.Remove(role);
+            Measure(role);
             errors[role] = L.Format("#_mergeReadFailed", ("file", e.File.Name), ("error", ex.Message));
         }
         finally {
@@ -141,19 +146,28 @@
 
         yield return (true, L.Format("#_mergeSameVersion", ("version", inputs[MergeRole.Base].File.Version)));
         foreach (MergeRole role in new[] { MergeRole.A, MergeRole.B }) {
-            int percent = SharedPercent(inputs[MergeRole.Base].File, inputs[role].File);
+            int percent = shared[role];
             string name = Label(role);
-            yield return percent >= 50
+            yield return MergeCheck.Descends(percent)
                 ? (true, L.Format("#_mergeDescends", ("name", name), ("percent", percent)))
                 : (false, L.Format("#_mergeDescendsWarning", ("name", name)));
         }
     }
 
-    /// <summary>How much of base a copy still contains: a copy of the right base shares most of it.</summary>
-    private static int SharedPercent(OcadFile @base, OcadFile copy)
-        => @base.Objects.Count == 0
-            ? 100
-            : (int)Math.Round(100.0 * ObjectMatcher.Match(@base.Objects, copy.Objects).Pairs.Count / @base.Objects.Count);
+    /// <summary>
+    /// Works out how much of base the copies share, for the copies a newly picked file
+    /// affects: one copy, or both when base changed. Matching is the expensive part of
+    /// the checks, so it runs here and not on every render.
+    /// </summary>
+    private void Measure(MergeRole picked)
+    {
+        foreach (MergeRole copy in picked == MergeRole.Base ? new[] { MergeRole.A, MergeRole.B } : new[] { picked }) {
+            if (inputs.TryGetValue(MergeRole.Base, out MergeInput b) && inputs.TryGetValue(copy, out MergeInput c))
+                shared[copy] = MergeCheck.SharedPercent(b.File, c.File);
+            else
+                shared.Remove(copy);
+        }
+    }
 
     private string Label(MergeRole role)
         => string.IsNullOrWhiteSpace(labels[role]) ? inputs[role].DefaultLabel : labels[role].Trim();

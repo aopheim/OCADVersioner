@@ -170,6 +170,8 @@
     "#_mergeSameChange": "Both made the same change",
     "#_mergeColour": "Colour: {{name}}",
     "#_mergeSettingType": "Setting {{type}}",
+    "#_mergeSettingNamed": "Setting {{type}}: {{name}}",
+    "#_mergeBackgroundMap": "Background map: {{name}}",
     "#_mergeNothingHere": "Nothing here.",
     "#_mergeNoChanges": "Neither copy changed anything.",
     "#_mergeOpenCount": "{{count}} open",

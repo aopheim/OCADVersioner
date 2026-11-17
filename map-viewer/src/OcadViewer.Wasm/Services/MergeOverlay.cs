@@ -38,7 +38,7 @@ public static class MergeOverlay
             features.Add(Box(group));
 
         foreach (ObjectItem item in session.Analysis.Objects)
-            features.AddRange(For(item, resolution.ChoiceFor(item)));
+            features.AddRange(For(item, resolution));
 
         return features;
     }
@@ -62,7 +62,7 @@ public static class MergeOverlay
             .Select(item => (item, version: side is Side s ? item.Version(s) : item.Base))
             .Where(x => x.version is not null)
             .Select(x => Outline(x.item.Key,
-                                 side switch { Side.A => "a", Side.B => "b", _ => "both" },
+                                 side is Side owner ? ChangeSides.Of(owner) : ChangeSide.Both,
                                  side is Side s ? Word(x.item.Change(s)) : "changed",
                                  x.version, "accepted"))];
     }
@@ -70,48 +70,51 @@ public static class MergeOverlay
     public static string Json(IReadOnlyList<OverlayFeature> features)
         => JsonSerializer.Serialize(features, MergeOverlayJson.Default.IReadOnlyListOverlayFeature);
 
-    private static IEnumerable<OverlayFeature> For(ObjectItem item, Choice? choice)
+    /// <summary>
+    /// An open conflict: base's shape and both branches' versions. Otherwise each
+    /// branch's change, accepted if the merged map holds it (as
+    /// <see cref="MergeResolution.ResultOf{T}"/> says) and rejected if not.
+    /// </summary>
+    private static IEnumerable<OverlayFeature> For(ObjectItem item, MergeResolution resolution)
     {
-        if (choice is null) {
-            yield return Outline(item.Key, "conflict", "conflict", item.Base ?? item.A ?? item.B, "open");
+        if (resolution.ChoiceFor(item) is null) {
+            yield return Outline(item.Key, ChangeSide.Conflict, "conflict", item.Base ?? item.A ?? item.B, "open");
             foreach (Side side in new[] { Side.A, Side.B }) {
                 if (item.Version(side) is OcadObject version)
-                    yield return Outline(item.Key, Name(side), Word(item.Change(side)), version, "open");
+                    yield return Outline(item.Key, ChangeSides.Of(side), Word(item.Change(side)), version, "open");
             }
             yield break;
         }
 
-        if (choice == Choice.Base) {
-            // A rejected change, drawn where it would have been.
-            Side own = item.ChangeA != ChangeKind.None ? Side.A : Side.B;
-            yield return Outline(item.Key, Name(own), Word(item.Change(own)), item.Version(own) ?? item.Base, "rejected");
-            yield break;
-        }
-
-        string sideName = item.Outcome == Outcome.BothSame ? "both" : null;
-        foreach (Side side in choice == Choice.Both ? new[] { Side.A, Side.B } : new[] { choice == Choice.A ? Side.A : Side.B }) {
-            if (item.Change(side) == ChangeKind.None)
+        IReadOnlyList<OcadObject> held = resolution.ResultOf(item);
+        bool shared = item.Outcome == Outcome.BothSame;
+        foreach (Side side in shared ? new[] { Side.A } : new[] { Side.A, Side.B }) {
+            ChangeKind change = item.Change(side);
+            if (change == ChangeKind.None)
                 continue;
-            yield return Outline(item.Key, sideName ?? Name(side), Word(item.Change(side)), item.Version(side) ?? item.Base, "accepted");
+
+            bool kept = change == ChangeKind.Deleted
+                ? !held.Contains(item.Base)
+                : held.Contains(item.Version(side)) || (shared && held.Contains(item.B));
+            yield return Outline(item.Key, shared ? ChangeSide.Both : ChangeSides.Of(side), Word(change),
+                                 item.Version(side) ?? item.Base, kept ? "accepted" : "rejected");
         }
     }
 
-    private static OverlayFeature Outline(string key, string side, string change, OcadObject version, string state)
+    private static OverlayFeature Outline(string key, ChangeSide side, string change, OcadObject version, string state)
     {
         Shape shape = ObjectShape.Of(version);
         string kind = shape.Kind switch { ShapeKind.Area => "area", ShapeKind.Line => "line", _ => "point" };
         double[][][] parts = [.. shape.Parts.Select(part => part.Select(p => new[] { p.X, p.Y }).ToArray())];
-        return new OverlayFeature(key, side, change, kind, parts, state);
+        return new OverlayFeature(key, side.Name(), change, kind, parts, state);
     }
 
     private static OverlayFeature Box(OverlapGroup group)
     {
         (double minX, double minY, double maxX, double maxY) = ObjectShape.Millimetres(group.Bounds);
-        return new OverlayFeature(group.Key, "conflict", "conflict", "box",
+        return new OverlayFeature(group.Key, ChangeSide.Conflict.Name(), "conflict", "box",
                                   [[[minX, minY], [maxX, maxY]]], "open");
     }
-
-    private static string Name(Side side) => side == Side.A ? "a" : "b";
 
     private static string Word(ChangeKind change) => change switch {
         ChangeKind.Added => "added",

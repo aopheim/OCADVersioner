@@ -13,7 +13,11 @@ namespace OcadViewer.Merge.Geometry;
 /// there. Both versions' changed pieces count: the new line where it now runs, and
 /// the old one where it used to.</para>
 /// <para>An object added, deleted, or changed without moving (a new symbol, say)
-/// counts whole; if it is an area, so does its inside.</para>
+/// counts whole. So does the inside of such an area, if it is no larger across than
+/// a given size: a knoll in a new marsh is near it, but a forest polygon covering
+/// the map would make everything near everything.</para>
+/// <para>An area's rings are closed: OCAD often does not repeat the first point at
+/// the end, and the edge back to it counts like any other.</para>
 /// <para>Curves are flattened into short straight pieces, close enough for
 /// measuring distances of metres.</para>
 /// </remarks>
@@ -40,17 +44,18 @@ internal sealed class ChangedStretch
     }
 
     /// <summary>What changed between <paramref name="before"/> and <paramref name="after"/>; either may be null, not both.</summary>
-    public static ChangedStretch Between(OcadObject before, OcadObject after)
+    /// <param name="insideUpTo">The largest extent, in paper units, of an area whose inside counts.</param>
+    public static ChangedStretch Between(OcadObject before, OcadObject after, int insideUpTo)
     {
         if (before is null || after is null)
-            return Whole(before ?? after);
+            return Whole(before ?? after, insideUpTo);
 
         List<OcadCoord[]> old = Pieces(before), now = Pieces(after);
         HashSet<string> inOld = [.. old.Select(Key)], inNow = [.. now.Select(Key)];
         OcadCoord[][] changed = [.. old.Where(p => !inNow.Contains(Key(p)) && !inNow.Contains(ReverseKey(p))),
                                  .. now.Where(p => !inOld.Contains(Key(p)) && !inOld.Contains(ReverseKey(p)))];
 
-        return changed.Length == 0 ? Whole(after) : new ChangedStretch([.. changed.SelectMany(Flatten)], []);
+        return changed.Length == 0 ? Whole(after, insideUpTo) : new ChangedStretch([.. changed.SelectMany(Flatten)], []);
     }
 
     /// <summary>Whether any changed part comes within <paramref name="distance"/> of <paramref name="other"/>'s.</summary>
@@ -87,38 +92,25 @@ internal sealed class ChangedStretch
         return contains;
     }
 
-    private static ChangedStretch Whole(OcadObject o)
+    private static ChangedStretch Whole(OcadObject o, int insideUpTo)
     {
-        List<OcadCoord[]> pieces = Pieces(o);
-        bool isArea = o.Type is ObjectType.Area or ObjectType.Rectangle;
-        (double X, double Y)[][] rings = isArea ? [.. Rings(o).Select(r => Points(Pieces(r)))] : [];
-        return new ChangedStretch([.. pieces.SelectMany(Flatten)], rings);
+        ChangedStretch outline = new([.. Pieces(o).SelectMany(Flatten)], []);
+        Bounds b = outline.Bounds;
+        bool insideCounts = IsArea(o) && !b.IsEmpty && Math.Max(b.MaxX - b.MinX, b.MaxY - b.MinY) <= insideUpTo;
+        return insideCounts
+            ? new ChangedStretch(outline.segments, [.. ObjectRings.Of(o).Select(r => Points(Pieces(r, closed: true)))])
+            : outline;
     }
 
-    /// <summary>An object's coordinates split into its outer ring and holes.</summary>
-    private static List<OcadCoord[]> Rings(OcadObject o)
-    {
-        if (o.Type == ObjectType.Point)
-            return o.Coords.Count > 0 ? [[o.Coords[0]]] : [];
+    private static bool IsArea(OcadObject o) => ObjectRings.KindOf(o) == ShapeKind.Area;
 
-        List<OcadCoord[]> rings = [];
-        List<OcadCoord> ring = [];
-        foreach (OcadCoord c in o.Coords) {
-            if (c.StartsHole && ring.Count > 0) {
-                rings.Add([.. ring]);
-                ring = [];
-            }
-            ring.Add(c);
-        }
-        if (ring.Count > 0)
-            rings.Add([.. ring]);
-        return rings;
-    }
+    private static List<OcadCoord[]> Pieces(OcadObject o) => [.. ObjectRings.Of(o).SelectMany(r => Pieces(r, IsArea(o)))];
 
-    private static List<OcadCoord[]> Pieces(OcadObject o) => [.. Rings(o).SelectMany(Pieces)];
-
-    /// <summary>A ring as straight pieces (two points) and curves (anchor, two control points, anchor).</summary>
-    private static IEnumerable<OcadCoord[]> Pieces(OcadCoord[] ring)
+    /// <summary>
+    /// A ring as straight pieces (two points) and curves (anchor, two control points,
+    /// anchor); a closed ring also gets the edge from its last point back to its first.
+    /// </summary>
+    private static IEnumerable<OcadCoord[]> Pieces(OcadCoord[] ring, bool closed)
     {
         if (ring.Length == 1)
             yield return ring;
@@ -134,6 +126,9 @@ internal sealed class ChangedStretch
                 i += 1;
             }
         }
+
+        if (closed && ring.Length > 2 && (ring[^1].X != ring[0].X || ring[^1].Y != ring[0].Y))
+            yield return [ring[^1], ring[0]];
     }
 
     private static (double X, double Y)[] Points(IEnumerable<OcadCoord[]> pieces)

@@ -89,6 +89,9 @@
 
     [Parameter, EditorRequired] public MergeSession Session { get; set; }
     [Parameter, EditorRequired] public MergeStart Start { get; set; }
+
+    /// <summary>The side panel's rows, built by the page once per state of the decisions.</summary>
+    [Parameter, EditorRequired] public MergePanelListing Listing { get; set; }
     [Parameter] public string LabelA { get; set; }
     [Parameter] public string LabelB { get; set; }
     [Parameter] public bool Disabled { get; set; }
@@ -101,7 +104,7 @@
     private string shownKey;
     private Dictionary<string, string> captions = [];
 
-    private IReadOnlyList<PanelEntry> Conflicts => MergePanelEntries.For(MergeTab.Conflicts, Session, LabelA, LabelB, L);
+    private IReadOnlyList<PanelEntry> Conflicts => Listing[MergeTab.Conflicts];
 
     private PanelEntry Current => Conflicts[Math.Clamp(index, 0, Conflicts.Count - 1)];
 
