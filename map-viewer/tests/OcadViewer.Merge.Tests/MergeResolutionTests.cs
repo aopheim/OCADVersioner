@@ -132,6 +132,23 @@ public sealed class MergeResolutionTests
         Assert.That(new MergeResolution(analysis, restored).IsComplete, Is.True);
     }
 
+    [Test]
+    public void AResolutionIsASnapshotOfItsDecisions()
+    {
+        MergeDecisions decisions = new();
+        Decide(decisions);
+        MergeResolution resolution = new(analysis, decisions);
+        ObjectItem forest = ItemFor(Fixtures.Created.Forest);
+
+        decisions.Forget(forest.Key);
+
+        Assert.Multiple(() => {
+            Assert.That(resolution.ChoiceFor(forest), Is.EqualTo(Choice.A));
+            Assert.That(resolution.IsComplete, Is.True);
+            Assert.That(new MergeResolution(analysis, decisions).IsComplete, Is.False);
+        });
+    }
+
     /// <summary>A full set of decisions for the fixtures.</summary>
     public static void Decide(MergeDecisions decisions)
     {
