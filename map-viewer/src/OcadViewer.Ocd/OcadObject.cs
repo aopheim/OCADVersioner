@@ -73,8 +73,13 @@ public sealed class OcadObject
     }
 
     /// <summary>The same object with the same number of coordinates, moved to <paramref name="coords"/>.</summary>
+    /// <remarks>
+    /// Internal: the index keeps an extent that includes the symbol's size, which this
+    /// cannot recompute, so the result is fit for comparing but not for writing. Tests
+    /// use it to nudge coordinates; nothing in the product moves objects.
+    /// </remarks>
     /// <exception cref="ArgumentException">The number of coordinates differs.</exception>
-    public OcadObject WithCoords(IReadOnlyList<OcadCoord> coords)
+    internal OcadObject WithCoords(IReadOnlyList<OcadCoord> coords)
     {
         if (coords.Count != Coords.Count)
             throw new ArgumentException($"The object has {Coords.Count} coordinates, not {coords.Count}.", nameof(coords));
