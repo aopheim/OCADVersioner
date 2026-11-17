@@ -35,6 +35,7 @@ public static class MergeText
     public static string Conflict(ConflictKind? kind, Localiser l) => kind switch {
         ConflictKind.BothEdited => l["#_mergeBothEdited"],
         ConflictKind.EditDelete => l["#_mergeEditDelete"],
+        ConflictKind.SymbolInUse => l["#_mergeSymbolInUse"],
         ConflictKind.BothAdded => l["#_mergeBothAdded"],
         ConflictKind.Overlap => l["#_mergeOverlap"],
         _ => null,

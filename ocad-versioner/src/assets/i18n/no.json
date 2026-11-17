@@ -139,6 +139,7 @@
     "#_mergeSymbolsAndColours": "Symboler og farger",
     "#_mergeBothEdited": "Begge har endret det, ulikt",
     "#_mergeEditDelete": "Én har endret det, den andre har slettet det",
+    "#_mergeSymbolInUse": "Én har slettet symbolet, men objekter i sammenslåingen bruker det fortsatt",
     "#_mergeBothAdded": "Begge har lagt det til, ulikt",
     "#_mergeOverlap": "Endringer fra begge ligger tett sammen",
     "#_mergeOverlapCount": "{{count}} endringer i samme område",

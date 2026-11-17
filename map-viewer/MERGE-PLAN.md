@@ -26,7 +26,9 @@ changed, merges what doesn't clash, lets the user decide what does, and saves a 
 | "Changed" | The record differs, ignoring dates (and the colour field of objects that have a symbol), with a geometry tolerance of **0.1 m on the ground** (converted with the map scale). |
 | Conflicts | (1) same object edited by both, incl. edit vs delete and both added; (2) spatial overlap: a Kari change and an Ola change whose extents come within a buffer (default 10 m, adjustable); (3) the same symbol or setting changed by both. |
 | Clean changes | Pre-accepted, shown on the map, can be rejected. Only conflicts *must* be resolved. |
-| Resolutions | Take Kari · Take Ola · Keep both · Keep base. "Keep both" (objects only) gives the second copy a **new CreationDate**. |
+| Resolutions | Take Kari · Take Ola · Keep both · Keep base. "Keep both" (objects only) gives the second copy a **new CreationDate**; on a change only one branch made it means taking that branch. |
+| Symbols in use | The merged map never has an object without its symbol. A symbol a branch **added** is kept automatically while objects in the merge use it (its reject is locked, with a note). A symbol a branch **deleted** that objects in the merge still use - the other branch's new or edited objects, or objects the deleting branch kept when OCAD asked - is a **conflict**; taking the deletion removes every object that uses it, and the panel lists them first. |
+| Sprint maps | Sprint maps (ISSprOM 2019, 1:4000) merge exactly like forest maps; `SprintMapTests` runs one scenario on both. |
 | Non-object data | 3-way per symbol (by number) and per parameter string (colours by number, others by type and first field). View-state strings (zoom, selection, recent files, display, view) are kept from base. Strings tied to an object slot are kept from base. |
 | Output | Save as a new `.ocd`. **Byte-faithful**: base's bytes are copied, records appended and index entries repointed. Inputs are never written. |
 | Formats | OCAD 11, 12 and 2018. OCAD 2019 and 2020 save in the 2018 format, so that covers them. **All three files must be the same version.** |
@@ -60,7 +62,7 @@ Observed while making the fixtures (OCAD 2020.8.6); details in `tests/TestData/m
 - Saving as OCAD 12 compacts slots; saving as OCAD 11 from OCAD 2020 zeroes creation dates.
 - The display-mode string is rewritten on every save, which is why view-state strings are excluded.
 
-Still not covered by a fixture: text objects, symbol graphics changes, background-map strings.
+Still not covered by a fixture: symbol graphics changes, background-map strings, line text (text along a curve).
 
 ## Architecture
 

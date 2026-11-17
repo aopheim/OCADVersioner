@@ -11,6 +11,12 @@ drawn in OCAD 2020.8.6, ISOM 2017-2 symbol set at 1:10 000. Saved in **OCAD
 | `kari_settings.ocd`, `ola_settings.ocd` | Byte copies of base: both renamed colour 5 (brown) differently and both duplicated symbol 101 into 101.004 with different descriptions. |
 | `identity_edits.ocd` | Base with the middle boulder cut and pasted, the east boulder copied and pasted, and the knoll duplicated. |
 | `base_v12.ocd`, `base_v11.ocd` | Base saved as OCAD 12 and OCAD 11. |
+| `kari_v12.ocd`, `ola_v12.ocd`, `kari_v11.ocd`, `ola_v11.ocd` | Kari and Ola saved as OCAD 12 and OCAD 11 (File > Save As makes a copy). |
+| `kari_symbols.ocd` | Base: symbol 204 duplicated into 204.002 with two objects drawn with it; a new 204 boulder; lake and knoll moved. |
+| `ola_symbols.ocd` | Base: symbol 204 deleted, answering **Yes** to "delete the assigned objects too?" (the boulders get status 3); lake and knoll moved differently. |
+| `ola_symbols_kept.ocd` | Base: symbol 204 deleted, answering **No** - the boulders stay, pointing at a missing symbol (OCAD draws red crosses, "204.000 unknown symbol"). |
+| `texts.ocd`, `texts_edited.ocd` | Base plus an unformatted text "Storigarden" (901) and a formatted text "Langs stien" (902); the copy changes the first to "Storigarden nord". |
+| `sprint_base.ocd`, `sprint_kari.ocd`, `sprint_ola.ocd` | A sprint map (ISSprOM 2019-2, 1:4000) playing out the same scenario as base/kari/ola; see below. |
 | `dump.txt` | `node ocddump.mjs base.ocd kari.ocd ola.ocd`. |
 | `ocddump.mjs` | Dumps an OCAD 12/2018 file's objects: slot, symbol, type, status, dates, geometry hash. |
 
@@ -65,3 +71,38 @@ exactly those choices (checked by hand in OCAD 2020).
 - The display-mode parameter string (type 1024) is rewritten whenever the file is saved.
 - ServerObjectId is −1 on every object without OCAD Server.
 - OCAD has **Object › Change Creation Date…**, so a user can change an identity by hand.
+- **Deleting a symbol** asks "Do you want also delete the assigned objects?". Yes gives the objects status 3; No leaves them pointing at a symbol that no longer exists.
+- **Save As OCAD 11** reports the 2018 features it drops (structure patterns, cut at border) and saves a copy; the open map stays as it was.
+
+## The sprint set
+
+`sprint_base.ocd` was started with File > New > Orienteering map > "Orienteering
+Map ISSprOM 2019 4000" (OCAD 2020.8.6) and drawn with exact sizes from OCAD's
+Rectangle and Ellipse dialogs. Kari and Ola repeat, object for object, what
+they do to the forest map, so `SprintMapTests` can run one scenario on both:
+
+| Sprint object (created 2026-11-17 11:xx) | Plays | Kari | Ola | Reported |
+| --- | --- | --- | --- | --- |
+| 521 Building, west (08:59.454) | the forest | moved | moved | **Conflict: both edited** |
+| 521 Building, east (09:20.618) | — | — | — | Not a change |
+| 401 Open land (09:40.836) | the open land | — | moved | Clean, Ola |
+| 301 Uncrossable water (10:15.419) | the lake | moved | — | Clean, Kari |
+| 515 Uncrossable wall, a closed rectangle (12:33.824) | the footpath | — | — | Not a change |
+| 417 Tree, middle (12:47.545) | the middle boulder | — | Deleted | Clean, Ola |
+| 417 Tree, east (12:48.754) | the east boulder | Deleted | Moved | **Conflict: edit vs delete** |
+| 418 Bush (13:00.243) | the knoll | — | — | Not a change |
+| new | the ride and contour | 521 Building by the bush | — | Clean, Kari |
+| new | the knolls | — | 2 × 418 Bush by the bush | Clean, Ola |
+| Symbol 418 | symbol 109 | "Prominent bush (Kari)" | "Prominent bush (Ola)" | **Conflict: both edited** |
+
+`sprint_kari.ocd` also holds a building drawn by mistake and undone (status 3),
+which must be ignored.
+
+## Symbols in use
+
+| Merge | Reported |
+| --- | --- |
+| base, `kari_symbols`, base | Symbol 204.002 clean (Kari); kept while its two objects are kept, even if rejected. |
+| base, `kari_symbols`, `ola_symbols` | Symbol 204 **conflict: symbol in use** (Kari drew a new boulder). Taking Ola's deletion removes Kari's boulder too. |
+| base, base, `ola_symbols` | Symbol 204 clean (Ola): nobody else uses it. |
+| base, base, `ola_symbols_kept` | Symbol 204 **conflict: symbol in use** (Ola's own boulders still use it). |
