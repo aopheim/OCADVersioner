@@ -20,7 +20,7 @@ browser.
 | Visual assertions | Structural only | Tiles loaded, overlay image present, change share shown, no console errors. No pixel baselines - they are GPU/font sensitive and churn. |
 | Browsers | Chromium for every flow; one Firefox test | The workspace needs the File System Access API (Chromium only). Firefox checks the unsupported-browser message and that `/viewer` still works there. |
 | Language | English pinned; one switch test | Translation key parity is already enforced by `ArchitectureTests.TranslationTests`. |
-| CI | New `e2e` job in `ci.yml`, parallel to `build-and-test` | `build-and-test` stays fast and keeps its name (it is a required check). The existing `dotnet test` run skips the `E2E` category. |
+| CI | New `e2e` job in `ci.yml`, parallel to `build-and-test` | `build-and-test` stays fast and keeps its name (it is a required check). The E2E project is kept out of `MapViewer.slnx`, so that job neither builds Playwright nor runs these tests. NuGet packages and Playwright's browsers are cached. |
 
 ## User flows
 
@@ -87,12 +87,14 @@ tests/OcadViewer.E2ETests/
 ### The server
 `AppServer` is a one-time setup fixture. It reads the published site from
 `E2E_SITE` (CI) or defaults to `src/OcadViewer.Wasm/bin/Release/net10.0/publish/wwwroot`,
-starts `node tools/serve.mjs <site> <free port>`, and polls until it answers.
+starts `node tools/serve.mjs <site> 0` so the OS picks a free port, reads the
+port back from the server's first line, and polls until it answers. The server
+is also killed on process exit, so an aborted run does not leave it behind.
 `E2E_BASE_URL` skips all of that and points at an already running server.
 
 ### Waiting for the app
-Startup downloads the WASM runtime and fonts, so tests never sleep. A page is
-ready once `#app` has rendered Blazor content; work is done once the
+Startup downloads the WASM runtime and fonts, so tests never sleep; every
+expectation waits up to 60 s for what it checks to appear. Work is done once the
 `busy-bar` reports `data-busy="false"`. A pane has drawn once its
 `.leaflet-tile-loaded` canvases are present.
 
@@ -102,7 +104,9 @@ install it (so the Firefox test still sees an unsupported browser). It replaces
 `window.showDirectoryPicker` with a function that returns
 `navigator.storage.getDirectory()` → `e2e-projects/<name>`, where `<name>` is
 read from `localStorage['e2e.project']` (set by `OpfsProject.PickNextAsync`
-before clicking; with none set the picker acts as if the user closed it). Fixture
+before clicking; with none set the picker acts as if the user closed it). The
+same script defines `window.__e2eOpfs`, the only code that knows where test
+projects live; `OpfsProject` writes through it. Fixture
 files are written from C# by evaluating a small script that receives the bytes
 as base64. Each Playwright test gets a fresh browser context, and with it an
 empty OPFS.

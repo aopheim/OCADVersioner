@@ -49,10 +49,10 @@ jobs:
 
             # The solution rather than the one test project, so a suite added
             # later is picked up without touching this file. The browser tests
-            # are left to the e2e job below: they need a published site, Node and
-            # Playwright's browsers, none of which this job sets up.
+            # are not in the solution: they need a published site, Node and
+            # Playwright's browsers and driver, which only the e2e job below sets up.
             - name: Test
-              run: dotnet test MapViewer.slnx -c Release --no-build --filter "TestCategory!=E2E"
+              run: dotnet test MapViewer.slnx -c Release --no-build
 
     # Every page's happy path in a real browser, against the published bundle.
     # A job of its own so build-and-test stays quick, and so a browser failure
@@ -73,6 +73,13 @@ jobs:
               with:
                   global-json-file: map-viewer/global.json
 
+            - name: Cache NuGet packages
+              uses: actions/cache@v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('map-viewer/Directory.Packages.props', 'map-viewer/**/*.csproj') }}
+                  restore-keys: nuget-${{ runner.os }}-
+
             - name: Install the wasm-tools workload
               run: dotnet workload install wasm-tools
 
@@ -85,10 +92,26 @@ jobs:
             - name: Build the tests
               run: dotnet build tests/OcadViewer.E2ETests -c Release
 
+            # Keyed on the package versions, which pin the Playwright version and
+            # with it the browser build its driver expects.
+            - name: Cache Playwright's browsers
+              id: browsers
+              uses: actions/cache@v4
+              with:
+                  path: ~/.cache/ms-playwright
+                  key: playwright-${{ runner.os }}-${{ hashFiles('map-viewer/Directory.Packages.props') }}
+
             # The script comes with the Playwright package, so the browser it
-            # installs always matches the library version the tests use.
+            # installs always matches the library version the tests use. The
+            # system libraries live outside the cache, so they are installed
+            # either way.
             - name: Install Chromium
+              if: steps.browsers.outputs.cache-hit != 'true'
               run: pwsh tests/OcadViewer.E2ETests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
+            - name: Install Chromium's system libraries
+              if: steps.browsers.outputs.cache-hit == 'true'
+              run: pwsh tests/OcadViewer.E2ETests/bin/Release/net10.0/playwright.ps1 install-deps chromium
 
             - name: Run the end-to-end tests
               run: dotnet test tests/OcadViewer.E2ETests -c Release --no-build --logger "console;verbosity=normal"

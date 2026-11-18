@@ -3,9 +3,11 @@
   <!--
     Browser-driven happy paths against the published app. See E2E-PLAN.md.
 
-    Every test here is in the E2E category, so the solution-wide `dotnet test`
-    in the build-and-test job can leave them out: they need a published site,
-    Node and Playwright's browsers, which the e2e job sets up and that one does not.
+    Deliberately not in MapViewer.slnx: the tests need a published site, Node and
+    Playwright's browsers, and the Playwright package copies a ~90 MB driver into
+    bin on every build. Only the e2e CI job builds and runs this project, so the
+    required build-and-test job does not pay for it. Every test is also in the
+    E2E category, for anyone running it alongside the other suites.
   -->
 
   <PropertyGroup>
@@ -30,6 +32,11 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Scripts\*.js" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Shared with the other suites; see the file. -->
+    <Compile Include="../Shared/SourceTree.cs" Link="Shared/SourceTree.cs" />
   </ItemGroup>
 
 </Project>

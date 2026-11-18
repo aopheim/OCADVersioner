@@ -6,7 +6,7 @@
 // real bundle (trimming, fingerprinted assets, MIME types) show up here instead
 // of after a deploy.
 //
-//   node tools/serve.mjs <root> [port]
+//   node tools/serve.mjs <root> [port]      (port 0: any free port)
 
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
@@ -70,4 +70,8 @@ createServer(async (req, res) => {
         });
         createReadStream(filePath).pipe(res);
     }
-}).listen(port, () => console.log(`serving ${root} on http://localhost:${port}`));
+}).listen(port, function () {
+    // Port 0 asks the OS for a free port; this line says which one it gave, which
+    // is how the end-to-end tests find the server without racing for a port.
+    console.log(`serving ${root} on http://localhost:${this.address().port}`);
+});

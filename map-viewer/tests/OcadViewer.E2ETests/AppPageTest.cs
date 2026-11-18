@@ -68,23 +68,40 @@ public abstract class AppPageTest : PageTest
     [TearDown]
     public async Task TearDownAppPageAsync()
     {
+        // Everything that can fail the test is known before tracing stops, so a
+        // test failed only by the checks below still keeps its trace.
+        if (await Page.Locator("#blazor-error-ui").IsVisibleAsync())
+            errors.Add("Blazor's unhandled-error bar is showing.");
+
         bool failed = TestContext.CurrentContext.Result.Outcome.Status == TestStatus.Failed;
 
-        string trace = failed
+        // Written out whatever the outcome: when a flow times out, these are
+        // usually why.
+        foreach (string error in errors)
+            TestContext.Out.WriteLine(error);
+
+        string trace = failed || errors.Count > 0
             ? Path.Combine(TestContext.CurrentContext.WorkDirectory, "playwright-traces",
-                           $"{TestContext.CurrentContext.Test.FullName}.zip")
+                           $"{SafeFileName(TestContext.CurrentContext.Test.FullName)}.zip")
             : null;
 
         await Context.Tracing.StopAsync(new() { Path = trace });
         if (trace is not null)
             TestContext.AddTestAttachment(trace);
 
-        if (!failed) {
-            Assert.Multiple(async () => {
-                Assert.That(errors, Is.Empty, "The page logged errors.");
-                await Expect(Page.Locator("#blazor-error-ui")).ToBeHiddenAsync(new() { Timeout = 1000 });
-            });
-        }
+        if (!failed)
+            Assert.That(errors, Is.Empty, "The page logged errors.");
+    }
+
+    /// <summary>
+    /// A test name made fit for a file name: parameterised names carry quotes
+    /// and brackets, and long ones can pass the path limit.
+    /// </summary>
+    private static string SafeFileName(string name)
+    {
+        char[] invalid = Path.GetInvalidFileNameChars();
+        string safe = new([.. name.Select(c => invalid.Contains(c) ? '_' : c)]);
+        return safe.Length <= 120 ? safe : safe[..100] + "_" + (uint)name.GetHashCode();
     }
 
     /// <summary>Waits until the page has finished what it was doing.</summary>

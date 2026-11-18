@@ -30,4 +30,9 @@
     <ProjectReference Include="..\..\src\OcadViewer.Versioning\OcadViewer.Versioning.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Shared with the other suites; see the file. -->
+    <Compile Include="../Shared/SourceTree.cs" Link="Shared/SourceTree.cs" />
+  </ItemGroup>
+
 </Project>

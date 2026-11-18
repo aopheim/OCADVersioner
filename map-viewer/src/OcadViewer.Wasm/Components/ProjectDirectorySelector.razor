@@ -22,7 +22,7 @@
                 <h5 class="modal-title" id="staticBackdropLabel">@L["#_OCADVersioner"]</h5>
                 @* Applied at once, unlike the settings modal's draft: there is no
                    Save here, and a user who cannot read the dialog needs it now. *@
-                <LanguagePicker Class="ms-auto d-flex gap-2" ItemClass="language-picker-flag"
+                <LanguagePicker Class="ms-auto d-flex gap-2" ItemClass="language-picker-flag" TestIdPrefix="start-language"
                                 Selected="@(pickedLanguage ?? L.Language)" SelectedChanged="PickLanguage" />
             </div>
 

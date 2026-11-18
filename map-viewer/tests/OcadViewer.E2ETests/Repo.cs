@@ -6,7 +6,7 @@ namespace OcadViewer.E2ETests;
 internal static class Repo
 {
     /// <summary>The <c>map-viewer</c> directory, found by walking up from the test binaries.</summary>
-    public static string Root { get; } = Find();
+    public static string Root { get; } = OcadViewer.Tests.Shared.SourceTree.FindRoot().FullName;
 
     /// <summary>A sample map from <c>map-viewer/testdata</c>.</summary>
     public static string TestMap(string fileName)
@@ -25,18 +25,5 @@ internal static class Repo
         using Stream stream = assembly.GetManifestResourceStream(name)!;
         using StreamReader reader = new(stream);
         return reader.ReadToEnd();
-    }
-
-    private static string Find()
-    {
-        DirectoryInfo directory = new(AppContext.BaseDirectory);
-
-        while (directory is not null
-               && !File.Exists(Path.Combine(directory.FullName, "MapViewer.slnx")))
-            directory = directory.Parent;
-
-        return directory?.FullName
-            ?? throw new DirectoryNotFoundException(
-                $"No MapViewer.slnx above {AppContext.BaseDirectory}; these tests need the source tree.");
     }
 }
