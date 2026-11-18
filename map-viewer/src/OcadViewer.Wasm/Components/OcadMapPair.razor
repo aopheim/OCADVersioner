@@ -175,6 +175,17 @@
     }
 
     /// <summary>
+    /// Shows or hides the newer map, so the change overlay painted on it can be
+    /// seen on its own. The other pane's map is always shown.
+    /// </summary>
+    /// <param name="newer">The name the newer map is held under; its pane is found by name.</param>
+    public async Task SetMapVisibleAsync(string newer, bool visible)
+    {
+        await (ready ??= InitialiseAsync());
+        await workspace.InvokeVoidAsync("setMapVisible", newer, visible);
+    }
+
+    /// <summary>
     /// Forgets every parsed map and change mask, because a different project
     /// folder is about to be shown.
     /// </summary>

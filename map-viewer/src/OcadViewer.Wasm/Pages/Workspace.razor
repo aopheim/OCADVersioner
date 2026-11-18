@@ -56,10 +56,16 @@
         <ChangeOverlayToggle @ref="overlay" MapPair="mapPair"
                              Older="@Comparison.Older" Newer="@Comparison.Newer"
                              Busy="Busy" Run="Run" ShowZoom="true" />
+
+        @* Progress goes in this row, not on a line of its own: a line that comes
+           and goes pushes the maps down and back up each time, under the mouse. *@
+        @if (StatusInToolbar) {
+            <span class="text-muted small">@Status</span>
+        }
     </div>
 }
 
-@if (Status is not null) {
+@if (Status is not null && !StatusInToolbar) {
     <p class="@(Failed ? "text-danger" : "text-muted")">@Status</p>
 }
 
@@ -131,6 +137,12 @@
     private int selectedNumber;
 
     private ChangeOverlayToggle overlay;
+
+    /// <summary>
+    /// Progress shows in the toolbar once a project is open. Failures keep their own
+    /// line, because they stay until dismissed by the next action and should be seen.
+    /// </summary>
+    private bool StatusInToolbar => Status is not null && !Failed && Project.IsOpen;
 
     /// <summary>
     /// The two sides of the current comparison. Which version sits opposite which
