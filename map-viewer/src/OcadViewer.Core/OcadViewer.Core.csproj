@@ -17,6 +17,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="OcadViewer.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Fonts travel with the library: the browser supplies none. -->
     <Content Include="$(VendorDir)fonts\*.ttf"
              Link="fonts\%(Filename)%(Extension)"

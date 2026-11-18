@@ -69,6 +69,10 @@
     /// <param name="ShownPixels">
     /// How many pixels changed, counted in JavaScript where the mask is.
     /// </param>
+    /// <param name="TotalPixels">
+    /// How many pixels hold ink in either version: the drawn map, without the
+    /// blank margin around it.
+    /// </param>
     public sealed record ChangeSummary(
         bool Shown, int Width, int Height, double ComputedMs,
         int ShownPixels, int TotalPixels);

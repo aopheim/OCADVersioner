@@ -47,6 +47,7 @@ public sealed class ProjectDependencyTests
         ["OcadViewer.ArchitectureTests"] = ["OcadViewer.Versioning"],
         ["OcadViewer.Merge.Tests"] = ["OcadViewer.Merge", "OcadViewer.Ocd"],
         ["OcadViewer.Ocd.Tests"] = ["OcadViewer.Ocd"],
+        ["OcadViewer.Core.Tests"] = ["OcadViewer.Core"],
     };
 
     /// <summary>Packages that only a UI host has any business referencing.</summary>

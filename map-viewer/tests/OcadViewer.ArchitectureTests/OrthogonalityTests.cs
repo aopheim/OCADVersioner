@@ -228,10 +228,12 @@ public sealed class OrthogonalityTests
         IReadOnlyList<SourceFile> offenders = Matching(
             all, @"\b(appeared|vanished|altered)\b", RegexOptions.IgnoreCase);
 
-        Assert.That(NamesOf(offenders), Is.EquivalentTo(new[] { "MapStore.cs" }),
+        // MapStore renders both versions; ChangeComparer is the comparison it hands them to.
+        Assert.That(NamesOf(offenders), Is.EquivalentTo(new[] { "MapStore.cs", "ChangeComparer.cs" }),
             "The renderer classifies each changed pixel, because it is the only thing that can. "
             + "Nothing above it reads that classification: the overlay asks one question - did "
-            + "this change - so the only thing crossing the boundary is \"zero means unchanged\".");
+            + "this change - so the only thing crossing the boundary is \"1 to 3 means changed, "
+            + "4 means unchanged ink\".");
     }
 
     /* ------------------------------------------------- contracts stated once */

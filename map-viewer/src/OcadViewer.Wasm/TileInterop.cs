@@ -139,7 +139,8 @@ public static partial class TileInterop
     /// pixel, row by row.
     /// </summary>
     /// <returns>
-    /// 0 unchanged, 1 appeared, 2 vanished, 3 altered - or <c>null</c> if either
+    /// 0 blank in both, 1 appeared, 2 vanished, 3 altered, 4 unchanged ink
+    /// (see <see cref="PixelChange"/>) - or <c>null</c> if either
     /// version has gone from the store.
     /// </returns>
     [JSExport]
