@@ -20,7 +20,9 @@
             </div>
 
             @if (!string.IsNullOrWhiteSpace(item.Description)) {
-                <p class="mb-1 small">@item.Description</p>
+                @* Cut to three lines so one long note cannot push the rest of the
+                   list out of sight; the whole text is in the tooltip. *@
+                <p class="mb-1 small description" title="@item.Description">@item.Description</p>
             }
 
             <div class="d-flex justify-content-around small">
