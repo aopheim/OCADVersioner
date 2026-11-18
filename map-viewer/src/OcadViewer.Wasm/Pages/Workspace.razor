@@ -12,7 +12,14 @@
     container-fluid lives here rather than in the layout because that is where the
     Angular app puts it: there is no shell, every page is its own container.
 *@
-<div class="container-fluid workspacePage d-flex flex-column">
+@*
+    The page is exactly the screen and never scrolls: vh-100 here, and below,
+    flex-grow-1 to share out what the header leaves. overflow-hidden and
+    overflow-y-auto do double duty - a flex item whose overflow is not visible may
+    shrink below its content, which is what lets the version list scroll inside
+    its column instead of stretching the page.
+*@
+<div class="container-fluid vh-100 d-flex flex-column">
 
 <BusyBar Busy="Busy" Progress="Progress" />
 
@@ -70,11 +77,12 @@
 }
 
 @if (Project.IsOpen) {
-    <div class="row workspaceBody pb-1">
+    @* Side by side from md up; stacked below it, the version column on top. *@
+    <div class="row flex-grow-1 overflow-hidden pb-1 flex-column flex-md-row flex-nowrap">
         <div class="col-md-2 versionColumn d-flex flex-column">
             @* The list scrolls on its own, so the form below it stays put and
                the two together are exactly the height of the page. *@
-            <div class="versionScroll">
+            <div class="flex-grow-1 overflow-y-auto overflow-x-hidden">
                 <VersionList Items="VersionItems()" SelectedNumber="NumberOf(Comparison.Newer)"
                              OtherNumber="@(Comparison.Older == Comparison.Newer ? 0 : NumberOf(Comparison.Older))"
                              Disabled="Blocked" OnSelected="SelectVersion" />
@@ -96,12 +104,12 @@
             }
         </div>
 
-        <div class="col-md-10 mapColumn d-flex flex-column">
+        <div class="col-md-10 flex-grow-1 d-flex flex-column">
             @* A dropdown centred over each map, older on the left as the maps are.
                Each side can be picked; the working file is only offered on the
                right, because it is always newest. The pair fills what the column
                has, titles included, so the page never scrolls. *@
-            <div class="workspaceMaps">
+            <div class="flex-grow-1 overflow-hidden">
             <OcadMapPair @ref="mapPair" Fill="true">
                 <LeftTitle>
                     <VersionPicker Options="PickerOptions(includeWorkingFile: false)"

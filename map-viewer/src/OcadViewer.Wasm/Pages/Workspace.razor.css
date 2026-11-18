@@ -1,56 +1,18 @@
-/* Scoped to the workspace page. */
+/* Scoped to the workspace page. The layout is Bootstrap's classes in the
+   markup; this is the one thing they cannot say.
 
-/* The page is exactly the screen: header and toolbar on top, the version
-   column and the maps take the rest, and the page itself never scrolls.
-   dvh follows a mobile browser's collapsing address bar; vh is the fallback. */
-.workspacePage {
-    height: 100vh;
-    height: 100dvh;
-}
-
-/* What is left under the header. min-height: 0 lets a flex child shrink
-   below its content, which is what makes the inner scrolling work at all. */
-.workspaceBody {
-    flex: 1 1 auto;
-    min-height: 0;
-}
-
-.versionColumn,
-.mapColumn {
-    height: 100%;
-    min-height: 0;
-}
-
-/* The list takes the column's height less the form, and scrolls inside it. */
-.versionScroll {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-}
-
-/* The maps take the column's height less the comparison heading. */
-.workspaceMaps {
-    flex: 1 1 auto;
-    min-height: 0;
-}
-
-/* Below md the columns stack: the version column gets at most two fifths of
-   the height and the maps get the rest, still without the page scrolling. */
+   Below md the columns stack, and the version column would otherwise take its
+   whole list's height and squeeze the maps to nothing. Bootstrap has no
+   responsive height classes, so the cap is here. Two fifths is less than the
+   create-version form needs, so the list and the form scroll together inside
+   it rather than the list shrinking away to nothing. */
 @media (max-width: 767.98px) {
-    .workspaceBody {
-        flex-direction: column;
-        flex-wrap: nowrap;
-    }
-
     .versionColumn {
-        height: auto;
         max-height: 40%;
-        flex: 0 1 auto;
+        overflow-y: auto;
     }
 
-    .mapColumn {
-        height: auto;
-        flex: 1 1 auto;
+    .versionColumn > * {
+        flex-shrink: 0;
     }
 }
