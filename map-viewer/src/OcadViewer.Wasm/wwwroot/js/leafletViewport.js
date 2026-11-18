@@ -358,16 +358,6 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             ).addTo(map);
         },
 
-        /**
-         * Moves the view to frame a rectangle of paper.
-         *
-         * Only one map is told; leaflet.sync mirrors it to the other, and
-         * fitting both would make them argue about the result.
-         */
-        fitTo(area) {
-            maps[SIDES[0]].fitBounds(latLngBounds(area), { animate: false });
-        },
-
         clearOverlays() {
             for (const side of SIDES) clearOverlay(side);
         },

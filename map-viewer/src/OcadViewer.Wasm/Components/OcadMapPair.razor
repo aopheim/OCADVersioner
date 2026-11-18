@@ -73,9 +73,6 @@
         bool Shown, int Width, int Height, double ComputedMs,
         int ShownPixels, int TotalPixels);
 
-    /// <summary>A rectangle of the map, in paper millimetres.</summary>
-    public sealed record PaperArea(double MinX, double MinY, double MaxX, double MaxY);
-
     /// <summary>
     /// Importing the module and building the workspace. Held as a task rather than
     /// a flag because a caller can arrive before it has finished.
@@ -160,18 +157,6 @@
 
         return await workspace.InvokeAsync<ChangeSummary>(
             "showChanges", olderVersion, newerVersion, show);
-    }
-
-    /// <summary>
-    /// Moves both panes to frame everything the overlay is currently showing.
-    /// </summary>
-    /// <returns>The framed rectangle, or null if nothing is shown.</returns>
-    public async Task<PaperArea> ZoomToChangesAsync()
-    {
-        if (workspace is null)
-            return null;
-
-        return await workspace.InvokeAsync<PaperArea>("zoomToChanges");
     }
 
     /// <summary>

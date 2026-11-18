@@ -18,12 +18,12 @@
 import { readBytes } from './projectFolder.js';
 import { createTileSource } from './mapTiles.js';
 import { createSyncedMaps } from './leafletViewport.js';
-import { paint, coverage, boundsOf } from './changeMask.js';
+import { paint, coverage } from './changeMask.js';
 
 /**
  * Builds the viewer over two elements.
  * @returns {Promise<{parse: Function, draw: Function, showFile: Function, showChanges: Function,
- *                    zoomToChanges: Function, setMapVisible: Function, reset: Function,
+ *                    setMapVisible: Function, reset: Function,
  *                    showing: Function, stats: object, dispose: Function}>}
  */
 export async function createWorkspace(leftEl, rightEl) {
@@ -235,41 +235,6 @@ export async function createWorkspace(leftEl, rightEl) {
                 shownPixels: changes.covered.shown,
                 totalPixels: changes.covered.total
             };
-        },
-
-        /**
-         * Moves both panes to frame every change.
-         *
-         * A small revision is a few specks on a whole map - correct, and almost
-         * impossible to find by eye. The mask already knows where they are.
-         *
-         * @param paddingMm breathing room around the changes
-         * @returns the framed rectangle in paper millimetres, or null if there
-         *          is nothing to frame
-         */
-        zoomToChanges(paddingMm = 12) {
-            if (!changes?.mask)
-                return null;
-
-            const { width, height, minX, minY, maxX, maxY } = changes.plan;
-            const box = boundsOf(changes.mask, changes.plan);
-            if (!box) return null;
-
-            // Mask pixels to paper millimetres. The mask covers the planned
-            // rectangle exactly, and its rows run downwards while paper Y runs
-            // up, which is the only subtlety here.
-            const x = px => minX + (px / width) * (maxX - minX);
-            const y = py => maxY - (py / height) * (maxY - minY);
-
-            const area = {
-                minX: x(box.left) - paddingMm,
-                maxX: x(box.right + 1) + paddingMm,
-                minY: y(box.bottom + 1) - paddingMm,
-                maxY: y(box.top) + paddingMm
-            };
-
-            view.fitTo(area);
-            return area;
         },
 
         /**

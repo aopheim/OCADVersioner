@@ -131,8 +131,6 @@
     "#_symbolCountsSavedAsZero": "Symbol counts are saved as zero until versions can be compared symbol by symbol.",
     "#_tapToChooseMap": "Tap to choose a map, or drop an OCAD file here",
     "#_twoMapsCompared": "Two maps, compared",
-    "#_zoomToChanges": "Zoom to what the overlay is showing",
-    "#_zooming": "Zooming…",
     "#_hideMap": "Hide the newer map, leaving only the changes on it",
     "#_showMap": "Show the newer map"
 }

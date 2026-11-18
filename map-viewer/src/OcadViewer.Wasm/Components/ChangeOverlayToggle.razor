@@ -27,14 +27,6 @@
    takes the eye off the place being looked at. *@
 <KeyboardShortcut Key="@OverlayKey" OnPressed="ToggleAsync" />
 
-@if (ShowZoom) {
-    <button class="btn @(Large ? "" : "btn-sm") btn-outline-secondary" @onclick="ZoomAsync"
-            disabled="@(Busy || summary is not { Shown: true, ShownPixels: > 0 })"
-            title="@L["#_zoomToChanges"]">
-        <i class="bi bi-crosshair"></i>
-    </button>
-}
-
 @* The newer map under the overlay, off to see the changes alone. Here rather
    than on each page for the same reason as the overlay: the rules tie the two
    together - hiding turns the overlay on, the overlay going off shows the map. *@
@@ -90,9 +82,6 @@
     /// every other failure on the page is.
     /// </summary>
     [Parameter, EditorRequired] public Func<Func<string>, Func<Task>, Task> Run { get; set; }
-
-    /// <summary>Also offer to zoom to what the overlay shows.</summary>
-    [Parameter] public bool ShowZoom { get; set; }
 
     /// <summary>A full-size button with a label, for touch screens.</summary>
     [Parameter] public bool Large { get; set; }
@@ -225,10 +214,6 @@
         showMap = !showMap;
         await MapPair.SetMapVisibleAsync(Newer, showMap);
     }
-
-    /// <summary>Frames whatever the overlay is showing, however small it is.</summary>
-    private async Task ZoomAsync()
-        => await Run(() => L["#_zooming"], async () => await MapPair.ZoomToChangesAsync());
 
     /// <summary>
     /// How much of the map the overlay is lighting up, or null.

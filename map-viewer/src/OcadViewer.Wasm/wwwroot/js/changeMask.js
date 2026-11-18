@@ -95,32 +95,3 @@ export function coverage(mask, plan) {
 
     return { shown, total };
 }
-
-/**
- * The smallest rectangle holding every change.
- *
- * In mask pixels, with y running downwards from the top of the mask - the
- * caller turns that into whatever coordinates it works in. Null when nothing
- * changed.
- *
- * @param plan what planChangeMask answered
- * @returns {{left: number, top: number, right: number, bottom: number}|null}
- */
-export function boundsOf(mask, plan) {
-    const { width, height } = plan;
-    const { changeBits } = bitsOf(plan);
-    let left = width, top = height, right = -1, bottom = -1;
-
-    for (let y = 0, i = 0; y < height; y++) {
-        for (let x = 0; x < width; x++, i++) {
-            if (!(mask[i] & changeBits)) continue;
-
-            if (x < left) left = x;
-            if (x > right) right = x;
-            if (y < top) top = y;
-            if (y > bottom) bottom = y;
-        }
-    }
-
-    return right < 0 ? null : { left, top, right, bottom };
-}
