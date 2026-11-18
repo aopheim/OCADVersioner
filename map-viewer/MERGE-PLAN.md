@@ -105,7 +105,7 @@ rendered by handing the spliced bytes to the existing renderer.
 Windows application control on the development machine refuses to load some freshly
 built assemblies (0x800711C7), test assemblies included, and which ones changes from
 build to build. Do not try to get around it. Run `dotnet test` normally; when it is
-blocked, the PR build on GitHub is the authoritative run.
+blocked, CI on GitHub (the `build-and-test` check) is the authoritative run.
 
 ## Milestones
 
