@@ -7,6 +7,17 @@
     height: 80vh;
 }
 
+/* A map's name, centred over it. Long names are cut short rather than wrapped,
+   so both panes start at the same height. */
+.mapTitle {
+    text-align: center;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* Whatever a page puts in a pane is positioned against the pane. */
 .mapPane {
     position: relative;

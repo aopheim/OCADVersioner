@@ -103,7 +103,6 @@
     "#_addedSymbols": "Symboler lagt til",
     "#_changes": "Endringer",
     "#_chooseAnotherMap": "Velg et annet kart",
-    "#_comparingPastVersions": "Sammenligner to tidligere versjoner",
     "#_copiesWorkingFileInto": "Kopierer arbeidsfilen til",
     "#_deletedSymbols": "Slettede symboler",
     "#_diffNotImplemented": "Sammenligning av versjoner symbol for symbol er ikke laget ennå, så denne tabellen er tom. Kartene, endringsvisningen og versjonshåndteringen over fungerer fullt ut.",
@@ -131,8 +130,6 @@
     "#_symbolCountsSavedAsZero": "Antall symboler lagres som null inntil versjoner kan sammenlignes symbol for symbol.",
     "#_tapToChooseMap": "Trykk for å velge et kart, eller slipp en OCAD-fil her",
     "#_twoMapsCompared": "To kart, sammenlignet",
-    "#_zoomToChanges": "Zoom til det endringsvisningen viser",
-    "#_zooming": "Zoomer…",
     "#_hideMap": "Skjul det nyeste kartet, så bare endringene vises",
     "#_showMap": "Vis det nyeste kartet"
 }

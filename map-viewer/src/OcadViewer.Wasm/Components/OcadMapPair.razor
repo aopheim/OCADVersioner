@@ -22,12 +22,18 @@
 *@
 <div class="row g-1 mapPair @(Fill ? "fill" : "") @(OnlySide is null ? "" : "single")">
     <div class="@ColumnClass" hidden="@(OnlySide == MapSide.Right)">
+        @if (LeftTitle is not null) {
+            <div class="mapTitle">@LeftTitle</div>
+        }
         <div class="mapPane">
             <div @ref="leftEl" class="mapDiv"></div>
             @PaneContent?.Invoke(MapSide.Left)
         </div>
     </div>
     <div class="@ColumnClass" hidden="@(OnlySide == MapSide.Left)">
+        @if (RightTitle is not null) {
+            <div class="mapTitle">@RightTitle</div>
+        }
         <div class="mapPane">
             <div @ref="rightEl" class="mapDiv"></div>
             @PaneContent?.Invoke(MapSide.Right)
@@ -61,6 +67,16 @@
     /// </summary>
     [Parameter] public RenderFragment<MapSide> PaneContent { get; set; }
 
+    /// <summary>
+    /// A name shown centred above each map, or none when null. Above rather than
+    /// in the pane, so it never covers the map, and per pane, so it stays over its
+    /// own map when the panes stack on a narrow screen.
+    /// </summary>
+    [Parameter] public string LeftTitle { get; set; }
+
+    /// <inheritdoc cref="LeftTitle"/>
+    [Parameter] public string RightTitle { get; set; }
+
     private string ColumnClass => OnlySide is null ? "col-sm-6" : "col-12";
 
     /// <summary>
@@ -72,9 +88,6 @@
     public sealed record ChangeSummary(
         bool Shown, int Width, int Height, double ComputedMs,
         int ShownPixels, int TotalPixels);
-
-    /// <summary>A rectangle of the map, in paper millimetres.</summary>
-    public sealed record PaperArea(double MinX, double MinY, double MaxX, double MaxY);
 
     /// <summary>
     /// Importing the module and building the workspace. Held as a task rather than
@@ -160,18 +173,6 @@
 
         return await workspace.InvokeAsync<ChangeSummary>(
             "showChanges", olderVersion, newerVersion, show);
-    }
-
-    /// <summary>
-    /// Moves both panes to frame everything the overlay is currently showing.
-    /// </summary>
-    /// <returns>The framed rectangle, or null if nothing is shown.</returns>
-    public async Task<PaperArea> ZoomToChangesAsync()
-    {
-        if (workspace is null)
-            return null;
-
-        return await workspace.InvokeAsync<PaperArea>("zoomToChanges");
     }
 
     /// <summary>
