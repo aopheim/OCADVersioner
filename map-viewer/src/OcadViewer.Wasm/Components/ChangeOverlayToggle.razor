@@ -16,7 +16,7 @@
 <button class="btn text-nowrap @(Large ? "" : "btn-sm") @(showChanges ? "btn-primary" : "btn-outline-secondary")"
         @onclick="ToggleAsync" disabled="@(Busy || !Available)"
         title="@L.Format("#_showChangesSince", ("name", OlderLabel ?? Older), ("key", OverlayKey.ToUpperInvariant()))">
-    <i class="bi bi-layers"></i>
+    <i class="bi bi-file-diff"></i>
     @if (Large) {
         <span class="ms-1">@L["#_changes"]</span>
     }
