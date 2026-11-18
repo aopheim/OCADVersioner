@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Runtime.InteropServices;
 
 using PurplePen.MapModel;
 
@@ -259,8 +260,8 @@ namespace OcadViewer.Core
         /// plan out again, so the caller's layout and the mask cannot disagree.
         /// </param>
         /// <returns>
-        /// One <see cref="PixelChange"/> per pixel, row by row.
-        /// <c>null</c> if either version is missing.
+        /// One byte per pixel, row by row, as <see cref="ChangeMask.Compare"/>
+        /// describes. <c>null</c> if either version is missing.
         /// </returns>
         /// <remarks>
         /// Both versions are drawn over the same rectangle at the same size and
@@ -270,11 +271,14 @@ namespace OcadViewer.Core
         /// moved object shows as vanished at the old position and appeared at the
         /// new one, with nothing tying the two together.
         ///
-        /// The comparison is exact. Identical geometry renders to identical
-        /// pixels here, down to the phase of area patterns, because a pattern is
-        /// anchored to the map rather than to the tile - so there is no noise to
-        /// filter out, and anything lit really is different. The corollary is
-        /// that redefining a symbol lights up every object using it.
+        /// The comparison is not exact, on purpose. Untouched contours lit up
+        /// when it was: the same line can land a pixel over from one save to the
+        /// next, and an anti-aliased edge changes with whatever is under it. So
+        /// both are drawn without anti-aliasing, ink may move
+        /// <see cref="ChangeToleranceMm"/> and still be the same ink, and changes
+        /// smaller than <see cref="MinimumChangeMm"/> are dropped
+        /// (<see cref="ChangeMask"/>). Redefining a symbol still lights up every
+        /// object using it.
         /// </remarks>
         public byte[] RenderChangeMask(string olderKey, string newerKey, ChangeMaskPlan plan)
         {
@@ -290,18 +294,50 @@ namespace OcadViewer.Core
             if (older is null || newer is null)
                 return null;
 
+            MapRenderSettings crisp = WithoutAntiAliasing(Settings);
+
             MapRenderResult before = MapRenderer.Render(
-                older.Map, plan.Area, plan.Width, plan.Height, Settings);
+                older.Map, plan.Area, plan.Width, plan.Height, crisp);
 
             using SKBitmap beforeBitmap = before.Bitmap;
 
             MapRenderResult after = MapRenderer.Render(
-                newer.Map, plan.Area, plan.Width, plan.Height, Settings);
+                newer.Map, plan.Area, plan.Width, plan.Height, crisp);
 
             using SKBitmap afterBitmap = after.Bitmap;
 
-            return Classify(beforeBitmap, afterBitmap, plan.Width * plan.Height);
+            double pixelsPerMillimetre = plan.Width / (double)plan.Area.Width;
+            (int tolerance, int minimumSpeck) =
+                ChangeMask.PixelsFor(pixelsPerMillimetre, ChangeToleranceMm, MinimumChangeMm);
+
+            // The bitmaps' own memory rather than SKBitmap.Bytes, which copies:
+            // at this size that is tens of megabytes copied to be read once.
+            return ChangeMask.Compare(
+                MemoryMarshal.Cast<byte, uint>(beforeBitmap.GetPixelSpan()),
+                MemoryMarshal.Cast<byte, uint>(afterBitmap.GetPixelSpan()),
+                plan.Width, plan.Height, tolerance, minimumSpeck);
         }
+
+        /// <summary>
+        /// How far, in paper millimetres, ink may lie from where it was and still
+        /// count as unchanged in a change mask.
+        /// </summary>
+        public const double ChangeToleranceMm = 0.25;
+
+        /// <summary>The smallest change, in paper millimetres, a change mask shows.</summary>
+        public const double MinimumChangeMm = 0.5;
+
+        /// <summary>
+        /// The store's settings with anti-aliasing off, so each pixel of a
+        /// comparison render is a symbol colour rather than a blend of neighbours.
+        /// </summary>
+        private static MapRenderSettings WithoutAntiAliasing(MapRenderSettings settings) => new() {
+            Templates = settings.Templates,
+            BlendOverprintedColors = settings.BlendOverprintedColors,
+            UsePatternBitmaps = settings.UsePatternBitmaps,
+            Background = settings.Background,
+            AntiAlias = false
+        };
 
         /// <summary>
         /// The size and extent to compare two versions at, for
@@ -348,42 +384,6 @@ namespace OcadViewer.Core
             int height = Math.Clamp((int)Math.Round(area.Height * scale), 1, MaxMaskEdge);
 
             return new ChangeMaskPlan(width, height, area);
-        }
-
-        /// <summary>
-        /// Compares two renders of the same rectangle, pixel by pixel.
-        /// </summary>
-        /// <remarks>
-        /// Reads the bitmaps' own memory rather than <c>SKBitmap.Bytes</c>, which
-        /// copies: at this size that would be tens of megabytes of copying for
-        /// data that is read once. The two bitmaps share a layout, whatever Skia
-        /// chose, and in every layout Skia uses the three colour bytes come first
-        /// - so "all three at 255" means white in both RGBA and BGRA without
-        /// having to know which one this is.
-        /// </remarks>
-        private static byte[] Classify(SKBitmap before, SKBitmap after, int pixelCount)
-        {
-            ReadOnlySpan<byte> oldPixels = before.GetPixelSpan();
-            ReadOnlySpan<byte> newPixels = after.GetPixelSpan();
-
-            var mask = new byte[pixelCount];
-
-            for (int i = 0, at = 0; i < pixelCount; i++, at += 4) {
-                byte oldR = oldPixels[at], oldG = oldPixels[at + 1], oldB = oldPixels[at + 2];
-                byte newR = newPixels[at], newG = newPixels[at + 1], newB = newPixels[at + 2];
-
-                if (oldR == newR && oldG == newG && oldB == newB)
-                    continue;
-
-                bool wasBlank = oldR == 255 && oldG == 255 && oldB == 255;
-                bool isBlank = newR == 255 && newG == 255 && newB == 255;
-
-                mask[i] = (byte)(wasBlank ? PixelChange.Appeared
-                               : isBlank ? PixelChange.Vanished
-                               : PixelChange.Altered);
-            }
-
-            return mask;
         }
 
         /// <summary>

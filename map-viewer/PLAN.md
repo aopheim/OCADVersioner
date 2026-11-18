@@ -808,19 +808,25 @@ season* — turns out not to need a diff at all. Both versions are already drawn
 the same renderer; rendering them over the same rectangle at the same size and
 comparing the pixels answers the question directly.
 
-`MapStore.RenderChangeMask` returns one byte per pixel: 0 unchanged, 1 appeared,
-2 vanished, 3 altered. Both versions are drawn onto opaque white, so "no ink" is
-exactly `#FFFFFF` and the direction is readable wherever one side is blank;
-where both sides have ink it can see the change but not which way, which is
-`Altered`.
+`MapStore.RenderChangeMask` returns one byte per pixel. The low two bits hold 0
+for unchanged, 1 appeared, 2 vanished and 3 altered. The top bit marks pixels
+inside the drawn map, which is what the "% of the map" figure is measured
+against. Both versions are drawn onto opaque white, so "no ink" is exactly
+`#FFFFFF` and the direction is readable wherever one side is blank; where both
+sides have ink it can see the change but not which way, which is `Altered`.
 
 - **No object identity, no georeferencing, no `ocad2geojson`.** It works on maps
   the diff could never have handled, and it reports what a person would actually
   see as different.
-- **Exact comparison, no tolerance.** Identical geometry renders to identical
-  pixels — area-pattern phase is anchored to the map, not the tile — so there is
-  no noise to filter. The corollary is that redefining a symbol lights up every
-  object using it. Accepted deliberately; `Altered` is where that would show.
+- **A tolerance, after all.** It started as an exact comparison, on the theory
+  that identical geometry renders to identical pixels. On real maps
+  (Sprintbasen) untouched contours lit up all over: a line can land a pixel
+  over from one save to the next, and an anti-aliased edge blends with whatever
+  is under it. So `ChangeMask` now renders both without anti-aliasing, counts a
+  pixel as changed only if its colour is nowhere within 0.25 mm on the other
+  side, and drops clusters smaller than 0.5 mm both ways. A redrawn road still
+  shows; a contour that tipped a pixel over does not. Redefining a symbol still
+  lights up every object using it.
 - **One pass per comparison**, at 4 px per paper millimetre, capped at 4096 on
   the long edge. Resolution is nearly free (the same area at 128/256/512 px took
   389/389/435 ms — the cost is geometry, not rasterising), so the mask is sharp

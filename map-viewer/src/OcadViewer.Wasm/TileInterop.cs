@@ -139,8 +139,9 @@ public static partial class TileInterop
     /// pixel, row by row.
     /// </summary>
     /// <returns>
-    /// 0 unchanged, 1 appeared, 2 vanished, 3 altered - or <c>null</c> if either
-    /// version has gone from the store.
+    /// In the low two bits 0 unchanged, 1 appeared, 2 vanished, 3 altered, with
+    /// the top bit set inside the drawn map (<see cref="ChangeMask"/>). <c>null</c>
+    /// if either version has gone from the store.
     /// </returns>
     [JSExport]
     internal static byte[] RenderChangeMask(int store, string olderKey, string newerKey,

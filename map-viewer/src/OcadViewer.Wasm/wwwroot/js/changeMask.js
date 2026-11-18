@@ -1,15 +1,22 @@
 /* Turning a change mask into something a map can show.
  *
- * The mask is one byte per pixel, straight from the renderer: zero where the
- * two versions agree, non-zero where they do not. This module only colours it.
- * It knows nothing about .NET, Leaflet or project versions.
+ * The mask is one byte per pixel, straight from the renderer. The low two bits
+ * are zero where the two versions agree and non-zero where they do not. The top
+ * bit marks every pixel inside the drawn map, changed or not, so the share that
+ * changed is measured against the map rather than the paper around it. This
+ * module only colours and counts it. It knows nothing about .NET, Leaflet or
+ * project versions.
  *
  * Note what it does NOT know: the renderer classifies each changed pixel as
  * appeared, vanished or altered, and nothing here reads that. The overlay is a
  * single question - did this change - so the vocabulary stays on the side that
  * can actually answer it, and the contract across the boundary is just "zero
- * means unchanged".
+ * in the change bits means unchanged".
  */
+
+/* Must match ChangeMask.ChangeBits and ChangeMask.InMap in OcadViewer.Core. */
+const CHANGE_BITS = 0x03;
+const IN_MAP = 0x80;
 
 /* Crimson, and the hue is not a matter of taste. An orienteering map already
  * spends most of the spectrum: brown contours, blue water, yellow and orange
@@ -30,7 +37,7 @@ export async function paint(mask, width, height) {
     const pixels = new Uint8ClampedArray(width * height * 4);
 
     for (let i = 0, at = 0; i < mask.length; i++, at += 4) {
-        if (!mask[i]) continue;
+        if (!(mask[i] & CHANGE_BITS)) continue;
 
         pixels[at] = TINT.r;
         pixels[at + 1] = TINT.g;
@@ -57,15 +64,22 @@ export async function paint(mask, width, height) {
 
 /**
  * How much of the map changed.
+ *
+ * The total is the drawn map, not the whole mask: the mask is a rectangle
+ * around both versions, and the blank paper in its corners is not map that
+ * could have changed.
+ *
  * @returns {{shown: number, total: number}} in pixels
  */
 export function coverage(mask) {
-    let shown = 0;
+    let shown = 0, total = 0;
 
-    for (let i = 0; i < mask.length; i++)
-        if (mask[i]) shown++;
+    for (let i = 0; i < mask.length; i++) {
+        if (mask[i] & CHANGE_BITS) shown++;
+        if (mask[i] & IN_MAP) total++;
+    }
 
-    return { shown, total: mask.length };
+    return { shown, total };
 }
 
 /**
@@ -82,7 +96,7 @@ export function boundsOf(mask, width, height) {
 
     for (let y = 0, i = 0; y < height; y++) {
         for (let x = 0; x < width; x++, i++) {
-            if (!mask[i]) continue;
+            if (!(mask[i] & CHANGE_BITS)) continue;
 
             if (x < left) left = x;
             if (x > right) right = x;
