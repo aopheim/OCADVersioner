@@ -68,14 +68,15 @@
     [Parameter] public RenderFragment<MapSide> PaneContent { get; set; }
 
     /// <summary>
-    /// A name shown centred above each map, or none when null. Above rather than
-    /// in the pane, so it never covers the map, and per pane, so it stays over its
-    /// own map when the panes stack on a narrow screen.
+    /// What is shown centred above each map - a name, or a way to choose the
+    /// version - or nothing when null. Above rather than in the pane, so it never
+    /// covers the map, and per pane, so it stays over its own map when the panes
+    /// stack on a narrow screen.
     /// </summary>
-    [Parameter] public string LeftTitle { get; set; }
+    [Parameter] public RenderFragment LeftTitle { get; set; }
 
     /// <inheritdoc cref="LeftTitle"/>
-    [Parameter] public string RightTitle { get; set; }
+    [Parameter] public RenderFragment RightTitle { get; set; }
 
     private string ColumnClass => OnlySide is null ? "col-sm-6" : "col-12";
 

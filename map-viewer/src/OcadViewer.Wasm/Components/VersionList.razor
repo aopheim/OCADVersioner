@@ -8,7 +8,8 @@
 <div class="list-group">
     @foreach (var item in Items) {
         <button type="button"
-                class="list-group-item list-group-item-action @(item.Number == SelectedNumber ? "active" : "") @(Disabled ? "busy" : "")"
+                class="list-group-item list-group-item-action @RowClass(item) @(Disabled ? "busy" : "")"
+                title="@RowTitle(item)"
                 aria-disabled="@(Disabled ? "true" : "false")"
                 @onclick="() => Select(item.Number)">
             <div class="d-flex w-100 justify-content-between">
@@ -48,11 +49,27 @@
 
     [Parameter, EditorRequired] public IReadOnlyList<Item> Items { get; set; } = [];
 
-    /// <summary>The highlighted row, 0 for none - which is the working file's view.</summary>
+    /// <summary>The version on the right, highlighted; 0 when that is the working file.</summary>
     [Parameter] public int SelectedNumber { get; set; }
 
     /// <summary>True while the page is busy, so a second comparison cannot start on top of the first.</summary>
     [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>
+    /// The version on the left, marked more faintly; 0 for none. So the list
+    /// agrees with the dropdowns when the two are not neighbours, such as V3 against V1.
+    /// </summary>
+    [Parameter] public int OtherNumber { get; set; }
+
+    private string RowClass(Item item)
+        => item.Number == SelectedNumber ? "active"
+         : item.Number == OtherNumber ? "list-group-item-primary"
+         : "";
+
+    private string RowTitle(Item item)
+        => item.Number == SelectedNumber ? L["#_onTheRight"]
+         : item.Number == OtherNumber ? L["#_onTheLeft"]
+         : null;
 
     [Parameter] public EventCallback<int> OnSelected { get; set; }
 

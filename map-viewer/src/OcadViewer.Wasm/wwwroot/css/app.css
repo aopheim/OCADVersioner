@@ -49,3 +49,10 @@
 #app-loading-text:after {
     content: var(--blazor-load-percentage-text, "Loading");
 }
+
+/* The version dropdowns above the maps. Entries carry a title and a date, so a
+   long title is cut short rather than pushing the other dropdown off the row. */
+.versionPicker {
+    max-width: 22rem;
+    text-overflow: ellipsis;
+}
