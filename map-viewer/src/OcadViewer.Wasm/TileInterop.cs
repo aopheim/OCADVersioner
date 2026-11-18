@@ -112,8 +112,12 @@ public static partial class TileInterop
 
     /// <summary>
     /// The size and extent to compare two versions at, to be handed back to
-    /// <see cref="RenderChangeMask"/>.
+    /// <see cref="RenderChangeMask"/>, and how to read the mask that comes back.
     /// </summary>
+    /// <remarks>
+    /// The mask's bits travel with the plan so the browser never declares them:
+    /// <see cref="ChangeMask"/> is the one place they are written down.
+    /// </remarks>
     [JSExport]
     internal static string PlanChangeMask(int store, string olderKey, string newerKey)
     {
@@ -128,7 +132,9 @@ public static partial class TileInterop
                 MinX = plan.Area.Left,
                 MinY = plan.Area.Top,
                 MaxX = plan.Area.Right,
-                MaxY = plan.Area.Bottom
+                MaxY = plan.Area.Bottom,
+                ChangeBits = ChangeMask.ChangeBits,
+                InMap = ChangeMask.InMap
             };
 
         return JsonSerializer.Serialize(info, TileInteropJson.Default.ChangeMaskInfo);
@@ -139,8 +145,9 @@ public static partial class TileInterop
     /// pixel, row by row.
     /// </summary>
     /// <returns>
-    /// 0 unchanged, 1 appeared, 2 vanished, 3 altered - or <c>null</c> if either
-    /// version has gone from the store.
+    /// In the low two bits 0 unchanged, 1 appeared, 2 vanished, 3 altered, with
+    /// the top bit set inside the drawn map (<see cref="ChangeMask"/>). <c>null</c>
+    /// if either version has gone from the store.
     /// </returns>
     [JSExport]
     internal static byte[] RenderChangeMask(int store, string olderKey, string newerKey,
@@ -184,6 +191,12 @@ internal sealed record ChangeMaskInfo
     public double? MinY { get; init; }
     public double? MaxX { get; init; }
     public double? MaxY { get; init; }
+
+    /// <summary>The bits of a mask byte that are non-zero where something changed.</summary>
+    public int? ChangeBits { get; init; }
+
+    /// <summary>The bit set on every mask byte inside the drawn map.</summary>
+    public int? InMap { get; init; }
 }
 
 /// <summary>

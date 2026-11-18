@@ -192,8 +192,8 @@ export async function createWorkspace(leftEl, rightEl) {
 
                 changes = {
                     key, older: olderName, newer: newerName, plan, mask,
-                    covered: coverage(mask),
-                    url: await paint(mask, plan.width, plan.height)
+                    covered: coverage(mask, plan),
+                    url: await paint(mask, plan)
                 };
             }
 
@@ -232,7 +232,7 @@ export async function createWorkspace(leftEl, rightEl) {
                 return null;
 
             const { width, height, minX, minY, maxX, maxY } = changes.plan;
-            const box = boundsOf(changes.mask, width, height);
+            const box = boundsOf(changes.mask, changes.plan);
             if (!box) return null;
 
             // Mask pixels to paper millimetres. The mask covers the planned
