@@ -92,15 +92,9 @@
         </div>
 
         <div class="col-md-10">
-            <div class="d-flex justify-content-center align-items-center gap-3 mb-1">
-                @* In the order the maps are in, so a glance at the heading and a
-                   glance at the panes agree. *@
-                <span class="fw-medium">@Label(Comparison.Older)</span>
-                <i class="bi bi-arrows"></i>
-                <span class="fw-medium">@Label(Comparison.Newer)</span>
-            </div>
-
-            <OcadMapPair @ref="mapPair" />
+            @* Each name centred over its own map, older on the left as the maps are. *@
+            <OcadMapPair @ref="mapPair"
+                         LeftTitle="@Label(Comparison.Older)" RightTitle="@Label(Comparison.Newer)" />
 
             <DiffTable Diff="diff" Available="DiffSource.IsAvailable"
                        UnavailableReasonKey="@DiffSource.UnavailableReasonKey" />

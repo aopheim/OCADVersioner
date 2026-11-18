@@ -22,12 +22,18 @@
 *@
 <div class="row g-1 mapPair @(Fill ? "fill" : "") @(OnlySide is null ? "" : "single")">
     <div class="@ColumnClass" hidden="@(OnlySide == MapSide.Right)">
+        @if (LeftTitle is not null) {
+            <div class="mapTitle">@LeftTitle</div>
+        }
         <div class="mapPane">
             <div @ref="leftEl" class="mapDiv"></div>
             @PaneContent?.Invoke(MapSide.Left)
         </div>
     </div>
     <div class="@ColumnClass" hidden="@(OnlySide == MapSide.Left)">
+        @if (RightTitle is not null) {
+            <div class="mapTitle">@RightTitle</div>
+        }
         <div class="mapPane">
             <div @ref="rightEl" class="mapDiv"></div>
             @PaneContent?.Invoke(MapSide.Right)
@@ -60,6 +66,16 @@
     /// inside the pane, so it can be positioned against the pane.
     /// </summary>
     [Parameter] public RenderFragment<MapSide> PaneContent { get; set; }
+
+    /// <summary>
+    /// A name shown centred above each map, or none when null. Above rather than
+    /// in the pane, so it never covers the map, and per pane, so it stays over its
+    /// own map when the panes stack on a narrow screen.
+    /// </summary>
+    [Parameter] public string LeftTitle { get; set; }
+
+    /// <inheritdoc cref="LeftTitle"/>
+    [Parameter] public string RightTitle { get; set; }
 
     private string ColumnClass => OnlySide is null ? "col-sm-6" : "col-12";
 
