@@ -33,16 +33,7 @@
             <div class="modal-body">
                 <div class="mb-3">
                     <label class="form-label">@L["#_language"]</label>
-                    <div class="row">
-                        @foreach (var language in Localiser.Languages) {
-                            <div class="col-1 pointer" @onclick="() => draftLanguage = language.Code"
-                                 title="@language.Name">
-                                <div class="border @(draftLanguage == language.Code ? "border-4 border-success" : "")">
-                                    <span><LanguageFlag Code="@language.Code" /></span>
-                                </div>
-                            </div>
-                        }
-                    </div>
+                    <LanguagePicker @bind-Selected="draftLanguage" />
 
                     <div class="mt-2">
                         <label class="form-label" for="epsgNumber">@L["#_georeferencing"]</label>
@@ -128,6 +119,12 @@
     private DotNetObjectReference<SettingsDialog> self;
 
     protected override void OnInitialized() => Revert();
+
+    /// <summary>
+    /// The start dialog sets the language without going through here, and a draft
+    /// left on the old one would show the wrong flag and put it back on Save.
+    /// </summary>
+    protected override void LanguageChanged() => draftLanguage = L.Language;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

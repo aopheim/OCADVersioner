@@ -1,0 +1,36 @@
+@using OcadViewer.Wasm.Services
+
+@*
+    A row of flags, one per Localiser.Languages, with the selected one outlined in
+    green. Shared by the settings modal, which holds the choice as a draft until
+    Save, and the start dialog, which applies it at once. The layout classes are
+    parameters because the settings modal lays the flags out on its grid while the
+    start dialog fits them into its header.
+*@
+
+<div class="@Class">
+    @foreach (var language in Localiser.Languages) {
+        <div class="@ItemClass pointer" @onclick="() => Select(language.Code)"
+             title="@language.Name">
+            <div class="border @(Selected == language.Code ? "border-4 border-success" : "")">
+                <span><LanguageFlag Code="@language.Code" /></span>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>The language code shown as selected.</summary>
+    [Parameter] public string Selected { get; set; }
+
+    [Parameter] public EventCallback<string> SelectedChanged { get; set; }
+
+    /// <summary>Classes on the container.</summary>
+    [Parameter] public string Class { get; set; } = "row";
+
+    /// <summary>Classes on each flag's wrapper.</summary>
+    [Parameter] public string ItemClass { get; set; } = "col-1";
+
+    private Task Select(string code) =>
+        code == Selected ? Task.CompletedTask : SelectedChanged.InvokeAsync(code);
+}

@@ -1,6 +1,7 @@
 @using OcadViewer.Wasm.Services
 @inherits LocalisedComponent
 @inject ProjectService Project
+@inject AppSettingsService SettingsService
 @inject IJSRuntime JS
 
 @*
@@ -19,6 +20,10 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="staticBackdropLabel">@L["#_OCADVersioner"]</h5>
+                @* Applied at once, unlike the settings modal's draft: there is no
+                   Save here, and a user who cannot read the dialog needs it now. *@
+                <LanguagePicker Class="ms-auto d-flex gap-2" ItemClass="language-picker-flag"
+                                Selected="@L.Language" SelectedChanged="SettingsService.SetLanguageAsync" />
             </div>
 
             <div class="modal-body">
