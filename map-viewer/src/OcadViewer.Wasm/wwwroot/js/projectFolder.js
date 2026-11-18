@@ -26,7 +26,10 @@ export async function openProject() {
     if (!isSupported())
         throw new Error('This browser cannot open folders. Use a Chromium-based browser.');
 
-    projectDir = await window.showDirectoryPicker({ mode: 'readwrite' });
+    // The id makes the browser remember, across sessions, the last folder picked
+    // under it and open the picker there next time, so a user returning to the
+    // same map does not have to navigate to it again.
+    projectDir = await window.showDirectoryPicker({ id: 'ocad-project', mode: 'readwrite' });
     return projectDir.name;
 }
 

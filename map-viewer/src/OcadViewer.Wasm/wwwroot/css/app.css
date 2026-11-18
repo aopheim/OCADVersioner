@@ -27,6 +27,11 @@
     cursor: pointer;
 }
 
+/* The start dialog's language flags, sized to sit beside its title. */
+.language-picker-flag {
+    width: 2.5rem;
+}
+
 /* Blazor's own two pieces ----------------------------------------------- */
 
 /* Blazor reveals this with an inline display when an exception escapes a
@@ -43,4 +48,11 @@
 /* The runtime reports download progress through this custom property. */
 #app-loading-text:after {
     content: var(--blazor-load-percentage-text, "Loading");
+}
+
+/* The version dropdowns above the maps. Entries carry a title and a date, so a
+   long title is cut short rather than pushing the other dropdown off the row. */
+.versionPicker {
+    max-width: 22rem;
+    text-overflow: ellipsis;
 }

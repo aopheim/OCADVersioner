@@ -8,9 +8,10 @@
 <div class="list-group">
     @foreach (var item in Items) {
         <button type="button"
-                class="list-group-item list-group-item-action @(item.Number == SelectedNumber ? "active" : "")"
-                disabled="@Disabled"
-                @onclick="() => OnSelected.InvokeAsync(item.Number)">
+                class="list-group-item list-group-item-action @RowClass(item) @(Disabled ? "busy" : "")"
+                title="@RowTitle(item)"
+                aria-disabled="@(Disabled ? "true" : "false")"
+                @onclick="() => Select(item.Number)">
             <div class="d-flex w-100 justify-content-between">
                 @* Angular's split: the title gets seven twelfths and wraps, the
                    date five. Truncating the title instead let the date take the
@@ -20,7 +21,9 @@
             </div>
 
             @if (!string.IsNullOrWhiteSpace(item.Description)) {
-                <p class="mb-1 small">@item.Description</p>
+                @* Cut to three lines so one long note cannot push the rest of the
+                   list out of sight; the whole text is in the tooltip. *@
+                <p class="mb-1 small description" title="@item.Description">@item.Description</p>
             }
 
             <div class="d-flex justify-content-around small">
@@ -46,13 +49,37 @@
 
     [Parameter, EditorRequired] public IReadOnlyList<Item> Items { get; set; } = [];
 
-    /// <summary>The highlighted row, 0 for none - which is the working file's view.</summary>
+    /// <summary>The version on the right, highlighted; 0 when that is the working file.</summary>
     [Parameter] public int SelectedNumber { get; set; }
 
     /// <summary>True while the page is busy, so a second comparison cannot start on top of the first.</summary>
     [Parameter] public bool Disabled { get; set; }
 
+    /// <summary>
+    /// The version on the left, marked more faintly; 0 for none. So the list
+    /// agrees with the dropdowns when the two are not neighbours, such as V3 against V1.
+    /// </summary>
+    [Parameter] public int OtherNumber { get; set; }
+
+    private string RowClass(Item item)
+        => item.Number == SelectedNumber ? "active"
+         : item.Number == OtherNumber ? "list-group-item-primary"
+         : "";
+
+    private string RowTitle(Item item)
+        => item.Number == SelectedNumber ? L["#_onTheRight"]
+         : item.Number == OtherNumber ? L["#_onTheLeft"]
+         : null;
+
     [Parameter] public EventCallback<int> OnSelected { get; set; }
+
+    /// <summary>
+    /// Ignores clicks while busy. The rows are marked aria-disabled rather than
+    /// disabled, because a disabled button gets no mouse events, and the hover
+    /// tooltip is the only place a long description can be read in full.
+    /// </summary>
+    private Task Select(int number)
+        => Disabled ? Task.CompletedTask : OnSelected.InvokeAsync(number);
 
     private static string DisplayTitle(Item item)
         => string.IsNullOrWhiteSpace(item.Title) ? item.Name : item.Title;

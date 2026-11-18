@@ -103,7 +103,6 @@
     "#_addedSymbols": "Added symbols",
     "#_changes": "Changes",
     "#_chooseAnotherMap": "Choose another map",
-    "#_comparingPastVersions": "Comparing two past versions",
     "#_copiesWorkingFileInto": "Copies the working file into",
     "#_deletedSymbols": "Deleted symbols",
     "#_diffNotImplemented": "Comparing versions symbol by symbol is not implemented yet, so this table stays empty. The maps, the change overlay and version management above are fully working.",
@@ -112,6 +111,10 @@
     "#_findingChanges": "Finding changes…",
     "#_howManyMaps": "How many maps",
     "#_loading": "Loading…",
+    "#_newerMapOnTheRight": "The newer map, on the right",
+    "#_olderMapOnTheLeft": "The older map, on the left",
+    "#_onTheLeft": "On the left",
+    "#_onTheRight": "On the right",
     "#_loadingMap": "Loading {{name}}…",
     "#_map": "Map",
     "#_mapDeclares": "This map declares",
@@ -131,6 +134,6 @@
     "#_symbolCountsSavedAsZero": "Symbol counts are saved as zero until versions can be compared symbol by symbol.",
     "#_tapToChooseMap": "Tap to choose a map, or drop an OCAD file here",
     "#_twoMapsCompared": "Two maps, compared",
-    "#_zoomToChanges": "Zoom to what the overlay is showing",
-    "#_zooming": "Zooming…"
+    "#_hideMap": "Hide the newer map, leaving only the changes on it",
+    "#_showMap": "Show the newer map"
 }

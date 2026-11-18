@@ -1,6 +1,7 @@
 @using OcadViewer.Wasm.Services
 @inherits LocalisedComponent
 @inject ProjectService Project
+@inject AppSettingsService SettingsService
 @inject IJSRuntime JS
 
 @*
@@ -19,6 +20,10 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="staticBackdropLabel">@L["#_OCADVersioner"]</h5>
+                @* Applied at once, unlike the settings modal's draft: there is no
+                   Save here, and a user who cannot read the dialog needs it now. *@
+                <LanguagePicker Class="ms-auto d-flex gap-2" ItemClass="language-picker-flag"
+                                Selected="@(pickedLanguage ?? L.Language)" SelectedChanged="PickLanguage" />
             </div>
 
             <div class="modal-body">
@@ -78,6 +83,23 @@
     private IJSObjectReference ui;
     private bool supported = true;
     private bool busy;
+
+    /// <summary>
+    /// The flag last clicked, until its translation has loaded. Shown as selected
+    /// meanwhile, so the click registers at once - and so a second click during
+    /// the load is compared with it rather than with the language still showing,
+    /// which would drop a click back to that language.
+    /// </summary>
+    private string pickedLanguage;
+
+    private async Task PickLanguage(string code)
+    {
+        pickedLanguage = code;
+        await SettingsService.SetLanguageAsync(code);
+
+        if (pickedLanguage == code)
+            pickedLanguage = null;
+    }
 
     private IReadOnlyList<string> candidates = [];
     /// <summary>Worded at render time, so an error on screen follows a language switch.</summary>

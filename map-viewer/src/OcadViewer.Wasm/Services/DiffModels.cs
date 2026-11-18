@@ -80,6 +80,11 @@ public interface IDiffSource
     /// </summary>
     string UnavailableReasonKey { get; }
 
+    /// <param name="olderVersion">
+    /// The version to compare against, or <c>null</c> when <paramref name="newerVersion"/>
+    /// has nothing before it - then every object counts as added. The same version
+    /// on both sides is an ordinary comparison and has no changes.
+    /// </param>
     Task<MapDiff> CompareAsync(string olderVersion, string newerVersion);
 }
 
