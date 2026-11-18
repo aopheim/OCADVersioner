@@ -43,7 +43,7 @@ public sealed class ProjectDependencyTests
         ["OcadViewer.Ocd"] = [],
         ["OcadViewer.Merge"] = ["OcadViewer.Ocd"],
         ["OcadViewer.RenderCli"] = ["OcadViewer.Core"],
-        ["OcadViewer.Wasm"] = ["OcadViewer.Core", "OcadViewer.Versioning"],
+        ["OcadViewer.Wasm"] = ["OcadViewer.Core", "OcadViewer.Versioning", "OcadViewer.Merge", "OcadViewer.Ocd"],
         ["OcadViewer.ArchitectureTests"] = ["OcadViewer.Versioning"],
         ["OcadViewer.Core.Tests"] = ["OcadViewer.Core"],
         ["OcadViewer.Merge.Tests"] = ["OcadViewer.Merge", "OcadViewer.Ocd"],

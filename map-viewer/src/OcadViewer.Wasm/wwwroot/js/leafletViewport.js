@@ -37,7 +37,7 @@ function latLngBounds(area) {
 }
 
 /**
- * Creates two synced maps over the given elements.
+ * Creates two synced maps over the given elements: the version comparison.
  *
  * @param leftEl  element for the left map
  * @param rightEl element for the right map
@@ -45,6 +45,20 @@ function latLngBounds(area) {
  * @returns a handle with show, stats and dispose.
  */
 export function createSyncedMaps(leftEl, rightEl, renderTile) {
+    return createMaps({ left: leftEl, right: rightEl }, renderTile);
+}
+
+/**
+ * Creates one map per named element, all kept in step: one pane for the merge
+ * screen, three for its conflict walker, two for the comparison above.
+ *
+ * @param elements {paneName: element}; the names are the caller's, passed back
+ *                 to show(), showing() and leaflet() unchanged
+ * @param renderTile (key, minX, minY, width, height, pixels) => Uint8Array|null
+ * @returns a handle with show, stats and dispose.
+ */
+export function createMaps(elements, renderTile) {
+    const PANES = Object.keys(elements);
     const pump = createTilePump();
 
     /* One shared counter set per viewport rather than per layer: a layer is
@@ -65,12 +79,14 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
         fadeAnimation: false
     });
 
-    const maps = { left: makeMap(leftEl), right: makeMap(rightEl) };
+    const perPane = make => Object.fromEntries(PANES.map(pane => [pane, make(pane)]));
+    const maps = perPane(pane => makeMap(elements[pane]));
 
     // Leaflet refuses to sync maps with no view; the first show replaces this.
-    for (const side of SIDES) maps[side].setView([0, 0], 0);
-    maps.left.sync(maps.right);
-    maps.right.sync(maps.left);
+    for (const side of PANES) maps[side].setView([0, 0], 0);
+    for (const a of PANES)
+        for (const b of PANES)
+            if (a !== b) maps[a].sync(maps[b]);
 
     /* Leaflet measures its container once, at construction. Inside a component the
      * element is often still 0x0 at that point, and a map that believes it is zero
@@ -93,7 +109,7 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             const w = el.clientWidth, h = el.clientHeight;
             if (w === 0 || h === 0) continue;
 
-            const side = SIDES.find(s => maps[s].getContainer() === el);
+            const side = PANES.find(s => maps[s].getContainer() === el);
             if (!side) continue;
 
             const map = maps[side];
@@ -108,28 +124,28 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
              * origin - so it comes back looking at a different place from its
              * partner. Put it back where the visible map is. */
             if (wasHidden) {
-                const partner = maps[SIDES.find(s => s !== side)];
-                const partnerSize = partner.getSize();
-                if (partnerSize.x > 0 && partnerSize.y > 0)
+                const partner = maps[PANES.find(s => s !== side)];
+                const partnerSize = partner?.getSize();
+                if (partnerSize?.x > 0 && partnerSize.y > 0)
                     map.setView(partner.getCenter(), partner.getZoom(), { animate: false });
             }
         }
     });
-    for (const side of SIDES) resizeObserver.observe(maps[side].getContainer());
+    for (const side of PANES) resizeObserver.observe(maps[side].getContainer());
 
-    const layers = { left: null, right: null };
-    const overlays = { left: null, right: null };
+    const layers = perPane(() => null);
+    const overlays = perPane(() => null);
 
     /* Whoever is waiting for a pane to finish drawing. A show resolves when the
      * tiles it asked for are all through the pump - or, if the pane is handed to
      * another map first, when that happens, because the tiles it was waiting for
      * are dropped from the queue and will never report back. */
-    const pending = { left: null, right: null };
+    const pending = perPane(() => null);
 
     let fitted = false;
 
     function paneFor(side) {
-        if (!SIDES.includes(side))
+        if (!PANES.includes(side))
             throw new Error(`Unknown side "${side}".`);
 
         return maps[side];
@@ -285,7 +301,7 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
              * has laid the component out, and a map that still believes it is 0x0
              * decides no tiles are in view and draws nothing at all - silently,
              * with no error and a perfectly healthy-looking layer. */
-            for (const s of SIDES) maps[s].invalidateSize({ animate: false, pan: false });
+            for (const s of PANES) maps[s].invalidateSize({ animate: false, pan: false });
 
             /* Fit only on the first show, and only on one map - leaflet.sync
              * mirrors it to the other. Re-fitting on every show fights the user's
@@ -334,7 +350,7 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
 
         /** Which map each side is showing, by name. */
         showing() {
-            return { left: layers.left?._ocadKey ?? null, right: layers.right?._ocadKey ?? null };
+            return perPane(pane => layers[pane]?._ocadKey ?? null);
         },
 
         /**
@@ -365,11 +381,11 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
          * fitting both would make them argue about the result.
          */
         fitTo(area) {
-            maps[SIDES[0]].fitBounds(latLngBounds(area), { animate: false });
+            maps[PANES[0]].fitBounds(latLngBounds(area), { animate: false });
         },
 
         clearOverlays() {
-            for (const side of SIDES) clearOverlay(side);
+            for (const side of PANES) clearOverlay(side);
         },
 
         /**
@@ -385,10 +401,15 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
 
         stats,
 
+        /** The Leaflet map of one pane, for layers drawn on top of its tiles. */
+        leaflet(side) {
+            return paneFor(side);
+        },
+
         dispose() {
             pump.dispose();
             resizeObserver.disconnect();
-            for (const side of SIDES) {
+            for (const side of PANES) {
                 // Anything still waiting for this pane never will be.
                 settle(side);
                 clearOverlay(side);

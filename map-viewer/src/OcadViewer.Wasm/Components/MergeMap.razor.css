@@ -1,0 +1,36 @@
+.merge-panes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    height: 100%;
+}
+
+.merge-pane-wrap {
+    flex: 1 1 280px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+
+.merge-pane-caption {
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 2px 4px;
+}
+
+.merge-pane {
+    flex: 1;
+    min-height: 420px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 6px;
+    background: #fff;
+}
+
+/* While merging the map underneath is greyed, so outlines in the branches'
+   colours never fight the map's own colours. Leaflet builds these elements
+   itself, so the rule has to reach through the component boundary. */
+.merge-panes ::deep .leaflet-tile-pane {
+    filter: grayscale(1);
+    opacity: var(--merge-fade, 0.45);
+}

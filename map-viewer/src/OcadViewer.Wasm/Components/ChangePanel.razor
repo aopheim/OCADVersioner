@@ -1,0 +1,79 @@
+@using OcadViewer.Wasm.Services
+@inherits LocalisedComponent
+
+@*
+    The merge screen's side panel: what changed, by tab. Picking a row selects
+    it on the map. What each row may do about itself is the page's business,
+    passed in as Actions.
+
+    It renders only when one of its parameters changed - a new listing, tab,
+    selection, label or Disabled - so the page can re-render for a slider without
+    rebuilding every row. Actions must depend on nothing else.
+*@
+<section class="merge-panel">
+    <nav class="merge-tabs" role="tablist">
+        @foreach (MergeTab tab in Enum.GetValues<MergeTab>()) {
+            <button type="button" role="tab" aria-selected="@(tab == Tab)"
+                    class="merge-tab @(tab == Tab ? "active" : null)" @onclick="() => TabChanged.InvokeAsync(tab)">
+                @TabName(tab)
+                @if (tab == MergeTab.Conflicts && OpenCount > 0) {
+                    <span class="badge rounded-pill text-bg-danger ms-1">@L.Format("#_mergeOpenCount", ("count", OpenCount))</span>
+                } else {
+                    <span class="badge rounded-pill text-bg-light ms-1">@Listing[tab].Count</span>
+                }
+            </button>
+        }
+    </nav>
+
+    <div class="merge-entries">
+        @if (Listing[Tab].Count == 0) {
+            <p class="text-muted small m-2">@L["#_mergeNothingHere"]</p>
+        }
+        @foreach (PanelEntry entry in Listing[Tab]) {
+            <article class="merge-entry side-@entry.Side.Name() @(entry.Open ? "open" : null) @(entry.Key == SelectedKey ? "selected" : null)">
+                <button type="button" class="merge-entry-pick" @onclick="() => OnSelect.InvokeAsync(entry.Key)">
+                    <span class="merge-entry-title">@entry.Title</span>
+                    <span class="merge-entry-detail">@entry.Detail</span>
+                </button>
+                @Actions?.Invoke(entry)
+            </article>
+        }
+    </div>
+</section>
+
+@code {
+    /// <summary>Every tab's rows, built by the page once per state of the decisions.</summary>
+    [Parameter, EditorRequired] public MergePanelListing Listing { get; set; }
+    [Parameter] public string LabelA { get; set; }
+    [Parameter] public string LabelB { get; set; }
+    [Parameter] public MergeTab Tab { get; set; }
+    [Parameter] public EventCallback<MergeTab> TabChanged { get; set; }
+    [Parameter] public string SelectedKey { get; set; }
+    [Parameter] public EventCallback<string> OnSelect { get; set; }
+
+    /// <summary>What a row offers, e.g. decision buttons. Rendered under the row.</summary>
+    [Parameter] public RenderFragment<PanelEntry> Actions { get; set; }
+
+    /// <summary>Whether the rows' actions are disabled, e.g. while the page is busy. The panel re-renders when it changes.</summary>
+    [Parameter] public bool Disabled { get; set; }
+
+    private (MergePanelListing, MergeTab, string, string, string, bool) rendered;
+
+    private int OpenCount => Listing.Resolution.Unresolved.Count;
+
+    protected override bool ShouldRender()
+    {
+        var showing = (Listing, Tab, SelectedKey, LabelA, LabelB, Disabled);
+        if (showing == rendered)
+            return false;
+        rendered = showing;
+        return true;
+    }
+
+    private string TabName(MergeTab tab) => tab switch {
+        MergeTab.Conflicts => L["#_mergeConflicts"],
+        MergeTab.A => LabelA,
+        MergeTab.B => LabelB,
+        _ => L["#_mergeSymbolsAndColours"],
+    };
+}

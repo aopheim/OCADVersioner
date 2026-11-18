@@ -13,10 +13,13 @@ namespace OcadViewer.Merge.Writing;
 /// </remarks>
 internal static class MergePlanner
 {
-    /// <exception cref="InvalidOperationException">A conflict or overlap is still undecided.</exception>
-    public static MergePlan Plan(MergeResolution resolution)
+    /// <param name="preview">Plan what the map looks like so far: undecided conflicts
+    /// stay as base. A preview is for showing, never for saving.</param>
+    /// <exception cref="InvalidOperationException">A conflict or overlap is still undecided
+    /// and this is not a preview.</exception>
+    public static MergePlan Plan(MergeResolution resolution, bool preview = false)
     {
-        if (!resolution.IsComplete)
+        if (!preview && !resolution.IsComplete)
             throw new InvalidOperationException(
                 $"{resolution.Unresolved.Count} conflict(s) still need a decision before the merged map can be written.");
 

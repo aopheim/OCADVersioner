@@ -10,7 +10,7 @@ public static class MergeAnalyzer
     public static MergeAnalysis Analyze(OcadFile @base, OcadFile a, OcadFile b, MergeOptions options = null)
     {
         options ??= MergeOptions.Default;
-        if (a.Version != @base.Version || b.Version != @base.Version)
+        if (!MergeCheck.SameVersion(@base, a, b))
             throw new MergeException(
                 $"All three files must be saved in the same OCAD version (base is {@base.Version}, " +
                 $"the branches are {a.Version} and {b.Version}). Open them in OCAD and save them alike.");
@@ -22,7 +22,7 @@ public static class MergeAnalyzer
             objects,
             Symbols(@base, a, b, comparer),
             Settings(@base, a, b, comparer),
-            OverlapDetector.Find(objects, options.OverlapBufferUnits(@base.Scale)));
+            OverlapDetector.Find(objects, options.OverlapBufferUnits(@base.Scale), options.OverlapInsideAreaUnits(@base.Scale)));
     }
 
     private static List<ObjectItem> Objects(OcadFile @base, OcadFile a, OcadFile b, ContentComparer comparer)

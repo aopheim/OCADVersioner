@@ -1,0 +1,185 @@
+@page "/merge"
+@using OcadViewer.Merge
+@using OcadViewer.Merge.Analysis
+@using OcadViewer.Wasm.Components
+@using OcadViewer.Wasm.Services
+@inherits BusyPage
+
+<PageTitle>@L["#_merge"] · @L["#_OCADVersioner"]</PageTitle>
+
+<div class="container-fluid merge-page">
+<BusyBar Busy="Busy" Progress="Progress" />
+
+<header class="merge-header">
+    <a class="h5 mb-0 text-decoration-none" href="">@L["#_OCADVersioner"]</a>
+    <span class="badge text-bg-dark">@L["#_merge"]</span>
+    @if (session is not null) {
+        <span class="merge-files">
+            <span class="text-muted">@L["#_mergeBaseShort"]</span> <strong>@start.Base.FileName</strong>
+            <span class="text-muted">←</span>
+            <span class="merge-dot side-a"></span><strong class="text-a">@start.LabelA</strong>
+            <span class="text-muted">+</span>
+            <span class="merge-dot side-b"></span><strong class="text-b">@start.LabelB</strong>
+        </span>
+        <span class="flex-grow-1"></span>
+        <span class="small text-muted">@ProgressText</span>
+        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="StartOver" disabled="@Busy">
+            @L["#_mergeStartOver"]
+        </button>
+    }
+</header>
+
+@if (Status is not null) {
+    <p class="@(Failed ? "text-danger" : "text-muted") mb-1">@Status</p>
+}
+
+@if (session is null) {
+    <MergeSetup OnStart="Start" />
+} else {
+    <div class="merge-body">
+        <aside class="merge-rail">
+            <div class="merge-rail-group">
+                <span class="merge-label">@L["#_mergeShowMapAs"]</span>
+                <div class="btn-group btn-group-sm flex-wrap" role="group">
+                    @foreach ((string key, string name) in Layers) {
+                        <button type="button" class="btn @(key == layer ? "btn-dark" : "btn-outline-secondary")"
+                                @onclick="() => ShowLayer(key)" disabled="@Busy">@name</button>
+                    }
+                </div>
+            </div>
+            <div class="merge-rail-group">
+                <label class="merge-label" for="merge-fade">@L["#_mergeFade"]</label>
+                <input id="merge-fade" type="range" class="form-range" min="0.1" max="1" step="0.05"
+                       value="@fade.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                       @oninput="e => fade = double.Parse((string)e.Value, System.Globalization.CultureInfo.InvariantCulture)" />
+            </div>
+            <div class="merge-rail-group merge-legend">
+                <span class="merge-label">@L["#_mergeLegend"]</span>
+                <span><i class="legend solid"></i>@L["#_added"]</span>
+                <span><i class="legend dashed"></i>@L["#_edited"]</span>
+                <span><i class="legend dotted"></i>@L["#_deleted"]</span>
+                <span><i class="legend conflict"></i>@L["#_mergeConflict"]</span>
+            </div>
+        </aside>
+
+        <main class="merge-map">
+            <MergeMap @ref="map" Fade="fade" OnPick="Select" />
+        </main>
+
+        <div class="merge-side">
+            <ChangePanel Listing="Listing" LabelA="@start.LabelA" LabelB="@start.LabelB" Disabled="Busy"
+                         @bind-Tab="tab" SelectedKey="@selected" OnSelect="SelectAndZoom" />
+        </div>
+    </div>
+}
+</div>
+
+@code {
+    private const string MergePane = "merge";
+    private const string ResultLayer = "result";
+
+    private MergeStart start;
+    private MergeSession session;
+    private MergeMap map;
+    private string layer = ResultLayer;
+    private double fade = 0.45;
+    private MergeTab tab;
+    private string selected;
+    private MergePanelListing listing;
+
+    /// <summary>Completes when the map component has rendered, so the page can draw on it.</summary>
+    private TaskCompletionSource<MergeMap> mapRendered = NewMapRendered();
+
+    /// <summary>How long the map component may take to appear before the merge gives up.</summary>
+    private static readonly TimeSpan MapTimeout = TimeSpan.FromSeconds(30);
+
+    private IEnumerable<(string Key, string Name)> Layers => [
+        (ResultLayer, L["#_mergeResult"]),
+        ("base", L["#_mergeBaseShort"]),
+        ("a", start.LabelA),
+        ("b", start.LabelB),
+    ];
+
+    private string ProgressText
+    {
+        get {
+            int total = session.Resolution.DecisionsNeeded;
+            int open = session.Resolution.Unresolved.Count;
+            return L.Format("#_mergeResolvedOf", ("resolved", total - open), ("total", total));
+        }
+    }
+
+    private Task Start(MergeStart chosen)
+        => Run(() => L["#_mergeAnalysing"], async () => {
+            start = chosen;
+            session = new MergeSession(MergeAnalyzer.Analyze(chosen.Base.File, chosen.A.File, chosen.B.File));
+            tab = session.Resolution.Unresolved.Count > 0 ? MergeTab.Conflicts : MergeTab.A;
+
+            Report(() => L["#_mergeDrawing"], null);
+            StateHasChanged();
+            MergeMap shown = await mapRendered.Task.WaitAsync(MapTimeout);
+            await shown.Ready;
+
+            await map.LoadAsync("base", chosen.Base.FileName, chosen.Base.Bytes);
+            await map.LoadAsync("a", chosen.A.FileName, chosen.A.Bytes);
+            await map.LoadAsync("b", chosen.B.FileName, chosen.B.Bytes);
+            await RefreshResultAsync();
+            await map.ShowAsync(MergePane, layer);
+        });
+
+    /// <summary>Re-renders the merged map and its outlines after the decisions changed.</summary>
+    private async Task RefreshResultAsync()
+    {
+        await map.LoadAsync(ResultLayer, start.Base.FileName, session.WritePreview(DateTime.Now));
+        await map.SetFeaturesAsync(MergePane, MergeOverlay.Json(session));
+        if (layer == ResultLayer)
+            await map.ShowAsync(MergePane, ResultLayer);
+    }
+
+    private Task ShowLayer(string key)
+        => Run(() => L["#_mergeDrawing"], async () => {
+            layer = key;
+            await map.ShowAsync(MergePane, key);
+        });
+
+    /// <summary>A pick on the map: select the row, switching to the tab that lists it.</summary>
+    private async Task Select(string key)
+    {
+        selected = key;
+        // Stay on the tab if it lists the pick (a shared change is under both copies).
+        if (!Listing[tab].Any(e => e.Key == key) && Listing.TabOf(key) is MergeTab holding)
+            tab = holding;
+        await map.SelectAsync(MergePane, key);
+    }
+
+    private async Task SelectAndZoom(string key)
+    {
+        await Select(key);
+        await map.ZoomToAsync(MergePane, key);
+    }
+
+    private void StartOver()
+    {
+        session = null;
+        start = null;
+        selected = null;
+        layer = ResultLayer;
+        listing = null;
+        mapRendered = NewMapRendered();
+    }
+
+    /// <summary>The side panel's rows, rebuilt only when the decisions or the language changed.</summary>
+    private MergePanelListing Listing
+        => listing is not null && ReferenceEquals(listing.Resolution, session.Resolution) && listing.Language == L.Language
+            ? listing
+            : listing = MergePanelEntries.For(session, start.LabelA, start.LabelB, L);
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (map is not null)
+            mapRendered.TrySetResult(map);
+    }
+
+    private static TaskCompletionSource<MergeMap> NewMapRendered() => new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+}
