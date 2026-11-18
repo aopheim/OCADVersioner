@@ -1076,11 +1076,11 @@ WebAssembly** and has no `wasm-tools`. The sketch below is where that started;
 the committed workflow picks the token by branch.
 
 ```yaml
-# .github/workflows/azure-static-web-apps-mapviewer.yml
+# .github/workflows/deploy.yml
 on:
   push:
     branches: [main, develop]
-    paths: ['map-viewer/**', '.github/workflows/azure-static-web-apps-mapviewer.yml']
+    paths: ['map-viewer/**', '.github/workflows/deploy.yml']
 
 jobs:
   build_and_deploy:

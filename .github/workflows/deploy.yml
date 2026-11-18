@@ -1,4 +1,4 @@
-name: MapViewer Deploy
+name: Deploy
 
 # develop deploys to the DEV Static Web App (thankful-coast).
 #
@@ -18,12 +18,14 @@ on:
         # is built from must not pay for it.
         paths:
             - 'map-viewer/**'
-            - '.github/workflows/azure-static-web-apps-mapviewer.yml'
+            - '.github/workflows/deploy.yml'
 
 jobs:
-    build_and_deploy_job:
+    deploy:
         runs-on: ubuntu-latest
-        name: Build and Deploy Job
+        # Says where it deploys. A release PR's head is develop, so the DEV deploy
+        # of that commit is listed on it too, and must not read as production.
+        name: Deploy to ${{ github.ref_name == 'main' && 'production (icy-pond)' || 'dev (thankful-coast)' }}
 
         env:
             # setup-dotnet installs into /usr/share/dotnet by default, and
