@@ -1,16 +1,14 @@
-@* A 2 px bar, present only while something is happening, as in the Angular app.
-   The space is kept when idle so the page does not jump. Striped when the work
-   cannot say how far it is; filled to Progress when it can. *@
-<div style="height:2px">
-    @if (Busy) {
-        <div class="progress" style="height:2px">
-            @if (Progress is double done) {
-                <div class="progress-bar" style="width:@((int)Math.Round(done * 100))%"></div>
-            } else {
-                <div class="progress-bar progress-bar-striped progress-bar-animated"
-                     style="width:100%"></div>
-            }
-        </div>
+@* A 2 px bar at the top of the page, as in the Angular app. Always on the page,
+   and only hidden when idle, so it takes exactly the same room whether or not
+   something is happening and nothing below it ever moves. flex-shrink: 0 keeps
+   that room in a page that is a flex column, as the workspace is. Striped when
+   the work cannot say how far it is; filled to Progress when it can. *@
+<div class="progress rounded-0 flex-shrink-0" style="height:2px; @(Busy ? "" : "visibility:hidden")">
+    @if (Progress is double done) {
+        <div class="progress-bar" style="width:@((int)Math.Round(done * 100))%"></div>
+    } else {
+        <div class="progress-bar progress-bar-striped progress-bar-animated"
+             style="width:100%"></div>
     }
 </div>
 
