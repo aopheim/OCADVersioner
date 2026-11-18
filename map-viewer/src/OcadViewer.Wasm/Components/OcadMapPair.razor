@@ -23,7 +23,7 @@
 <div class="row g-1 mapPair @(Fill ? "fill" : "") @(OnlySide is null ? "" : "single")">
     <div class="@ColumnClass" hidden="@(OnlySide == MapSide.Right)">
         @if (LeftTitle is not null) {
-            <div class="mapTitle">@LeftTitle</div>
+            <div class="text-center fw-medium text-truncate mb-1">@LeftTitle</div>
         }
         <div class="mapPane">
             <div @ref="leftEl" class="mapDiv"></div>
@@ -32,7 +32,7 @@
     </div>
     <div class="@ColumnClass" hidden="@(OnlySide == MapSide.Left)">
         @if (RightTitle is not null) {
-            <div class="mapTitle">@RightTitle</div>
+            <div class="text-center fw-medium text-truncate mb-1">@RightTitle</div>
         }
         <div class="mapPane">
             <div @ref="rightEl" class="mapDiv"></div>

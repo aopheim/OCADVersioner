@@ -8,10 +8,10 @@
 <div class="list-group">
     @foreach (var item in Items) {
         <button type="button"
-                class="list-group-item list-group-item-action @RowClass(item)"
+                class="list-group-item list-group-item-action @RowClass(item) @(Disabled ? "busy" : "")"
                 title="@RowTitle(item)"
-                disabled="@Disabled"
-                @onclick="() => OnSelected.InvokeAsync(item.Number)">
+                aria-disabled="@(Disabled ? "true" : "false")"
+                @onclick="() => Select(item.Number)">
             <div class="d-flex w-100 justify-content-between">
                 @* Angular's split: the title gets seven twelfths and wraps, the
                    date five. Truncating the title instead let the date take the
@@ -72,6 +72,14 @@
          : null;
 
     [Parameter] public EventCallback<int> OnSelected { get; set; }
+
+    /// <summary>
+    /// Ignores clicks while busy. The rows are marked aria-disabled rather than
+    /// disabled, because a disabled button gets no mouse events, and the hover
+    /// tooltip is the only place a long description can be read in full.
+    /// </summary>
+    private Task Select(int number)
+        => Disabled ? Task.CompletedTask : OnSelected.InvokeAsync(number);
 
     private static string DisplayTitle(Item item)
         => string.IsNullOrWhiteSpace(item.Title) ? item.Name : item.Title;

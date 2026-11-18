@@ -846,9 +846,10 @@ sides have ink it can see the change but not which way, which is `Altered`.
   green vegetation, black rock, and purple for overprint and boundaries, which
   the first attempt's magenta was nearly indistinguishable from. Crimson is the
   gap.
-- **A crosshair button frames the changes.** A 0.1 % revision is a few specks on
-  a whole map, correct and impossible to find by eye; the mask already knows
-  where they are.
+- **A crosshair button framed the changes - since removed.** A 0.1 % revision is
+  a few specks on a whole map, correct and impossible to find by eye, and the
+  mask knew where they were. It was later removed; the change overlay and hiding
+  the newer map remain.
 - **The classification stays in the renderer.** `PixelChange` still records
   appeared, vanished and altered because that is free to produce and is the
   honest output. Nothing above reads it: the only thing crossing the boundary is

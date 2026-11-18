@@ -7,17 +7,6 @@
     height: 80vh;
 }
 
-/* A map's name, centred over it. Long names are cut short rather than wrapped,
-   so both panes start at the same height. */
-.mapTitle {
-    text-align: center;
-    font-weight: 500;
-    margin-bottom: 0.25rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 /* Whatever a page puts in a pane is positioned against the pane. */
 .mapPane {
     position: relative;
@@ -45,7 +34,20 @@
     height: 100%;
 }
 
-.mapPair.fill .mapPane,
+/* Each column stacks its optional title over its pane, and the pane takes what
+   the title leaves, so a title never pushes the map out of the column. The
+   [hidden] rule in Bootstrap's reboot is !important, so a hidden column stays
+   hidden. */
+.mapPair.fill > div {
+    display: flex;
+    flex-direction: column;
+}
+
+.mapPair.fill .mapPane {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
 .mapPair.fill .mapDiv {
     height: 100%;
 }

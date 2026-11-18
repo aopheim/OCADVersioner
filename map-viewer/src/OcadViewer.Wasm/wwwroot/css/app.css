@@ -32,10 +32,6 @@
     width: 2.5rem;
 }
 
-.language-picker-flag svg {
-    display: block;
-}
-
 /* Blazor's own two pieces ----------------------------------------------- */
 
 /* Blazor reveals this with an inline display when an exception escapes a
