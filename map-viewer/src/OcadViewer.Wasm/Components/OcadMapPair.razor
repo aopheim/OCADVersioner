@@ -175,6 +175,15 @@
     }
 
     /// <summary>
+    /// Shows or hides the maps themselves, so the change overlay can be seen on its own.
+    /// </summary>
+    public async Task SetMapVisibleAsync(bool visible)
+    {
+        await (ready ??= InitialiseAsync());
+        await workspace.InvokeVoidAsync("setMapVisible", visible);
+    }
+
+    /// <summary>
     /// Forgets every parsed map and change mask, because a different project
     /// folder is about to be shown.
     /// </summary>

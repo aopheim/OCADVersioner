@@ -23,7 +23,8 @@ import { paint, coverage, boundsOf } from './changeMask.js';
 /**
  * Builds the viewer over two elements.
  * @returns {Promise<{parse: Function, draw: Function, showFile: Function, showChanges: Function,
- *                    zoomToChanges: Function, reset: Function, showing: Function, stats: object, dispose: Function}>}
+ *                    zoomToChanges: Function, setMapVisible: Function, reset: Function,
+ *                    showing: Function, stats: object, dispose: Function}>}
  */
 export async function createWorkspace(leftEl, rightEl) {
     const tiles = await createTileSource();
@@ -250,6 +251,11 @@ export async function createWorkspace(leftEl, rightEl) {
 
             view.fitTo(area);
             return area;
+        },
+
+        /** Shows or hides the maps under the change overlay, on both panes. */
+        setMapVisible(visible) {
+            view.setMapVisible(visible);
         },
 
         /**

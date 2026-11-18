@@ -132,5 +132,7 @@
     "#_tapToChooseMap": "Trykk for å velge et kart, eller slipp en OCAD-fil her",
     "#_twoMapsCompared": "To kart, sammenlignet",
     "#_zoomToChanges": "Zoom til det endringsvisningen viser",
-    "#_zooming": "Zoomer…"
+    "#_zooming": "Zoomer…",
+    "#_hideMap": "Skjul kartet, så bare endringene vises",
+    "#_showMap": "Vis kartet"
 }

@@ -132,5 +132,7 @@
     "#_tapToChooseMap": "Tap to choose a map, or drop an OCAD file here",
     "#_twoMapsCompared": "Two maps, compared",
     "#_zoomToChanges": "Zoom to what the overlay is showing",
-    "#_zooming": "Zooming…"
+    "#_zooming": "Zooming…",
+    "#_hideMap": "Hide the map, leaving only the changes",
+    "#_showMap": "Show the map"
 }
