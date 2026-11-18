@@ -1,4 +1,7 @@
-name: PR build
+name: CI
+
+# The job id, build-and-test, is the check the rulesets on main and develop
+# require. Renaming it blocks every pull request until the rulesets follow.
 
 # No `types:` filter, so this runs on opened, reopened and every push to the
 # branch. With `types: [opened]` a required check could only ever report on the
@@ -11,7 +14,7 @@ on:
     pull_request:
 
 jobs:
-    map-viewer:
+    build-and-test:
         runs-on: ubuntu-latest
 
         # Every dotnet command runs from map-viewer so that map-viewer/global.json
