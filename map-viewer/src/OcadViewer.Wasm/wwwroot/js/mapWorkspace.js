@@ -53,10 +53,24 @@ export async function createWorkspace(leftEl, rightEl) {
             : null;
     }
 
+    /**
+     * Takes the overlay off the screen and shows every map, because what is
+     * drawn no longer matches it.
+     *
+     * A hidden map would otherwise stay hidden under no overlay at all - or
+     * under the last pair's - until the page has built the new one, which can
+     * take seconds. The page puts both back with showChanges and setMapVisible
+     * once it has; the cached mask, if still valid, is kept for that.
+     */
+    function takeDownOverlay() {
+        view.clearOverlays();
+        view.hideMap(null);
+    }
+
     /** Drops the mask, and takes it off the screen, if its parses have changed. */
     function dropStaleChanges() {
         if (changes && changes.key !== maskKey(changes.older, changes.newer)) {
-            view.clearOverlays();
+            takeDownOverlay();
             forgetChanges();
         }
     }
@@ -93,6 +107,11 @@ export async function createWorkspace(leftEl, rightEl) {
 
     /** Puts a parsed map in a pane; resolves once the pane has drawn it. */
     function draw(side, mapName) {
+        // A different version in a pane makes a different pair: the overlay on
+        // screen is the last pair's changes, not these.
+        if (view.showing()[side] !== mapName)
+            takeDownOverlay();
+
         return view.show(side, mapName, tiles.describe(mapName));
     }
 
