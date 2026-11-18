@@ -175,12 +175,14 @@
     }
 
     /// <summary>
-    /// Shows or hides the maps themselves, so the change overlay can be seen on its own.
+    /// Shows or hides the newer map, so the change overlay painted on it can be
+    /// seen on its own. The other pane's map is always shown.
     /// </summary>
-    public async Task SetMapVisibleAsync(bool visible)
+    /// <param name="newer">The name the newer map is held under; its pane is found by name.</param>
+    public async Task SetMapVisibleAsync(string newer, bool visible)
     {
         await (ready ??= InitialiseAsync());
-        await workspace.InvokeVoidAsync("setMapVisible", visible);
+        await workspace.InvokeVoidAsync("setMapVisible", newer, visible);
     }
 
     /// <summary>

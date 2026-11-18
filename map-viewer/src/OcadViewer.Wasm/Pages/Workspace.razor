@@ -57,14 +57,6 @@
                              Older="@Comparison.Older" Newer="@Comparison.Newer"
                              Busy="Busy" Run="Run" ShowZoom="true" />
 
-        @* The map under the overlay, off to see the changes alone. *@
-        <button class="btn btn-sm @(showMap ? "btn-outline-secondary" : "btn-primary")"
-                @onclick="ToggleMap"
-                title="@L[showMap ? "#_hideMap" : "#_showMap"] (@MapKey.ToUpperInvariant())">
-            <i class="bi @(showMap ? "bi-map" : "bi-map-fill")"></i>
-        </button>
-        <KeyboardShortcut Key="@MapKey" OnPressed="ToggleMap" />
-
         @* Progress goes in this row, not on a line of its own: a line that comes
            and goes pushes the maps down and back up each time, under the mouse. *@
         @if (StatusInToolbar) {
@@ -146,12 +138,6 @@
 
     private ChangeOverlayToggle overlay;
 
-    /// <summary>The key that shows and hides the map under the overlay.</summary>
-    private const string MapKey = "m";
-
-    /// <summary>Whether the maps are drawn. Off leaves only the change overlay.</summary>
-    private bool showMap = true;
-
     /// <summary>
     /// Progress shows in the toolbar once a project is open. Failures keep their own
     /// line, because they stay until dismissed by the next action and should be seen.
@@ -211,7 +197,6 @@
     private void OnProjectLoaded()
     {
         selectedNumber = 0;
-        showMap = true;
         overlay?.Reset();
         comparisonPending = true;
         StateHasChanged();
@@ -230,7 +215,6 @@
         // names with the last one's, so nothing parsed before can be trusted.
         await Run(() => L["#_loading"], async () => {
             await mapPair.ResetAsync();
-            await mapPair.SetMapVisibleAsync(true);
             await ShowComparison();
         });
     }
@@ -347,28 +331,5 @@
             // The mapper has already moved on; what went wrong with a comparison
             // nobody is waiting for is not worth telling them.
         }
-    }
-
-    /// <summary>Shows or hides the maps, from the button or from the keyboard.</summary>
-    /// <remarks>
-    /// Not run through <see cref="BusyPage.Run"/>: hiding a pane is instant, and
-    /// works while the overlay is still being computed. Hiding the map with the
-    /// overlay off would leave nothing to look at, so it turns the overlay on
-    /// first - and leaves the map alone if the overlay could not come on, which
-    /// it cannot while the page is busy.
-    /// </remarks>
-    private async Task ToggleMap()
-    {
-        if (mapPair is null)
-            return;
-
-        if (showMap) {
-            await overlay.TurnOnAsync();
-            if (!overlay.IsOn)
-                return;
-        }
-
-        showMap = !showMap;
-        await mapPair.SetMapVisibleAsync(showMap);
     }
 }

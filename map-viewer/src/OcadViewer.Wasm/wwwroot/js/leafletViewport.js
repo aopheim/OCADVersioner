@@ -373,16 +373,16 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
         },
 
         /**
-         * Shows or hides the map itself, leaving any overlay on top of it.
+         * Hides the map on one pane, leaving any overlay on top of it, and shows
+         * it on every other. Null shows every map.
          *
-         * Hides Leaflet's tile pane rather than removing the layers, so it holds
-         * for maps shown later too, and turning the map back on is instant - the
-         * tiles are still there. The change mask sits in the overlay pane and is
-         * not touched.
+         * Hides Leaflet's tile pane rather than removing the layers, so turning
+         * the map back on is instant - the tiles are still there. The change mask
+         * sits in the overlay pane and is not touched.
          */
-        setMapVisible(visible) {
-            for (const side of SIDES)
-                maps[side].getPane('tilePane').style.visibility = visible ? '' : 'hidden';
+        hideMap(side) {
+            for (const each of SIDES)
+                maps[each].getPane('tilePane').style.visibility = each === side ? 'hidden' : '';
         },
 
         /**

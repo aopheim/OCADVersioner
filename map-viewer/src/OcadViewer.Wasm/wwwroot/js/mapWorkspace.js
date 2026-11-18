@@ -253,9 +253,16 @@ export async function createWorkspace(leftEl, rightEl) {
             return area;
         },
 
-        /** Shows or hides the maps under the change overlay, on both panes. */
-        setMapVisible(visible) {
-            view.setMapVisible(visible);
+        /**
+         * Shows or hides the newer map under the change overlay. Only that one:
+         * the overlay is painted on it, and the older map beside it is what the
+         * changes are read against.
+         *
+         * Found by name, so the pane follows the newer map wherever it is shown.
+         * Every other pane's map is shown.
+         */
+        setMapVisible(newerName, visible) {
+            view.hideMap(visible ? null : sideShowing(newerName));
         },
 
         /**
@@ -264,6 +271,7 @@ export async function createWorkspace(leftEl, rightEl) {
          * project - every project has a "V1".
          */
         reset() {
+            view.hideMap(null);
             view.clearOverlays();
             forgetChanges();
             tiles.clear();

@@ -133,6 +133,6 @@
     "#_twoMapsCompared": "To kart, sammenlignet",
     "#_zoomToChanges": "Zoom til det endringsvisningen viser",
     "#_zooming": "Zoomer…",
-    "#_hideMap": "Skjul kartet, så bare endringene vises",
-    "#_showMap": "Vis kartet"
+    "#_hideMap": "Skjul det nyeste kartet, så bare endringene vises",
+    "#_showMap": "Vis det nyeste kartet"
 }
