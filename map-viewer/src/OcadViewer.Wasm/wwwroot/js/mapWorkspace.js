@@ -18,12 +18,13 @@
 import { readBytes } from './projectFolder.js';
 import { createTileSource } from './mapTiles.js';
 import { createSyncedMaps } from './leafletViewport.js';
-import { paint, coverage, boundsOf } from './changeMask.js';
+import { paint, coverage } from './changeMask.js';
 
 /**
  * Builds the viewer over two elements.
  * @returns {Promise<{parse: Function, draw: Function, showFile: Function, showChanges: Function,
- *                    zoomToChanges: Function, reset: Function, showing: Function, stats: object, dispose: Function}>}
+ *                    setMapVisible: Function, reset: Function,
+ *                    showing: Function, stats: object, dispose: Function}>}
  */
 export async function createWorkspace(leftEl, rightEl) {
     const tiles = await createTileSource();
@@ -52,10 +53,24 @@ export async function createWorkspace(leftEl, rightEl) {
             : null;
     }
 
+    /**
+     * Takes the overlay off the screen and shows every map, because what is
+     * drawn no longer matches it.
+     *
+     * A hidden map would otherwise stay hidden under no overlay at all - or
+     * under the last pair's - until the page has built the new one, which can
+     * take seconds. The page puts both back with showChanges and setMapVisible
+     * once it has; the cached mask, if still valid, is kept for that.
+     */
+    function takeDownOverlay() {
+        view.clearOverlays();
+        view.hideMap(null);
+    }
+
     /** Drops the mask, and takes it off the screen, if its parses have changed. */
     function dropStaleChanges() {
         if (changes && changes.key !== maskKey(changes.older, changes.newer)) {
-            view.clearOverlays();
+            takeDownOverlay();
             forgetChanges();
         }
     }
@@ -92,6 +107,11 @@ export async function createWorkspace(leftEl, rightEl) {
 
     /** Puts a parsed map in a pane; resolves once the pane has drawn it. */
     function draw(side, mapName) {
+        // A different version in a pane makes a different pair: the overlay on
+        // screen is the last pair's changes, not these.
+        if (view.showing()[side] !== mapName)
+            takeDownOverlay();
+
         return view.show(side, mapName, tiles.describe(mapName));
     }
 
@@ -192,8 +212,8 @@ export async function createWorkspace(leftEl, rightEl) {
 
                 changes = {
                     key, older: olderName, newer: newerName, plan, mask,
-                    covered: coverage(mask),
-                    url: await paint(mask, plan.width, plan.height)
+                    covered: coverage(mask, plan),
+                    url: await paint(mask, plan)
                 };
             }
 
@@ -218,38 +238,15 @@ export async function createWorkspace(leftEl, rightEl) {
         },
 
         /**
-         * Moves both panes to frame every change.
+         * Shows or hides the newer map under the change overlay. Only that one:
+         * the overlay is painted on it, and the older map beside it is what the
+         * changes are read against.
          *
-         * A small revision is a few specks on a whole map - correct, and almost
-         * impossible to find by eye. The mask already knows where they are.
-         *
-         * @param paddingMm breathing room around the changes
-         * @returns the framed rectangle in paper millimetres, or null if there
-         *          is nothing to frame
+         * Found by name, so the pane follows the newer map wherever it is shown.
+         * Every other pane's map is shown.
          */
-        zoomToChanges(paddingMm = 12) {
-            if (!changes?.mask)
-                return null;
-
-            const { width, height, minX, minY, maxX, maxY } = changes.plan;
-            const box = boundsOf(changes.mask, width, height);
-            if (!box) return null;
-
-            // Mask pixels to paper millimetres. The mask covers the planned
-            // rectangle exactly, and its rows run downwards while paper Y runs
-            // up, which is the only subtlety here.
-            const x = px => minX + (px / width) * (maxX - minX);
-            const y = py => maxY - (py / height) * (maxY - minY);
-
-            const area = {
-                minX: x(box.left) - paddingMm,
-                maxX: x(box.right + 1) + paddingMm,
-                minY: y(box.bottom + 1) - paddingMm,
-                maxY: y(box.top) + paddingMm
-            };
-
-            view.fitTo(area);
-            return area;
+        setMapVisible(newerName, visible) {
+            view.hideMap(visible ? null : sideShowing(newerName));
         },
 
         /**
@@ -258,6 +255,7 @@ export async function createWorkspace(leftEl, rightEl) {
          * project - every project has a "V1".
          */
         reset() {
+            view.hideMap(null);
             view.clearOverlays();
             forgetChanges();
             tiles.clear();

@@ -34,7 +34,20 @@
     height: 100%;
 }
 
-.mapPair.fill .mapPane,
+/* Each column stacks its optional title over its pane, and the pane takes what
+   the title leaves, so a title never pushes the map out of the column. The
+   [hidden] rule in Bootstrap's reboot is !important, so a hidden column stays
+   hidden. */
+.mapPair.fill > div {
+    display: flex;
+    flex-direction: column;
+}
+
+.mapPair.fill .mapPane {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
 .mapPair.fill .mapDiv {
     height: 100%;
 }

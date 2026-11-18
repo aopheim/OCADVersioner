@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The 3-way merge of OCAD maps: read three files, work out what each branch
+    changed, detect conflicts, apply the user's decisions and write the result.
+
+    Its only dependency is OcadViewer.Ocd, which reads and edits the files
+    byte-faithfully; this project decides what changed and what to write. See
+    MERGE-PLAN.md.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OcadViewer.Ocd\OcadViewer.Ocd.csproj" />
+  </ItemGroup>
+
+</Project>

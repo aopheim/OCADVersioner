@@ -231,10 +231,35 @@ public sealed class OrthogonalityTests
         Assert.That(NamesOf(offenders), Is.EquivalentTo(new[] { "MapStore.cs" }),
             "The renderer classifies each changed pixel, because it is the only thing that can. "
             + "Nothing above it reads that classification: the overlay asks one question - did "
-            + "this change - so the only thing crossing the boundary is \"zero means unchanged\".");
+            + "this change - so the only thing crossing the boundary is \"zero in the change bits means "
+            + "unchanged\", beside a flag for whether the pixel is map at all.");
     }
 
     /* ------------------------------------------------- contracts stated once */
+
+    /// <summary>
+    /// The change mask's bits are decided in C# and read in JavaScript. They are
+    /// written down once, in ChangeMask, and travel to the browser with the plan,
+    /// so no script may declare them itself.
+    /// </summary>
+    [Test]
+    public void TheChangeMaskBitsAreStatedOnlyInChangeMask()
+    {
+        IReadOnlyList<SourceFile> declared = Matching(
+            all, @"\b(ChangeBits|InMap|CHANGE_BITS|IN_MAP|changeBits|inMap)\s*[:=]\s*(0x[0-9A-Fa-f]+|\d+)\b");
+
+        SourceFile shim = Single(csharp, "TileInterop.cs");
+
+        Assert.Multiple(() => {
+            Assert.That(NamesOf(declared), Is.EquivalentTo(new[] { "ChangeMask.cs" }),
+                "Which bits of a mask byte mean what is ChangeMask's decision. The browser gets them "
+                + "from the plan (planChangeMask's changeBits and inMap); a second copy could disagree "
+                + "and the overlay and the share of the map would silently be wrong.");
+            Assert.That(shim.Mentions("ChangeMask.ChangeBits") && shim.Mentions("ChangeMask.InMap"), Is.True,
+                "The plan has to carry ChangeMask's own constants, or the browser has nothing to read "
+                + "the mask with.");
+        });
+    }
 
     [Test]
     public void TheReleaseNamingRuleIsStatedOnce()

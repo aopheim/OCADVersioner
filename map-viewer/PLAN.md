@@ -1,7 +1,12 @@
 # Replace the Angular app with a Blazor app that renders OCAD maps with PurplePen's renderer
 
 > **Status: Stages 0–5, 7 and 8 complete, plus the parity cleanup. Stage 6
-> part-done (AOT). Stage 9 is next.**
+> part-done (AOT). Stage 9 in progress: the Angular app is deleted, ahead of the
+> production deploy — see Stage 9.**
+>
+> **The Angular app's source is gone from this branch.** Paths below under
+> `ocad-versioner/` refer to it as it was at commit `52bcea82`; read them with
+> `git show 52bcea82:<path>`.
 > **End goal: a Blazor WebAssembly app that replaces the Angular app entirely.**
 > It is built side by side with Angular, which keeps serving users until Blazor
 > reaches parity, and is then retired. The map viewer inside it is a **Leaflet tile
@@ -9,6 +14,9 @@
 > views unchanged. See *Architecture*.
 >
 > The C# diff is **deferred, not scheduled** — see *The diff — deferred*.
+>
+> **Next feature: 3-way merge of OCAD maps** — decisions, architecture and
+> milestones in [MERGE-PLAN.md](MERGE-PLAN.md).
 
 ## Resuming in a new session
 
@@ -88,17 +96,16 @@ The Angular app has the same limitation, so it is not a regression.
 
 ### Benchmark map
 
-`ocad-versioner/src/assets/tests/large_map.ocd` — 9.8 MB, OCAD 2018, deliberately
-**untracked**: `angular.json` ships all of `src/assets` to production, so committing
-it there would add 9.8 MB to every user's download. Every timing in this document
-was measured on it.
+`map-viewer/testdata/large_map.ocd` — 9.8 MB, OCAD 2018, deliberately
+**untracked** and git-ignored, to keep 9.8 MB out of the repository's history. Get
+it from whoever has a copy. Every timing in this document was measured on it.
 
 
 ## Context
 
 OCADVersioner is a version-control tool for orienteering map files in OCAD format — an Angular 17 SPA with no backend, deployed to Azure Static Web Apps. It reads `.ocd` files straight off disk via the File System Access API and treats a `Releases/V<n>/` folder tree as its version history.
 
-Rendering today goes through the npm package `ocad2geojson-test`: `ocadToSvg()` builds **one giant inline SVG element** for the whole map, which is handed to `L.svgOverlay` in Leaflet ([ocad-map-viewer.component.ts:169](ocad-versioner/src/app/components/ocad-map-viewer/ocad-map-viewer.component.ts:169)). Every symbol becomes a live DOM node, and two of these are on screen at once for the side-by-side comparison. On large maps this is slow — the browser is laying out and hit-testing tens of thousands of SVG nodes. Each `.ocd` is also parsed **twice** per version switch: once in the web worker for GeoJSON diffing, once on the main thread for SVG.
+Rendering today goes through the npm package `ocad2geojson-test`: `ocadToSvg()` builds **one giant inline SVG element** for the whole map, which is handed to `L.svgOverlay` in Leaflet (`ocad-versioner/src/app/components/ocad-map-viewer/ocad-map-viewer.component.ts:169` at `52bcea82`). Every symbol becomes a live DOM node, and two of these are on screen at once for the side-by-side comparison. On large maps this is slow — the browser is laying out and hit-testing tens of thousands of SVG nodes. Each `.ocd` is also parsed **twice** per version switch: once in the web worker for GeoJSON diffing, once on the main thread for SVG.
 
 The fix is to stop treating the map as DOM. PurplePen (`C:\repos\PurplePen`) is a mature desktop orienteering application that already has a complete, high-fidelity OCAD parser and renderer in C#, and — critically — it is already factored behind a platform-neutral drawing abstraction. The exploration below found the extraction is far cheaper than expected.
 
@@ -207,8 +214,8 @@ Real OCAD maps name Arial and Times New Roman. Roboto's glyph advances differ, s
 > working copy. The same files are vendored under `map-viewer/vendor/PurplePen/`.
 
 - PurplePen: [TestFiles/marymoor.ocd](C:/repos/PurplePen/src/MapModel/TestFiles/marymoor.ocd) (599 KB) and `Lake Sammamish.ocd` (391 KB) are the largest real maps available; `TestFiles/ocadimport/` has version-specific files (`nonrenderable6/9/12.ocd`, `missingfont6/9.ocd`) for parser coverage across OCAD 6–12.
-- OCADVersioner: `ocad-versioner/src/assets/tests/*.ocd` are small synthetic fixtures (1 knoll, point/line/area) — fine for correctness, useless for performance.
-- `ocad-versioner/src/assets/tests/large_map.ocd` (9.8 MB, OCAD 2018) is the
+- OCADVersioner: `map-viewer/testdata/*.ocd` are small synthetic fixtures (1 knoll, point/line/area) — fine for correctness, useless for performance.
+- `map-viewer/testdata/large_map.ocd` (9.8 MB, OCAD 2018) is the
   benchmark. Untracked on purpose — see *Resuming in a new session*.
 
 ### Recreating the test project folder
@@ -220,10 +227,10 @@ metadata:
 ```bash
 P="$TEMP/ocad-testproject"
 mkdir -p "$P/Releases/V1" "$P/Releases/V2"
-cp ocad-versioner/src/assets/tests/large_map.ocd "$P/mymap.ocd"
+cp map-viewer/testdata/large_map.ocd "$P/mymap.ocd"
 # any two .ocd files will do for the releases:
-cp ocad-versioner/src/assets/tests/point_line_area.ocd "$P/Releases/V1/V1.ocd"
-cp ocad-versioner/src/assets/tests/1knoll.ocd          "$P/Releases/V2/V2.ocd"
+cp map-viewer/testdata/point_line_area.ocd "$P/Releases/V1/V1.ocd"
+cp map-viewer/testdata/1knoll.ocd          "$P/Releases/V2/V2.ocd"
 
 cat > "$P/Releases/V1/V1.json" <<'JSON'
 {"numberOfAddedSymbols":12,"numberOfDeletedSymbols":3,"numberOfEditedSymbols":7,"versionCreatedAt":"2026-09-01T09:15:00.000Z","versionNumber":1,"description":"First survey pass","title":"Spring survey"}
@@ -287,7 +294,6 @@ Cost is ~600 KB Brotli. Vendor it. Its coupling is narrow — only `internal cla
 
 ```
 C:\repos\OCADVersioner\
-  ocad-versioner\                       # Angular app — frozen, then deleted at Stage 9
   THIRD-PARTY-NOTICES.md                # served by the app, not just committed
   map-viewer\                           # .NET root
     MapViewer.slnx
@@ -581,7 +587,7 @@ is git-ignored, and anything left there would be included in `dotnet publish`:
 
 ```bash
 mkdir -p map-viewer/src/OcadViewer.Wasm/wwwroot/testmaps
-cp ocad-versioner/src/assets/tests/large_map.ocd map-viewer/src/OcadViewer.Wasm/wwwroot/testmaps/
+cp map-viewer/testdata/large_map.ocd map-viewer/src/OcadViewer.Wasm/wwwroot/testmaps/
 # rebuild, then in the page console:
 #   fetch('/testmaps/large_map.ocd') -> File -> DataTransfer -> input.files -> dispatch 'change'
 ```
@@ -775,6 +781,19 @@ they are discarded. Purple Pen has no use for them when setting courses. Any
 C# diff needs roughly ten lines carrying those three fields through, recorded in
 `vendor/UPSTREAM.md`'s patch log and ideally pushed upstream.
 
+**The specification is in git history.** The Angular diff and its tests were
+deleted with the app; they live at `52bcea82` under
+`ocad-versioner/src/app/services/json-diff-service/` (the service plus three spec
+files, about 19 cases: added, deleted, moved and duplicate features, distances and
+polygons), `ocad-versioner/src/app/web-worker/diff-service.worker.ts`,
+`ocad-versioner/src/app/services/iof-symbol-service/`, and the `.geojson`
+expected outputs in `ocad-versioner/src/assets/tests/`. Port the specs first,
+then make them pass. The `.ocd` inputs for those specs are in `map-viewer/testdata/`.
+
+Until the diff exists, three things the Angular app did are missing: the symbol
+table, real added/edited/deleted counts in a new version's `V<n>.json` (they are
+written as 0), and the EPSG setting having any effect.
+
 **There is a cheaper route than porting.** `json-diff-service.ts` is a static
 class with no real Angular dependency. It could be extracted to a plain JS module
 and called from Blazor alongside `ocad2geojson`, giving a working diff with no
@@ -789,19 +808,29 @@ season* — turns out not to need a diff at all. Both versions are already drawn
 the same renderer; rendering them over the same rectangle at the same size and
 comparing the pixels answers the question directly.
 
-`MapStore.RenderChangeMask` returns one byte per pixel: 0 unchanged, 1 appeared,
-2 vanished, 3 altered. Both versions are drawn onto opaque white, so "no ink" is
-exactly `#FFFFFF` and the direction is readable wherever one side is blank;
-where both sides have ink it can see the change but not which way, which is
-`Altered`.
+`MapStore.RenderChangeMask` returns one byte per pixel. The low two bits hold 0
+for unchanged, 1 appeared, 2 vanished and 3 altered. The top bit marks pixels
+inside the drawn map, which is what the "% of the map" figure is measured
+against. Both versions are drawn onto opaque white, so "no ink" is exactly
+`#FFFFFF` and the direction is readable wherever one side is blank; where both
+sides have ink it can see the change but not which way, which is `Altered`.
 
 - **No object identity, no georeferencing, no `ocad2geojson`.** It works on maps
   the diff could never have handled, and it reports what a person would actually
   see as different.
-- **Exact comparison, no tolerance.** Identical geometry renders to identical
-  pixels — area-pattern phase is anchored to the map, not the tile — so there is
-  no noise to filter. The corollary is that redefining a symbol lights up every
-  object using it. Accepted deliberately; `Altered` is where that would show.
+- **A tolerance, after all.** It started as an exact comparison, on the theory
+  that identical geometry renders to identical pixels. On real maps
+  (Sprintbasen) untouched contours lit up all over: a line can land a pixel
+  over from one save to the next, and an anti-aliased edge blends with whatever
+  is under it. So `ChangeMask` now renders both without anti-aliasing, counts a
+  pixel as changed only if its colour is nowhere within 0.25 mm on the other
+  side, and drops clusters smaller than 0.5 mm both ways. A redrawn road still
+  shows; a contour that tipped a pixel over does not. Redefining a symbol still
+  lights up every object using it. `ChangeMask` only says *whether* a pixel
+  changed; *how* (appeared, vanished, altered) is still the renderer's answer,
+  passed in from `MapStore`. It lives in `OcadViewer.Core` for now and is
+  expected to move to `OcadViewer.Comparison` with its tests once that project
+  is in develop, leaving `MapStore` to draw the two renders.
 - **One pass per comparison**, at 4 px per paper millimetre, capped at 4096 on
   the long edge. Resolution is nearly free (the same area at 128/256/512 px took
   389/389/435 ms — the cost is geometry, not rasterising), so the mask is sharp
@@ -817,9 +846,10 @@ where both sides have ink it can see the change but not which way, which is
   green vegetation, black rock, and purple for overprint and boundaries, which
   the first attempt's magenta was nearly indistinguishable from. Crimson is the
   gap.
-- **A crosshair button frames the changes.** A 0.1 % revision is a few specks on
-  a whole map, correct and impossible to find by eye; the mask already knows
-  where they are.
+- **A crosshair button framed the changes - since removed.** A 0.1 % revision is
+  a few specks on a whole map, correct and impossible to find by eye, and the
+  mask knew where they were. It was later removed; the change overlay and hiding
+  the newer map remain.
 - **The classification stays in the renderer.** `PixelChange` still records
   appeared, vanished and altered because that is free to produce and is the
   honest output. Nothing above reads it: the only thing crossing the boundary is
@@ -841,11 +871,8 @@ and the reason the diff above is deferred rather than cancelled.
   corrupt it. The Angular app's duplicated `epsg-index` bundle is not repeated.
 - **Localisation**, en and no, read at startup from `i18n/{lang}.json` — the
   Angular app's own translation files. The original now lives in this app's
-  `wwwroot/i18n`, so deleting `ocad-versioner/` takes nothing the Blazor app
-  needs. The Angular app keeps a copy in `src/assets/i18n` until then, because
-  its production deploy builds `ocad-versioner/` on its own and may not see files
-  outside it; `TranslationTests` fails if the copies differ, so a key added to
-  one and not the other is caught by CI rather than shown as a raw `#_key`. A
+  `wwwroot/i18n`, and is the only copy now that `ocad-versioner/` is deleted.
+  `TranslationTests` fails if a key exists in one language and not the other. A
   missing key renders as the key itself, which makes gaps visible instead of blank.
 - **About page and the third-party notices link.**
 - **Application Insights telemetry and the global error handler** — see below.
@@ -880,9 +907,9 @@ Three things worth knowing:
   severity 4, carrying the .NET type name, the message, the raw stack and the
   logger category and event id as properties.
 
-**Stage 9 must add the key to the Blazor workflow**, the way the Angular workflow
-injects `APPINSIGHTSINSTRUMENTATIONKEY_PROD` at build time — otherwise the deployed
-app is silent and nothing says so.
+**The Blazor workflow injects the key** (`APPINSIGHTSINSTRUMENTATIONKEY_DEV` on
+`develop`, `_PROD` on `main`) into `appsettings.json` after publish — otherwise the
+deployed app is silent and nothing says so.
 
 **Still outstanding:** the Norwegian translations for the strings the Angular app
 never had — the About page's rendering and telemetry paragraphs, and "Refresh".
@@ -927,21 +954,37 @@ about twenty lines: a `[JSExport]` that replaces the static `MapRenderSettings`,
 and a method on the tile-layer handle returning the `stats` object that is still
 maintained inside `leafletViewport.js` and still reachable at `globalThis.__ocad.stats`.
 
-### Stage 9 — Deploy side by side, then retire Angular (2–3 days) — **NEXT**
+### Stage 9 — Deploy side by side, then retire Angular (2–3 days) — **IN PROGRESS**
 
-Both apps live at once; Angular stays the default until Blazor is trusted. See
-*Deployment*.
+The plan was for both apps to be live at once, with Angular the default until
+Blazor was trusted. Step 4 was done first instead, by choice: the Angular source
+is deleted while production (`icy-pond`) still serves its last build. See
+*Deployment*. Rolling back to Angular now means reverting that commit.
 
-Retirement is a deliberate, reversible sequence:
+The intended sequence:
 
 1. Deploy Blazor to its own Static Web App and use it alongside Angular.
 2. Run both against the same project folders for a period — the `Releases/V<n>/`
    format is shared, so this is low-risk.
 3. Switch the production domain to the Blazor app, keeping Angular reachable.
 4. Delete `ocad-versioner/` and its workflows, drop `ocad2geojson-test`, and fold
-   the third-party notices into the Blazor app.
+   the third-party notices into the Blazor app. — **DONE.** The Angular app, its
+   PROD (icy-pond) and DEV workflows, its PR build job, its Prettier config and the
+   translation-copy test are gone; the four small `.ocd` fixtures moved to
+   `map-viewer/testdata/`. Nothing deploys to icy-pond any more, so it keeps
+   serving the last Angular build until step 3 moves the domain.
 
-**Done when:** `ocad-versioner/` is gone and nothing references it.
+Accepted as lost until rebuilt, compared with the Angular app:
+
+- **The symbol diff** — the table, the counts in new versions, and the EPSG
+  setting it used. See *The diff — deferred* for where its specification lives.
+- **Watching the working file.** Angular checked its size every 2 s and reloaded
+  the comparison when OCAD saved; Blazor has a Refresh button.
+- The "loaded map" telemetry event and the `/dev` test page.
+
+**Done when:** steps 1–3 are done too. The Angular source is gone; mentions of
+Angular left in comments and earlier sections of this plan are history: they
+record why something is the shape it is.
 
 ## Architecture, and the tests that hold it in place
 
@@ -1020,21 +1063,25 @@ also keeps the suite runnable where policy refuses unsigned binaries.
 
 ## Deployment
 
-The two apps are deployed independently and run side by side until Angular is
-retired. That keeps the migration reversible at every step and means a Blazor
-problem never takes the live app down.
+The plan was to deploy the two apps side by side until Angular was retired. The
+Angular app and its workflows have since been deleted ahead of that, so:
 
-**A third Static Web App for Blazor.** The existing two SWAs (`icy-pond` for `main`,
-`thankful-coast` for `develop`) keep building Angular with Oryx exactly as they do
-now, untouched. Blazor gets its own, built in GitHub Actions and deployed prebuilt,
-because **Oryx cannot build .NET 10 Blazor WebAssembly** and has no `wasm-tools`.
+- `thankful-coast` (`develop`) serves the Blazor app.
+- `icy-pond` (`main`, production) serves the Blazor app too, from the first
+  merge to `main` on. It is the Static Web App the production domain already
+  points at, so no third resource and no domain move are needed.
+
+**Built in Actions, deployed prebuilt.** Blazor is built in GitHub Actions and
+uploaded already published, because **Oryx cannot build .NET 10 Blazor
+WebAssembly** and has no `wasm-tools`. The sketch below is where that started;
+the committed workflow picks the token by branch.
 
 ```yaml
-# .github/workflows/azure-static-web-apps-mapviewer.yml
+# .github/workflows/deploy.yml
 on:
   push:
     branches: [main, develop]
-    paths: ['map-viewer/**', '.github/workflows/azure-static-web-apps-mapviewer.yml']
+    paths: ['map-viewer/**', '.github/workflows/deploy.yml']
 
 jobs:
   build_and_deploy:
@@ -1084,15 +1131,11 @@ found while writing it:
   `develop && 'develop' || ''` rather than the other way round: `''` is falsy in
   an Actions expression, so the natural-looking `main && '' || 'develop'` yields
   `'develop'` on main.
-- **`skip_deploy_on_missing_secrets: true`**, as the Angular workflows have, so
-  the file can land before the Azure resource exists instead of failing every
-  push until it does.
-
-**Still needs a person**, and nothing deploys until both exist: the third Static
-Web App in Azure, and two repository secrets —
-`AZURE_STATIC_WEB_APPS_API_TOKEN_MAPVIEWER` (rename to match the Azure-generated
-name, the way the other two are named) and the existing
-`APPINSIGHTSINSTRUMENTATIONKEY_PROD`.
+  (Since superseded: each branch now has its own Static Web App - `develop` uses
+  thankful-coast's token, `main` uses icy-pond's - so there is no environment.)
+- **No `skip_deploy_on_missing_secrets`.** It was on while the production token
+  did not exist, which made every `main` run pass green with nothing deployed.
+  Both tokens exist now, and a missing one should fail the run.
 
 The app's own `wwwroot/staticwebapp.config.json` already carries what is needed:
 
@@ -1110,7 +1153,9 @@ absent, the native module ships uncompressed; mitigate with a `loadBootResource`
 that fetches the `.br` companion and decodes it client-side.
 
 At Stage 9 step 3, the production domain moves to the Blazor SWA. The Angular
-workflows and SWAs are deleted last, once nothing points at them.
+workflows are already deleted; the `icy-pond` SWA and its
+`AZURE_STATIC_WEB_APPS_API_TOKEN_ICY_POND_0F7B2AA03` secret go once nothing points
+at them.
 
 ## Risks, ranked
 
@@ -1170,9 +1215,8 @@ Not changed by this work, and not planned:
   `PurplePenCore` is skipped entirely.
 - Editing maps. This is a viewer and a differ.
 
-The Angular app is **frozen, not forked**: no new features there from Stage 5 on,
-because every one of them would have to be built twice. Bug fixes only, until
-Stage 9 deletes it.
+The Angular app was **frozen, not forked**: no new features there from Stage 5 on,
+because every one of them would have to be built twice. Stage 9 has deleted it.
 
 ## Attribution (required)
 

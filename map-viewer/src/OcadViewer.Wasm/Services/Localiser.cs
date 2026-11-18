@@ -4,17 +4,15 @@ using System.Text.Json;
 namespace OcadViewer.Wasm.Services;
 
 /// <summary>
-/// Looks up UI strings by the keys the Angular app already uses.
+/// Looks up UI strings by the keys the Angular app used.
 /// </summary>
 /// <remarks>
 /// Deliberately not Blazor's .resx localisation. The translations are the Angular
-/// app's own JSON files, now kept here in <c>wwwroot/i18n</c> as the original.
-/// The Angular app keeps a copy in <c>src/assets/i18n</c> until it is deleted,
-/// because its production deploy builds that folder on its own; the architecture
-/// tests fail if the two copies differ, so they stay one set of strings.
+/// app's JSON files, carried over into <c>wwwroot/i18n</c>, which is now the only
+/// copy.
 ///
-/// Keys keep their <c>#_</c> prefix for the same reason: so a string can be traced
-/// to the Angular component it came from without translating names as well.
+/// Keys keep their <c>#_</c> prefix so a string can still be traced to the Angular
+/// component it came from, in git history, without translating names as well.
 /// </remarks>
 public sealed class Localiser(HttpClient http)
 {
@@ -39,14 +37,28 @@ public sealed class Localiser(HttpClient http)
     /// <summary>Raised when the language changes, so components can re-render.</summary>
     public event Action Changed;
 
+    /// <summary>Counts loads, so one overtaken by a later choice can tell.</summary>
+    private int latestLoad;
+
     public async Task LoadAsync(string language)
     {
         language = Languages.Any(l => l.Code == language) ? language : DefaultLanguage;
+        int load = ++latestLoad;
 
         try {
             var loaded = await http.GetFromJsonAsync<Dictionary<string, string>>($"i18n/{language}.json");
+
+            // Two quick picks fetch in parallel and can finish in either order;
+            // only the last pick may decide what is shown.
+            if (load != latestLoad)
+                return;
+
             strings = loaded ?? [];
             Language = language;
+        }
+        catch (Exception) when (load != latestLoad) {
+            // Overtaken while failing: the later pick decides, not a fallback.
+            return;
         }
         catch (Exception) when (language != DefaultLanguage) {
             // A missing or broken translation should degrade to English, not to a

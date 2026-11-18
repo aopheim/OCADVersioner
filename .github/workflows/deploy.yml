@@ -1,0 +1,100 @@
+name: Deploy
+
+# develop deploys to the DEV Static Web App (thankful-coast).
+#
+# main deploys to the PROD Static Web App (icy-pond), the one the production
+# domain points at. It used to serve the Angular app; the Blazor app replaces it
+# there, so the domain and its settings stay as they are.
+#
+# It is built here and uploaded prebuilt, because Oryx cannot build .NET 10
+# Blazor WebAssembly and has no wasm-tools workload.
+
+on:
+    push:
+        branches:
+            - main
+            - develop
+        # A native relink is 3-10 minutes, so commits that touch nothing the app
+        # is built from must not pay for it.
+        paths:
+            - 'map-viewer/**'
+            - '.github/workflows/deploy.yml'
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        # Says where it deploys. A release PR's head is develop, so the DEV deploy
+        # of that commit is listed on it too, and must not read as production.
+        name: Deploy to ${{ github.ref_name == 'main' && 'production (icy-pond)' || 'dev (thankful-coast)' }}
+
+        env:
+            # setup-dotnet installs into /usr/share/dotnet by default, and
+            # `dotnet workload install` puts wasm-tools inside that same root.
+            # Pinning the root into the workspace is what makes the workload
+            # cacheable at all - caching ~/.dotnet would silently cache nothing.
+            DOTNET_INSTALL_DIR: ${{ github.workspace }}/.dotnet
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Cache the SDK, the wasm-tools workload and NuGet
+              uses: actions/cache@v4
+              with:
+                  # wasm-tools is roughly 1.5 GB: Emscripten, the Mono AOT cross
+                  # compiler and the runtime packs.
+                  path: |
+                      ${{ github.workspace }}/.dotnet
+                      ~/.nuget/packages
+                  key: wasm-${{ runner.os }}-10.0.x-${{ hashFiles('map-viewer/Directory.Packages.props') }}
+                  restore-keys: |
+                      wasm-${{ runner.os }}-10.0.x-
+
+            - name: Set up .NET
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: '10.0.x'
+
+            - name: Install the wasm-tools workload
+              run: dotnet workload install wasm-tools
+
+            # AOT is on for publish: it makes parsing a map about 16x faster and
+            # tiles 4-5x faster, and costs most of this job's running time.
+            - name: Publish
+              run: dotnet publish map-viewer/src/OcadViewer.Wasm -c Release -o publish
+
+            # appsettings.json ships with an empty connection string so local
+            # builds report nothing and fetch no SDK. Without this step the
+            # deployed app is silent too.
+            - name: Inject the telemetry key
+              run: |
+                  jq --arg k "${{ github.ref == 'refs/heads/develop' && secrets.APPINSIGHTSINSTRUMENTATIONKEY_DEV || secrets.APPINSIGHTSINSTRUMENTATIONKEY_PROD }}" \
+                     '.Telemetry.ConnectionString = $k' \
+                     publish/wwwroot/appsettings.json > appsettings.tmp
+                  mv appsettings.tmp publish/wwwroot/appsettings.json
+
+            - name: Build And Deploy
+              id: builddeploy
+              uses: Azure/static-web-apps-deploy@v1
+              with:
+                  # develop -> thankful-coast (DEV). main -> icy-pond (PROD).
+                  azure_static_web_apps_api_token: ${{ github.ref == 'refs/heads/develop' && secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_COAST_0330E1403 || secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_ICY_POND_0F7B2AA03 }}
+                  repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
+                  action: 'upload'
+                  app_location: '/publish/wwwroot' # Already published - see skip_app_build
+                  api_location: ''
+                  output_location: ''
+                  # Load-bearing. Without it the deploy hands the directory to
+                  # Oryx, which cannot build this and will not admit why.
+                  skip_app_build: true
+                  # No deployment_environment: each branch has its own Static Web
+                  # App, so both deploy to that app's production environment.
+                  # No skip_deploy_on_missing_secrets either: both tokens exist,
+                  # and a missing one should fail the run, not pass it green
+                  # with nothing deployed.
+
+            # Azure Static Web Apps compresses dynamically and does NOT serve the
+            # .br companions the publish produces. Once this is live, check
+            # Content-Encoding on dotnet.native.wasm: if it is absent, the 7 MB
+            # native module is shipping uncompressed and wants a
+            # loadBootResource hook that fetches the .br and decodes it.

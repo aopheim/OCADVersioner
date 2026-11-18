@@ -1,14 +1,21 @@
 /* Turning a change mask into something a map can show.
  *
- * The mask is one byte per pixel, straight from the renderer: zero where the
- * two versions agree, non-zero where they do not. This module only colours it.
+ * The mask is one byte per pixel, straight from the renderer. Some bits say
+ * whether the two versions differ there; one bit marks every pixel inside the
+ * drawn map, changed or not, so the share that changed is measured against the
+ * map rather than the paper around it. This module only colours and counts it.
  * It knows nothing about .NET, Leaflet or project versions.
+ *
+ * Which bits are which is not written down here. It arrives with the plan
+ * (plan.changeBits, plan.inMap) from ChangeMask in OcadViewer.Core, the one
+ * place it is decided, so the two sides cannot come to disagree. Never test a
+ * mask byte for truthiness: the in-map bit makes an unchanged pixel non-zero.
  *
  * Note what it does NOT know: the renderer classifies each changed pixel as
  * appeared, vanished or altered, and nothing here reads that. The overlay is a
  * single question - did this change - so the vocabulary stays on the side that
  * can actually answer it, and the contract across the boundary is just "zero
- * means unchanged".
+ * in the change bits means unchanged".
  */
 
 /* Crimson, and the hue is not a matter of taste. An orienteering map already
@@ -19,18 +26,30 @@
 const TINT = { r: 232, g: 0, b: 60, a: 165 };
 
 /**
+ * The plan's description of the mask, checked once so a plan from an older
+ * build fails loudly instead of painting nothing.
+ */
+function bitsOf(plan) {
+    const { changeBits, inMap } = plan ?? {};
+    if (!changeBits || !inMap)
+        throw new Error('The change mask plan does not say how to read the mask.');
+    return { changeBits, inMap };
+}
+
+/**
  * Paints the mask into an image, transparent except where something changed.
  *
  * @param mask Uint8Array, one byte per pixel, row by row
- * @param width pixels
- * @param height pixels
+ * @param plan what planChangeMask answered: width, height and the mask's bits
  * @returns {Promise<string>} an object URL; revoke it when done with it
  */
-export async function paint(mask, width, height) {
+export async function paint(mask, plan) {
+    const { width, height } = plan;
+    const { changeBits } = bitsOf(plan);
     const pixels = new Uint8ClampedArray(width * height * 4);
 
     for (let i = 0, at = 0; i < mask.length; i++, at += 4) {
-        if (!mask[i]) continue;
+        if (!(mask[i] & changeBits)) continue;
 
         pixels[at] = TINT.r;
         pixels[at + 1] = TINT.g;
@@ -57,39 +76,22 @@ export async function paint(mask, width, height) {
 
 /**
  * How much of the map changed.
+ *
+ * The total is the drawn map, not the whole mask: the mask is a rectangle
+ * around both versions, and the blank paper in its corners is not map that
+ * could have changed.
+ *
+ * @param plan what planChangeMask answered
  * @returns {{shown: number, total: number}} in pixels
  */
-export function coverage(mask) {
-    let shown = 0;
+export function coverage(mask, plan) {
+    const { changeBits, inMap } = bitsOf(plan);
+    let shown = 0, total = 0;
 
-    for (let i = 0; i < mask.length; i++)
-        if (mask[i]) shown++;
-
-    return { shown, total: mask.length };
-}
-
-/**
- * The smallest rectangle holding every change.
- *
- * In mask pixels, with y running downwards from the top of the mask - the
- * caller turns that into whatever coordinates it works in. Null when nothing
- * changed.
- *
- * @returns {{left: number, top: number, right: number, bottom: number}|null}
- */
-export function boundsOf(mask, width, height) {
-    let left = width, top = height, right = -1, bottom = -1;
-
-    for (let y = 0, i = 0; y < height; y++) {
-        for (let x = 0; x < width; x++, i++) {
-            if (!mask[i]) continue;
-
-            if (x < left) left = x;
-            if (x > right) right = x;
-            if (y < top) top = y;
-            if (y > bottom) bottom = y;
-        }
+    for (let i = 0; i < mask.length; i++) {
+        if (mask[i] & changeBits) shown++;
+        if (mask[i] & inMap) total++;
     }
 
-    return right < 0 ? null : { left, top, right, bottom };
+    return { shown, total };
 }
