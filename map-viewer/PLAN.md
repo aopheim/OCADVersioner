@@ -826,7 +826,11 @@ sides have ink it can see the change but not which way, which is `Altered`.
   pixel as changed only if its colour is nowhere within 0.25 mm on the other
   side, and drops clusters smaller than 0.5 mm both ways. A redrawn road still
   shows; a contour that tipped a pixel over does not. Redefining a symbol still
-  lights up every object using it.
+  lights up every object using it. `ChangeMask` only says *whether* a pixel
+  changed; *how* (appeared, vanished, altered) is still the renderer's answer,
+  passed in from `MapStore`. It lives in `OcadViewer.Core` for now and is
+  expected to move to `OcadViewer.Comparison` with its tests once that project
+  is in develop, leaving `MapStore` to draw the two renders.
 - **One pass per comparison**, at 4 px per paper millimetre, capped at 4096 on
   the long edge. Resolution is nearly free (the same area at 128/256/512 px took
   389/389/435 ms — the cost is geometry, not rasterising), so the mask is sharp

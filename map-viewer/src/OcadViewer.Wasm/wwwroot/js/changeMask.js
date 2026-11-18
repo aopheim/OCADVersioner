@@ -14,7 +14,9 @@
  * in the change bits means unchanged".
  */
 
-/* Must match ChangeMask.ChangeBits and ChangeMask.InMap in OcadViewer.Core. */
+/* Written by ChangeMask.ChangeBits and ChangeMask.InMap in OcadViewer.Core.
+ * OrthogonalityTests fails if the two sides disagree. Never test a mask byte
+ * for truthiness: IN_MAP makes an unchanged pixel non-zero. */
 const CHANGE_BITS = 0x03;
 const IN_MAP = 0x80;
 

@@ -170,16 +170,57 @@ public sealed class ChangeMaskTests
         Assert.That(Changed(before, after, tolerance: 0, minimumSpeck: 2), Has.Length.EqualTo(2));
     }
 
+    [Test]
+    public void AtALargerSpeckSizeSmallClustersGoAndWiderOnesStay()
+    {
+        // Minimum 3: a 2x2 block is a speck, a line three long is not, and a
+        // diagonal pair is two across and so a speck too.
+        string[] before = [
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+            "..........",
+        ];
+        string[] after = [
+            "kk........",
+            "kk....k...",
+            ".......k..",
+            "..........",
+            "...kkk....",
+        ];
+
+        int[] changed = Changed(before, after, tolerance: 0, minimumSpeck: 3);
+
+        Assert.That(changed, Is.EquivalentTo(new[] { 43, 44, 45 }));
+    }
+
+    [Test]
+    public void ASpeckNextToALargeChangeIsPartOfIt()
+    {
+        // The single pixel touches the line, so it is not a cluster of its own.
+        string[] before = [
+            ".......",
+            ".......",
+        ];
+        string[] after = [
+            "kkkk...",
+            "....k..",
+        ];
+
+        Assert.That(Changed(before, after, tolerance: 0, minimumSpeck: 2), Has.Length.EqualTo(5));
+    }
+
     [Test, MaxTime(10_000)]
     public void ALargeChangeIsWalkedOnce()
     {
-        // A whole megapixel changed is one cluster. Walking it again from each of
-        // its pixels would never finish.
+        // A whole megapixel changed is one cluster. A walk from each pixel over
+        // the whole cluster would never finish; each walk has to stay local.
         const int Side = 1000;
         uint[] before = [.. Enumerable.Repeat(White, Side * Side)];
         uint[] after = [.. Enumerable.Repeat(Colours['k'], Side * Side)];
 
-        byte[] mask = ChangeMask.Compare(before, after, Side, Side, tolerance: 1, minimumSpeck: 2);
+        byte[] mask = ChangeMask.Compare(before, after, Side, Side, tolerance: 1, minimumSpeck: 2, Classify);
 
         Assert.That(mask.Count(m => (m & ChangeMask.ChangeBits) == (byte)PixelChange.Appeared),
                     Is.EqualTo(Side * Side));
@@ -240,7 +281,7 @@ public sealed class ChangeMaskTests
         uint[] before = [0xFF00_0000, White];
         uint[] after = [0x0000_0000, White];
 
-        Assert.That(ChangeMask.Compare(before, after, 2, 1, 0, 1).Select(m => m & ChangeMask.ChangeBits),
+        Assert.That(ChangeMask.Compare(before, after, 2, 1, 0, 1, Classify).Select(m => m & ChangeMask.ChangeBits),
                     Is.All.Zero);
     }
 
@@ -255,7 +296,13 @@ public sealed class ChangeMaskTests
 
     private static byte[] Compare(string[] before, string[] after, int tolerance, int minimumSpeck)
         => ChangeMask.Compare(Pixels(before), Pixels(after),
-                              before[0].Length, before.Length, tolerance, minimumSpeck);
+                              before[0].Length, before.Length, tolerance, minimumSpeck, Classify);
+
+    /// <summary>The same rule the renderer gives, so the tests can read the direction.</summary>
+    private static byte Classify(uint before, uint after)
+        => (byte)(before == ChangeMask.Blank ? PixelChange.Appeared
+                : after == ChangeMask.Blank ? PixelChange.Vanished
+                : PixelChange.Altered);
 
     private static uint[] Pixels(string[] rows) => [.. rows.SelectMany(row => row).Select(c => Colours[c])];
 }

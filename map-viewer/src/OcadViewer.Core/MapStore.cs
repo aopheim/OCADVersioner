@@ -275,10 +275,10 @@ namespace OcadViewer.Core
         /// when it was: the same line can land a pixel over from one save to the
         /// next, and an anti-aliased edge changes with whatever is under it. So
         /// both are drawn without anti-aliasing, ink may move
-        /// <see cref="ChangeToleranceMm"/> and still be the same ink, and changes
-        /// smaller than <see cref="MinimumChangeMm"/> are dropped
-        /// (<see cref="ChangeMask"/>). Redefining a symbol still lights up every
-        /// object using it.
+        /// <see cref="ChangeMask.DefaultToleranceMm"/> and still be the same ink,
+        /// and changes smaller than <see cref="ChangeMask.DefaultMinimumChangeMm"/>
+        /// are dropped (<see cref="ChangeMask"/>). Redefining a symbol still lights
+        /// up every object using it.
         /// </remarks>
         public byte[] RenderChangeMask(string olderKey, string newerKey, ChangeMaskPlan plan)
         {
@@ -307,25 +307,25 @@ namespace OcadViewer.Core
             using SKBitmap afterBitmap = after.Bitmap;
 
             double pixelsPerMillimetre = plan.Width / (double)plan.Area.Width;
-            (int tolerance, int minimumSpeck) =
-                ChangeMask.PixelsFor(pixelsPerMillimetre, ChangeToleranceMm, MinimumChangeMm);
+            (int tolerance, int minimumSpeck) = ChangeMask.PixelsFor(pixelsPerMillimetre);
 
             // The bitmaps' own memory rather than SKBitmap.Bytes, which copies:
             // at this size that is tens of megabytes copied to be read once.
             return ChangeMask.Compare(
                 MemoryMarshal.Cast<byte, uint>(beforeBitmap.GetPixelSpan()),
                 MemoryMarshal.Cast<byte, uint>(afterBitmap.GetPixelSpan()),
-                plan.Width, plan.Height, tolerance, minimumSpeck);
+                plan.Width, plan.Height, tolerance, minimumSpeck, Classify);
         }
 
-        /// <summary>
-        /// How far, in paper millimetres, ink may lie from where it was and still
-        /// count as unchanged in a change mask.
-        /// </summary>
-        public const double ChangeToleranceMm = 0.25;
-
-        /// <summary>The smallest change, in paper millimetres, a change mask shows.</summary>
-        public const double MinimumChangeMm = 0.5;
+        /// <summary>What kind of change a pixel is, from its colour before and after.</summary>
+        /// <remarks>
+        /// Both versions are drawn onto opaque white, so blank on one side tells
+        /// the direction. Only the renderer knows that, so the answer is given here.
+        /// </remarks>
+        private static byte Classify(uint before, uint after)
+            => (byte)(before == ChangeMask.Blank ? PixelChange.Appeared
+                    : after == ChangeMask.Blank ? PixelChange.Vanished
+                    : PixelChange.Altered);
 
         /// <summary>
         /// The store's settings with anti-aliasing off, so each pixel of a

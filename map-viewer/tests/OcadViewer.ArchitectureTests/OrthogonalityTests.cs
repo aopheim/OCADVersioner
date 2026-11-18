@@ -231,10 +231,36 @@ public sealed class OrthogonalityTests
         Assert.That(NamesOf(offenders), Is.EquivalentTo(new[] { "MapStore.cs" }),
             "The renderer classifies each changed pixel, because it is the only thing that can. "
             + "Nothing above it reads that classification: the overlay asks one question - did "
-            + "this change - so the only thing crossing the boundary is \"zero means unchanged\".");
+            + "this change - so the only thing crossing the boundary is \"zero in the change bits means "
+            + "unchanged\", beside a flag for whether the pixel is map at all.");
     }
 
     /* ------------------------------------------------- contracts stated once */
+
+    /// <summary>
+    /// The change mask's bits are decided in C# and read in JavaScript. A copy is
+    /// unavoidable there - a module cannot import a C# constant - so the two are
+    /// held together here instead.
+    /// </summary>
+    [TestCase("ChangeBits", "CHANGE_BITS")]
+    [TestCase("InMap", "IN_MAP")]
+    public void TheChangeMaskBitsMeanTheSameOnBothSides(string csharpName, string scriptName)
+    {
+        string declared = HexConstant(Single(csharp, "ChangeMask.cs"), $@"const\s+byte\s+{csharpName}\s*=\s*(0x[0-9A-Fa-f]+)");
+        string read = HexConstant(Single(scripts, "changeMask.js"), $@"const\s+{scriptName}\s*=\s*(0x[0-9A-Fa-f]+)");
+
+        Assert.That(Convert.ToInt32(read, 16), Is.EqualTo(Convert.ToInt32(declared, 16)),
+            $"changeMask.js reads the mask with {scriptName} = {read}, but ChangeMask.{csharpName} "
+            + $"writes it as {declared}. The overlay and the share of the map would silently be wrong.");
+
+        static string HexConstant(SourceFile file, string pattern)
+        {
+            Match match = Regex.Match(file.Code, pattern);
+            return match.Success
+                ? match.Groups[1].Value
+                : throw new AssertionException($"{file.Name} no longer declares the constant this test looks for: {pattern}");
+        }
+    }
 
     [Test]
     public void TheReleaseNamingRuleIsStatedOnce()
