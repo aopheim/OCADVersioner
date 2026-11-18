@@ -44,16 +44,7 @@ public abstract class LocalisedComponent : ComponentBase, IAsyncDisposable
         }
     }
 
-    private void OnLanguageChanged() => InvokeAsync(() => {
-        LanguageChanged();
-        StateHasChanged();
-    });
-
-    /// <summary>
-    /// Runs on the renderer before the repaint, for a component that holds state
-    /// derived from the current language.
-    /// </summary>
-    protected virtual void LanguageChanged() { }
+    private void OnLanguageChanged() => InvokeAsync(StateHasChanged);
 
     public async ValueTask DisposeAsync()
     {

@@ -121,10 +121,16 @@
     protected override void OnInitialized() => Revert();
 
     /// <summary>
-    /// The start dialog sets the language without going through here, and a draft
-    /// left on the old one would show the wrong flag and put it back on Save.
+    /// Called by Bootstrap as the modal starts to show. The start dialog sets the
+    /// language without going through here, so a draft taken earlier would show
+    /// the wrong flag and put the old language back on Save.
     /// </summary>
-    protected override void LanguageChanged() => draftLanguage = L.Language;
+    [JSInvokable]
+    public void OnShow()
+    {
+        Revert();
+        StateHasChanged();
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -138,6 +144,7 @@
 
         self = DotNetObjectReference.Create(this);
         await ui.InvokeVoidAsync("onModalHidden", "appSettingsModal", self);
+        await ui.InvokeVoidAsync("onModalShow", "appSettingsModal", self);
     }
 
     /// <summary>

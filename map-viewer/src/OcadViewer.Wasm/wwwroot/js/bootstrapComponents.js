@@ -54,6 +54,23 @@ export function onModalHidden(id, dotNetRef) {
     return true;
 }
 
+/**
+ * Calls back into .NET whenever a modal starts to show, so a component can
+ * reload its draft from what is saved: a value can change while the modal is
+ * closed - the start dialog sets the language - and a draft kept from before
+ * would show the old value and write it back on Save.
+ */
+export function onModalShow(id, dotNetRef) {
+    const element = document.getElementById(id);
+    if (!element) return false;
+
+    element.addEventListener('show.bs.modal', () => {
+        dotNetRef.invokeMethodAsync('OnShow').catch(() => { });
+    });
+
+    return true;
+}
+
 export function initPopovers(root) {
     const Popover = globalThis.bootstrap?.Popover;
     if (!Popover) return 0;
