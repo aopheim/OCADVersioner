@@ -1,0 +1,18 @@
+/* Scoped to the workspace page. The layout is Bootstrap's classes in the
+   markup; this is the one thing they cannot say.
+
+   Below md the columns stack, and the version column would otherwise take its
+   whole list's height and squeeze the maps to nothing. Bootstrap has no
+   responsive height classes, so the cap is here. Two fifths is less than the
+   create-version form needs, so the list and the form scroll together inside
+   it rather than the list shrinking away to nothing. */
+@media (max-width: 767.98px) {
+    .versionColumn {
+        max-height: 40%;
+        overflow-y: auto;
+    }
+
+    .versionColumn > * {
+        flex-shrink: 0;
+    }
+}
