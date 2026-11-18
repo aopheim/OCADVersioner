@@ -1,5 +1,19 @@
 /* Scoped to VersionList. */
 
+/* A row while the page is busy: looks like Bootstrap's disabled item, but still
+   takes hover, so its description's tooltip can be read. */
+.list-group-item.busy {
+    color: var(--bs-list-group-disabled-color);
+    background-color: var(--bs-list-group-bg);
+    cursor: default;
+}
+
+.list-group-item.busy.active {
+    color: var(--bs-list-group-active-color);
+    background-color: var(--bs-list-group-active-bg);
+    opacity: 0.65;
+}
+
 /* A version's description, at most three lines, ending in an ellipsis. */
 .description {
     display: -webkit-box;
