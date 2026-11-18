@@ -58,7 +58,8 @@ export async function createTileSource() {
 
         /**
          * How big a change mask for this comparison should be, and what it covers.
-         * @returns {ok, width, height, minX, minY, maxX, maxY} or {ok: false, error}
+         * @returns {ok, width, height, minX, minY, maxX, maxY, changeBits, inMap}
+         *          or {ok: false, error}; changeBits and inMap say how to read the mask
          */
         planChangeMask(olderKey, newerKey) {
             return JSON.parse(interop.PlanChangeMask(store, olderKey, newerKey));

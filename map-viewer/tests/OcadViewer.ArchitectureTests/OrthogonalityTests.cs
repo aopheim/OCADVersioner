@@ -238,28 +238,27 @@ public sealed class OrthogonalityTests
     /* ------------------------------------------------- contracts stated once */
 
     /// <summary>
-    /// The change mask's bits are decided in C# and read in JavaScript. A copy is
-    /// unavoidable there - a module cannot import a C# constant - so the two are
-    /// held together here instead.
+    /// The change mask's bits are decided in C# and read in JavaScript. They are
+    /// written down once, in ChangeMask, and travel to the browser with the plan,
+    /// so no script may declare them itself.
     /// </summary>
-    [TestCase("ChangeBits", "CHANGE_BITS")]
-    [TestCase("InMap", "IN_MAP")]
-    public void TheChangeMaskBitsMeanTheSameOnBothSides(string csharpName, string scriptName)
+    [Test]
+    public void TheChangeMaskBitsAreStatedOnlyInChangeMask()
     {
-        string declared = HexConstant(Single(csharp, "ChangeMask.cs"), $@"const\s+byte\s+{csharpName}\s*=\s*(0x[0-9A-Fa-f]+)");
-        string read = HexConstant(Single(scripts, "changeMask.js"), $@"const\s+{scriptName}\s*=\s*(0x[0-9A-Fa-f]+)");
+        IReadOnlyList<SourceFile> declared = Matching(
+            all, @"\b(ChangeBits|InMap|CHANGE_BITS|IN_MAP|changeBits|inMap)\s*[:=]\s*(0x[0-9A-Fa-f]+|\d+)\b");
 
-        Assert.That(Convert.ToInt32(read, 16), Is.EqualTo(Convert.ToInt32(declared, 16)),
-            $"changeMask.js reads the mask with {scriptName} = {read}, but ChangeMask.{csharpName} "
-            + $"writes it as {declared}. The overlay and the share of the map would silently be wrong.");
+        SourceFile shim = Single(csharp, "TileInterop.cs");
 
-        static string HexConstant(SourceFile file, string pattern)
-        {
-            Match match = Regex.Match(file.Code, pattern);
-            return match.Success
-                ? match.Groups[1].Value
-                : throw new AssertionException($"{file.Name} no longer declares the constant this test looks for: {pattern}");
-        }
+        Assert.Multiple(() => {
+            Assert.That(NamesOf(declared), Is.EquivalentTo(new[] { "ChangeMask.cs" }),
+                "Which bits of a mask byte mean what is ChangeMask's decision. The browser gets them "
+                + "from the plan (planChangeMask's changeBits and inMap); a second copy could disagree "
+                + "and the overlay and the share of the map would silently be wrong.");
+            Assert.That(shim.Mentions("ChangeMask.ChangeBits") && shim.Mentions("ChangeMask.InMap"), Is.True,
+                "The plan has to carry ChangeMask's own constants, or the browser has nothing to read "
+                + "the mask with.");
+        });
     }
 
     [Test]
