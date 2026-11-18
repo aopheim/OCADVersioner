@@ -5,11 +5,11 @@
     title, short date, description, and the three symbol counts.
 *@
 
-<div class="list-group">
+<div class="list-group" data-testid="version-list">
     @foreach (var item in Items) {
         <button type="button"
                 class="list-group-item list-group-item-action @RowClass(item) @(Disabled ? "busy" : "")"
-                title="@RowTitle(item)"
+                title="@RowTitle(item)" data-testid="version-item" data-version="@item.Name"
                 aria-disabled="@(Disabled ? "true" : "false")"
                 @onclick="() => Select(item.Number)">
             <div class="d-flex w-100 justify-content-between">

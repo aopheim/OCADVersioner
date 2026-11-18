@@ -14,6 +14,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/OcadViewer.ArchitectureTests/OcadViewer.ArchitectureTests.csproj" />
     <Project Path="tests/OcadViewer.Core.Tests/OcadViewer.Core.Tests.csproj" />
+    <Project Path="tests/OcadViewer.E2ETests/OcadViewer.E2ETests.csproj" />
     <Project Path="tests/OcadViewer.Merge.Tests/OcadViewer.Merge.Tests.csproj" />
     <Project Path="tests/OcadViewer.Ocd.Tests/OcadViewer.Ocd.Tests.csproj" />
   </Folder>

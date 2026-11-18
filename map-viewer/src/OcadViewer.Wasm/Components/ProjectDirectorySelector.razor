@@ -14,7 +14,7 @@
     only ever lead to an empty page with no way back.
 *@
 
-<div class="modal" id="staticBackdrop" data-bs-backdrop="static"
+<div class="modal" id="staticBackdrop" data-testid="project-selector" data-bs-backdrop="static"
      data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -41,7 +41,7 @@
                 @if (candidates.Count <= 1) {
                     <div class="w-100">
                         <button type="button" class="btn btn-primary w-100"
-                                @onclick="ChooseDirectory" disabled="@(!supported || busy)">
+                                @onclick="ChooseDirectory" data-testid="choose-folder" disabled="@(!supported || busy)">
                             @L["#_chooseOcadDirectory"]
                         </button>
                     </div>
@@ -50,7 +50,7 @@
                     @* More than one .ocd in the root, so the working file is
                        ambiguous and the user has to say which it is. *@
                     <div class="dropdown w-100">
-                        <button id="selectCorrectOcadFileButton" type="button"
+                        <button id="selectCorrectOcadFileButton" data-testid="choose-working-file" type="button"
                                 class="btn btn-warning dropdown-toggle w-100 text-wrap"
                                 data-bs-toggle="dropdown" aria-expanded="false">
                             @L["#_foundMultipleOcdFilesInDirectory"]
@@ -58,7 +58,7 @@
                         <ul class="dropdown-menu">
                             @foreach (string fileName in candidates) {
                                 <li @onclick="() => ChooseFile(fileName)">
-                                    <a class="dropdown-item pointer">@fileName</a>
+                                    <a class="dropdown-item pointer" data-testid="working-file-option">@fileName</a>
                                 </li>
                             }
                         </ul>
@@ -67,7 +67,7 @@
             </div>
 
             @foreach (var error in errors) {
-                <p class="text-danger">@error.Message()</p>
+                <p class="text-danger" data-testid="selector-error">@error.Message()</p>
                 @if (error.Type == ErrorType.UnsupportedBrowser) {
                     <a href="about#supportedBrowsers">@L["#_supportedBrowsers"]</a>
                 }

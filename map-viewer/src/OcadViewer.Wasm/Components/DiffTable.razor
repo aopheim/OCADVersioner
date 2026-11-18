@@ -23,7 +23,7 @@
 </ul>
 
 @if (!Available) {
-    <div class="alert alert-secondary mt-3 mb-0">@L[UnavailableReasonKey ?? "#_nothingToShow"]</div>
+    <div class="alert alert-secondary mt-3 mb-0" data-testid="diff-unavailable">@L[UnavailableReasonKey ?? "#_nothingToShow"]</div>
 }
 
 <div class="table-responsive mt-3">

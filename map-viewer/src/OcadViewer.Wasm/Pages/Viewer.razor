@@ -27,11 +27,11 @@
 <div class="d-flex align-items-center gap-1 gap-sm-2 py-1 flex-nowrap">
     <div class="btn-group" role="group" aria-label="@L["#_howManyMaps"]">
         <button class="btn @(single ? "btn-primary" : "btn-outline-secondary")"
-                @onclick="() => SetSingle(true)" disabled="@Busy" title="@L["#_oneMap"]">
+                @onclick="() => SetSingle(true)" data-testid="mode-one-map" disabled="@Busy" title="@L["#_oneMap"]">
             <i class="bi bi-square"></i>
         </button>
         <button class="btn @(single ? "btn-outline-secondary" : "btn-primary")"
-                @onclick="() => SetSingle(false)" disabled="@Busy" title="@L["#_twoMapsCompared"]">
+                @onclick="() => SetSingle(false)" data-testid="mode-two-maps" disabled="@Busy" title="@L["#_twoMapsCompared"]">
             <i class="bi bi-layout-split"></i>
         </button>
     </div>
@@ -47,7 +47,7 @@
     @* In the toolbar rather than a line of its own, so a message coming and
        going does not resize the maps under the user's finger. *@
     @if (Status is not null) {
-        <span class="small text-truncate @(Failed ? "text-danger" : "text-muted")"
+        <span data-testid="status" class="small text-truncate @(Failed ? "text-danger" : "text-muted")"
               title="@Status">@Status</span>
     }
 
@@ -68,7 +68,7 @@
                with Tab and opened with Enter or Space; the label after it shows
                the focus ring. Not display:none, which would take it out of the
                tab order altogether. *@
-            <input type="file" id="@InputId(side)" class="visually-hidden paneFile"
+            <input type="file" id="@InputId(side)" class="visually-hidden paneFile" data-testid="@($"pane-file-{side}")"
                    @ref="inputs[side]" @onchange="e => Choose(side, e)" />
 
             @* A label, not a button: tapping it opens the input's picker natively,
@@ -81,7 +81,7 @@
                 </label>
             }
             else {
-                <label for="@InputId(side)" class="btn btn-light btn-sm border paneButton"
+                <label for="@InputId(side)" class="btn btn-light btn-sm border paneButton" data-testid="@($"pane-name-{side}")"
                        title="@L["#_chooseAnotherMap"]">
                     <i class="bi bi-folder2-open"></i> @PaneLabel(side): @files[side]
                 </label>

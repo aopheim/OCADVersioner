@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Browser-driven happy paths against the published app. See E2E-PLAN.md.
+
+    Every test here is in the E2E category, so the solution-wide `dotnet test`
+    in the build-and-test job can leave them out: they need a published site,
+    Node and Playwright's browsers, which the e2e job sets up and that one does not.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="Microsoft.Playwright.NUnit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Fixture projects are laid out by the same rules the app reads them with. -->
+    <ProjectReference Include="..\..\src\OcadViewer.Versioning\OcadViewer.Versioning.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Scripts\*.js" />
+  </ItemGroup>
+
+</Project>

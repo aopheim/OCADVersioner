@@ -17,7 +17,7 @@
     change local state, and nothing is persisted or applied until the button.
 *@
 
-<div class="modal fade" id="appSettingsModal" tabindex="-1"
+<div class="modal fade" id="appSettingsModal" data-testid="settings-dialog" tabindex="-1"
      aria-labelledby="appSettings" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -47,7 +47,7 @@
                         <div class="input-group">
                             <div class="d-flex col-6">
                                 <span class="input-group-text">@L["#_epsgColon"]</span>
-                                <input id="epsgNumber" type="text"
+                                <input id="epsgNumber" data-testid="settings-epsg" type="text"
                                        class="form-control @(EpsgInvalid ? "is-invalid" : "")"
                                        placeholder="@L["#_epsgNumberPlaceholder"]"
                                        value="@draftEpsgText" @oninput="OnEpsgInput" />
@@ -94,7 +94,7 @@
                     @L["#_cancel"]
                 </button>
                 <button type="button" class="btn btn-primary @(EpsgInvalid ? "disabled" : "")"
-                        disabled="@EpsgInvalid" data-bs-dismiss="modal" @onclick="Save">
+                        disabled="@EpsgInvalid" data-bs-dismiss="modal" data-testid="settings-save" @onclick="Save">
                     @L["#_save"]
                 </button>
             </div>

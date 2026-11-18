@@ -48,6 +48,55 @@ jobs:
               run: dotnet build MapViewer.slnx -c Release
 
             # The solution rather than the one test project, so a suite added
-            # later is picked up without touching this file.
+            # later is picked up without touching this file. The browser tests
+            # are left to the e2e job below: they need a published site, Node and
+            # Playwright's browsers, none of which this job sets up.
             - name: Test
-              run: dotnet test MapViewer.slnx -c Release --no-build
+              run: dotnet test MapViewer.slnx -c Release --no-build --filter "TestCategory!=E2E"
+
+    # Every page's happy path in a real browser, against the published bundle.
+    # A job of its own so build-and-test stays quick, and so a browser failure
+    # is told apart from a unit test failure at a glance. See map-viewer/E2E-PLAN.md.
+    e2e:
+        runs-on: ubuntu-latest
+
+        defaults:
+            run:
+                working-directory: map-viewer
+
+        steps:
+            - name: Checkout repo
+              uses: actions/checkout@v4
+
+            - name: Use .NET
+              uses: actions/setup-dotnet@v4
+              with:
+                  global-json-file: map-viewer/global.json
+
+            - name: Install the wasm-tools workload
+              run: dotnet workload install wasm-tools
+
+            # Without AOT: the deploy's AOT publish takes far too long for a PR
+            # gate. This is still the real bundle - trimmed, fingerprinted and
+            # served as static files the way Azure Static Web Apps serves it.
+            - name: Publish the app
+              run: dotnet publish src/OcadViewer.Wasm -c Release -p:RunAOTCompilation=false -p:WasmStripILAfterAOT=false
+
+            - name: Build the tests
+              run: dotnet build tests/OcadViewer.E2ETests -c Release
+
+            # The script comes with the Playwright package, so the browser it
+            # installs always matches the library version the tests use.
+            - name: Install Chromium
+              run: pwsh tests/OcadViewer.E2ETests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
+            - name: Run the end-to-end tests
+              run: dotnet test tests/OcadViewer.E2ETests -c Release --no-build --logger "console;verbosity=normal"
+
+            - name: Upload traces of failed tests
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-traces
+                  path: map-viewer/tests/OcadViewer.E2ETests/bin/Release/net10.0/playwright-traces/
+                  if-no-files-found: ignore

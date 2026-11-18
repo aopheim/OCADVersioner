@@ -8,7 +8,7 @@
    dropdown's value exactly what it was, and then Blazor sees nothing to update
    while the browser still shows the entry that was clicked. A new key redraws it. *@
 <select @key="Generation" class="form-select form-select-sm w-auto mx-auto versionPicker"
-        title="@Title" aria-label="@Title" disabled="@Disabled" @onchange="Changed">
+        title="@Title" aria-label="@Title" disabled="@Disabled" @onchange="Changed" @attributes="Attributes">
     @foreach (Option option in Options) {
         <option value="@option.Name" selected="@(option.Name == Value)">@option.Label</option>
     }
@@ -32,6 +32,9 @@
     [Parameter] public int Generation { get; set; }
 
     [Parameter] public string Title { get; set; }
+
+    /// <summary>Anything else on the dropdown, such as a test id.</summary>
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object> Attributes { get; set; }
 
     private async Task Changed(ChangeEventArgs e)
     {

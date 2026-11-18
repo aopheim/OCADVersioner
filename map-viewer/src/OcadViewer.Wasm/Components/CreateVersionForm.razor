@@ -13,7 +13,7 @@
 
     <div class="mb-2">
         <label class="form-label small mb-1">@L["#_title"]</label>
-        <input class="form-control form-control-sm" @bind="title" disabled="@Busy"
+        <input class="form-control form-control-sm" data-testid="version-title" @bind="title" disabled="@Busy"
                placeholder="@L.Format("#_versionTitleHelper",
                                       ("newVersionName", NextVersionName),
                                       ("fileName", FileName))" />
@@ -21,11 +21,11 @@
 
     <div class="mb-2">
         <label class="form-label small mb-1">@L["#_description"]</label>
-        <textarea class="form-control form-control-sm" rows="3"
+        <textarea class="form-control form-control-sm" rows="3" data-testid="version-description"
                   @bind="description" disabled="@Busy"></textarea>
     </div>
 
-    <button class="btn btn-primary btn-sm" @onclick="Submit"
+    <button class="btn btn-primary btn-sm" data-testid="create-version" @onclick="Submit"
             disabled="@(Busy || string.IsNullOrEmpty(FileName))">
         @L.Format("#_newVersionSubmitText",
                   ("newVersionName", NextVersionName), ("fileName", FileName))
