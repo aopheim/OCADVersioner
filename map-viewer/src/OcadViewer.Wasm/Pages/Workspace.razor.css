@@ -1,0 +1,56 @@
+/* Scoped to the workspace page. */
+
+/* The page is exactly the screen: header and toolbar on top, the version
+   column and the maps take the rest, and the page itself never scrolls.
+   dvh follows a mobile browser's collapsing address bar; vh is the fallback. */
+.workspacePage {
+    height: 100vh;
+    height: 100dvh;
+}
+
+/* What is left under the header. min-height: 0 lets a flex child shrink
+   below its content, which is what makes the inner scrolling work at all. */
+.workspaceBody {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.versionColumn,
+.mapColumn {
+    height: 100%;
+    min-height: 0;
+}
+
+/* The list takes the column's height less the form, and scrolls inside it. */
+.versionScroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* The maps take the column's height less the comparison heading. */
+.workspaceMaps {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* Below md the columns stack: the version column gets at most two fifths of
+   the height and the maps get the rest, still without the page scrolling. */
+@media (max-width: 767.98px) {
+    .workspaceBody {
+        flex-direction: column;
+        flex-wrap: nowrap;
+    }
+
+    .versionColumn {
+        height: auto;
+        max-height: 40%;
+        flex: 0 1 auto;
+    }
+
+    .mapColumn {
+        height: auto;
+        flex: 1 1 auto;
+    }
+}

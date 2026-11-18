@@ -12,7 +12,7 @@
     container-fluid lives here rather than in the layout because that is where the
     Angular app puts it: there is no shell, every page is its own container.
 *@
-<div class="container-fluid">
+<div class="container-fluid workspacePage d-flex flex-column">
 
 <BusyBar Busy="Busy" Progress="Progress" />
 
@@ -64,10 +64,14 @@
 }
 
 @if (Project.IsOpen) {
-    <div class="row">
-        <div class="col-md-2 d-flex flex-column">
-            <VersionList Items="VersionItems()" SelectedNumber="selectedNumber"
-                         Disabled="Blocked" OnSelected="SelectVersion" />
+    <div class="row workspaceBody pb-1">
+        <div class="col-md-2 versionColumn d-flex flex-column">
+            @* The list scrolls on its own, so the form below it stays put and
+               the two together are exactly the height of the page. *@
+            <div class="versionScroll">
+                <VersionList Items="VersionItems()" SelectedNumber="selectedNumber"
+                             Disabled="Blocked" OnSelected="SelectVersion" />
+            </div>
 
             @* Shown only while the working file is on screen, as in the Angular
                app: a new version is always a copy of the working file, so offering
@@ -75,7 +79,7 @@
                Hidden rather than removed, so a title and description typed before
                a look at an older version are still there on the way back. *@
             @if (!string.IsNullOrEmpty(Project.Project.CurrentFileName)) {
-                <div class="mt-auto" hidden="@IsHistory">
+                <div class="flex-shrink-0" hidden="@IsHistory">
                     <CreateVersionForm @ref="versionForm"
                                        FileName="@Project.Project.CurrentFileName"
                                        NextVersionName="@Project.NextVersionName()"
@@ -85,7 +89,7 @@
             }
         </div>
 
-        <div class="col-md-10">
+        <div class="col-md-10 mapColumn d-flex flex-column">
             <div class="d-flex justify-content-center align-items-center gap-3 mb-1">
                 @if (IsHistory) {
                     <i class="bi bi-book fs-4 text-primary" title="@L["#_comparingPastVersions"]"></i>
@@ -97,10 +101,16 @@
                 <span class="fw-medium">@Label(Comparison.Newer)</span>
             </div>
 
-            <OcadMapPair @ref="mapPair" />
+            <div class="workspaceMaps">
+                <OcadMapPair @ref="mapPair" Fill="true" />
+            </div>
 
+            @* The diff table is off the page for now: the page is exactly the
+               screen and the maps take what the header leaves. It will come
+               back; the diff is still computed below so it has something to show.
             <DiffTable Diff="diff" Available="DiffSource.IsAvailable"
                        UnavailableReasonKey="@DiffSource.UnavailableReasonKey" />
+            *@
         </div>
     </div>
 }
