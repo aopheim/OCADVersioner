@@ -16,7 +16,7 @@
 <button class="btn text-nowrap @(Large ? "" : "btn-sm") @(showChanges ? "btn-primary" : "btn-outline-secondary")"
         @onclick="ToggleAsync" disabled="@(Busy || !Available)"
         title="@L.Format("#_showChangesSince", ("name", OlderLabel ?? Older), ("key", OverlayKey.ToUpperInvariant()))">
-    <i class="bi bi-layers"></i>
+    <i class="bi bi-file-diff"></i>
     @if (Large) {
         <span class="ms-1">@L["#_changes"]</span>
     }
@@ -27,13 +27,15 @@
    takes the eye off the place being looked at. *@
 <KeyboardShortcut Key="@OverlayKey" OnPressed="ToggleAsync" />
 
-@if (ShowZoom) {
-    <button class="btn @(Large ? "" : "btn-sm") btn-outline-secondary" @onclick="ZoomAsync"
-            disabled="@(Busy || summary is not { Shown: true, ShownPixels: > 0 })"
-            title="@L["#_zoomToChanges"]">
-        <i class="bi bi-crosshair"></i>
-    </button>
-}
+@* The newer map under the overlay, off to see the changes alone. Here rather
+   than on each page for the same reason as the overlay: the rules tie the two
+   together - hiding turns the overlay on, the overlay going off shows the map. *@
+<button class="btn text-nowrap @(Large ? "" : "btn-sm") @(showMap ? "btn-outline-secondary" : "btn-primary")"
+        @onclick="ToggleMapAsync" disabled="@(!Available)"
+        title="@L[showMap ? "#_hideMap" : "#_showMap"] (@MapKey.ToUpperInvariant())">
+    <i class="bi @(showMap ? "bi-map" : "bi-map-fill")"></i>
+</button>
+<KeyboardShortcut Key="@MapKey" OnPressed="ToggleMapAsync" />
 
 @* Just the number on a phone, where "of the map" would push the toolbar
    off the screen. *@
@@ -49,6 +51,12 @@
     /// shortcut and the hint on the button cannot come to disagree.
     /// </summary>
     private const string OverlayKey = "c";
+
+    /// <summary>The key that shows and hides the newer map under the overlay.</summary>
+    private const string MapKey = "m";
+
+    /// <summary>Whether the newer map is drawn. Off leaves only the overlay on its pane.</summary>
+    private bool showMap = true;
 
     /// <summary>The panes the overlay is drawn on.</summary>
     [Parameter, EditorRequired] public OcadMapPair MapPair { get; set; }
@@ -75,9 +83,6 @@
     /// </summary>
     [Parameter, EditorRequired] public Func<Func<string>, Func<Task>, Task> Run { get; set; }
 
-    /// <summary>Also offer to zoom to what the overlay shows.</summary>
-    [Parameter] public bool ShowZoom { get; set; }
-
     /// <summary>A full-size button with a label, for touch screens.</summary>
     [Parameter] public bool Large { get; set; }
 
@@ -93,11 +98,28 @@
     /// Switches the overlay off and forgets what it showed, for a page that is
     /// starting over - a different project, say.
     /// </summary>
+    /// <remarks>
+    /// The map comes back too. Resetting the map pair, which a page starting over
+    /// does, shows every map; this keeps the button in line with that.
+    /// </remarks>
     public void Reset()
     {
         showChanges = false;
+        showMap = true;
         summary = null;
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// Shows the map again when there is nothing to compare - one map on screen,
+    /// say - so a pane is never left empty with no overlay to explain it.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Available && !showMap && MapPair is not null) {
+            showMap = true;
+            await MapPair.SetMapVisibleAsync(Newer, true);
+        }
     }
 
     /// <summary>
@@ -126,10 +148,25 @@
 
         try {
             summary = await MapPair.ShowChangesAsync(older, newer, showChanges);
+
+            // The overlay is gone, so a hidden map would leave an empty pane.
+            if (!showChanges)
+                showMap = true;
+
+            // By name, so a hidden map stays hidden on whichever pane now
+            // shows the newer version.
+            await MapPair.SetMapVisibleAsync(newer, showMap);
         }
         catch {
             showChanges = false;
             summary = null;
+
+            if (!showMap) {
+                showMap = true;
+                try { await MapPair.SetMapVisibleAsync(newer, true); }
+                catch { /* The first failure is the one worth reporting. */ }
+            }
+
             throw;
         }
         finally {
@@ -151,9 +188,32 @@
         });
     }
 
-    /// <summary>Frames whatever the overlay is showing, however small it is.</summary>
-    private async Task ZoomAsync()
-        => await Run(() => L["#_zooming"], async () => await MapPair.ZoomToChangesAsync());
+    /// <summary>Shows or hides the newer map, from the button or from the keyboard.</summary>
+    /// <remarks>
+    /// Only the newer map: the overlay is painted on it, and the older one beside
+    /// it is what the changes are read against.
+    ///
+    /// Not run through <see cref="Run"/>: hiding a pane is instant, and showing
+    /// it again works while the page is busy. Hiding it with the overlay off
+    /// would leave nothing to look at, so that turns the overlay on first - and
+    /// leaves the map alone if the overlay could not come on, which it cannot
+    /// while the page is busy.
+    /// </remarks>
+    private async Task ToggleMapAsync()
+    {
+        // A key press is not stopped by a disabled button.
+        if (!Available || MapPair is null)
+            return;
+
+        if (showMap && !showChanges) {
+            await ToggleAsync();
+            if (!showChanges)
+                return;
+        }
+
+        showMap = !showMap;
+        await MapPair.SetMapVisibleAsync(Newer, showMap);
+    }
 
     /// <summary>
     /// How much of the map the overlay is lighting up, or null.

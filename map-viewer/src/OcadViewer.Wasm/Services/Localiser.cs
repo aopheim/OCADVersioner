@@ -37,14 +37,28 @@ public sealed class Localiser(HttpClient http)
     /// <summary>Raised when the language changes, so components can re-render.</summary>
     public event Action Changed;
 
+    /// <summary>Counts loads, so one overtaken by a later choice can tell.</summary>
+    private int latestLoad;
+
     public async Task LoadAsync(string language)
     {
         language = Languages.Any(l => l.Code == language) ? language : DefaultLanguage;
+        int load = ++latestLoad;
 
         try {
             var loaded = await http.GetFromJsonAsync<Dictionary<string, string>>($"i18n/{language}.json");
+
+            // Two quick picks fetch in parallel and can finish in either order;
+            // only the last pick may decide what is shown.
+            if (load != latestLoad)
+                return;
+
             strings = loaded ?? [];
             Language = language;
+        }
+        catch (Exception) when (load != latestLoad) {
+            // Overtaken while failing: the later pick decides, not a fallback.
+            return;
         }
         catch (Exception) when (language != DefaultLanguage) {
             // A missing or broken translation should degrade to English, not to a

@@ -358,18 +358,21 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             ).addTo(map);
         },
 
-        /**
-         * Moves the view to frame a rectangle of paper.
-         *
-         * Only one map is told; leaflet.sync mirrors it to the other, and
-         * fitting both would make them argue about the result.
-         */
-        fitTo(area) {
-            maps[SIDES[0]].fitBounds(latLngBounds(area), { animate: false });
-        },
-
         clearOverlays() {
             for (const side of SIDES) clearOverlay(side);
+        },
+
+        /**
+         * Hides the map on one pane, leaving any overlay on top of it, and shows
+         * it on every other. Null shows every map.
+         *
+         * Hides Leaflet's tile pane rather than removing the layers, so turning
+         * the map back on is instant - the tiles are still there. The change mask
+         * sits in the overlay pane and is not touched.
+         */
+        hideMap(side) {
+            for (const each of SIDES)
+                maps[each].getPane('tilePane').style.visibility = each === side ? 'hidden' : '';
         },
 
         /**

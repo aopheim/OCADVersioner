@@ -33,16 +33,7 @@
             <div class="modal-body">
                 <div class="mb-3">
                     <label class="form-label">@L["#_language"]</label>
-                    <div class="row">
-                        @foreach (var language in Localiser.Languages) {
-                            <div class="col-1 pointer" @onclick="() => draftLanguage = language.Code"
-                                 title="@language.Name">
-                                <div class="border @(draftLanguage == language.Code ? "border-4 border-success" : "")">
-                                    <span><LanguageFlag Code="@language.Code" /></span>
-                                </div>
-                            </div>
-                        }
-                    </div>
+                    <LanguagePicker @bind-Selected="draftLanguage" />
 
                     <div class="mt-2">
                         <label class="form-label" for="epsgNumber">@L["#_georeferencing"]</label>
@@ -129,6 +120,18 @@
 
     protected override void OnInitialized() => Revert();
 
+    /// <summary>
+    /// Called by Bootstrap as the modal starts to show. The start dialog sets the
+    /// language without going through here, so a draft taken earlier would show
+    /// the wrong flag and put the old language back on Save.
+    /// </summary>
+    [JSInvokable]
+    public void OnShow()
+    {
+        Revert();
+        StateHasChanged();
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
@@ -141,6 +144,7 @@
 
         self = DotNetObjectReference.Create(this);
         await ui.InvokeVoidAsync("onModalHidden", "appSettingsModal", self);
+        await ui.InvokeVoidAsync("onModalShow", "appSettingsModal", self);
     }
 
     /// <summary>
