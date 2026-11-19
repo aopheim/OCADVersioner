@@ -174,7 +174,8 @@ public static partial class TileInterop
         MaxY = map.Bounds.Bottom,
         ParseMs = map.ParseTime.TotalMilliseconds,
         Georeference = map.Georeference,
-        PaperToMercator = map.PaperToMercator is { } t ? [t.A, t.B, t.C, t.D, t.E, t.F] : null
+        PaperToGrid = map.PaperToGrid?.ToDictionary(g => g.Key, g => new[] { g.Value.A, g.Value.B, g.Value.C,
+                                                                               g.Value.D, g.Value.E, g.Value.F })
     };
 
     private static string Write(MapSummary summary)

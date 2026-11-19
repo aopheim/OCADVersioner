@@ -34,9 +34,10 @@ public sealed record MapSummary
     public string Georeference { get; init; }
 
     /// <summary>
-    /// Paper millimetres to Web Mercator metres as <c>[a, b, c, d, e, f]</c>, where
-    /// <c>mercatorX = a·x + b·y + c</c> and <c>mercatorY = d·x + e·y + f</c>; what a
+    /// Paper millimetres to each background map's tile grid, keyed by grid name
+    /// (<c>"EPSG:3857"</c>, <c>"EPSG:32633"</c>), each as <c>[a, b, c, d, e, f]</c>
+    /// where <c>gridX = a·x + b·y + c</c> and <c>gridY = d·x + e·y + f</c>; what a
     /// background web map is laid out by. Null when the map has no usable georeference.
     /// </summary>
-    public double[] PaperToMercator { get; init; }
+    public Dictionary<string, double[]> PaperToGrid { get; init; }
 }

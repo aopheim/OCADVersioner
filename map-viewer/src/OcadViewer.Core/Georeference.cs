@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 
 using DotSpatial.Projections;
@@ -8,19 +9,24 @@ using PurplePen.MapModel;
 namespace OcadViewer.Core
 {
     /// <summary>
-    /// Where a point on the paper is on a web map: an affine transform from paper
-    /// millimetres to Web Mercator (EPSG:3857) metres.
+    /// Where a point on the paper is on a tile grid: an affine transform from paper
+    /// millimetres to the grid's metres.
     /// </summary>
     /// <remarks>
-    /// <c>mercatorX = A·x + B·y + C</c> and <c>mercatorY = D·x + E·y + F</c>, with
-    /// paper Y running up and Mercator Y running north. One affine transform per
-    /// map is not exact: Web Mercator's scale grows with latitude, by about 0.14%
-    /// across two kilometres at 63°N, so over a 2 km sprint map the far corner is
-    /// about 1.25 m out on the ground - 0.3 mm of paper at 1:4000. That is close
-    /// enough to lay a background web map under the map, which is all this is for;
-    /// it is not a survey.
+    /// <c>gridX = A·x + B·y + C</c> and <c>gridY = D·x + E·y + F</c>, with paper Y
+    /// running up and grid Y running north. One affine transform per map is not
+    /// exact, and how far out it is depends on the grid:
+    /// <list type="bullet">
+    /// <item>Web Mercator's scale grows with latitude, by about 0.14% across two
+    /// kilometres at 63°N, so over a 2 km sprint map the far corner is about
+    /// 1.25 m out on the ground - 0.3 mm of paper at 1:4000.</item>
+    /// <item>From one UTM zone to the next both grids are conformal and bend the
+    /// same way, so the error is a few centimetres.</item>
+    /// </list>
+    /// Close enough to lay a background web map under the map, which is all this
+    /// is for; it is not a survey.
     /// </remarks>
-    public sealed record PaperToMercator(double A, double B, double C, double D, double E, double F)
+    public sealed record PaperTransform(double A, double B, double C, double D, double E, double F)
     {
         public (double X, double Y) Apply(double x, double y) => (A * x + B * y + C, D * x + E * y + F);
 
@@ -50,26 +56,44 @@ namespace OcadViewer.Core
     /// map can use. Nothing here needs anyone to type anything in: OCAD stores the
     /// grid, its offset, the rotation and the scale in the file.
     /// </summary>
+    /// <remarks>
+    /// The background maps come on more than one tile grid, so the paper is placed
+    /// on each of them. The grid names are the ones the page's background sources
+    /// ask for (<c>backgroundMap.js</c>); a new grid there is a new entry here.
+    /// </remarks>
     public static class Georeference
     {
+        /// <summary>Web Mercator: OpenStreetMap, Kartverket's cache and most web maps.</summary>
+        public const string WebMercator = "EPSG:3857";
+
+        /// <summary>UTM zone 33 on WGS84: mapant.no.</summary>
+        public const string Utm33 = "EPSG:32633";
+
+        /// <summary>Every grid the paper is placed on.</summary>
+        public static readonly IReadOnlyList<string> Grids = [WebMercator, Utm33];
+
         /// <summary>The sphere Web Mercator is drawn on.</summary>
         private const double MercatorRadius = 6378137.0;
 
         private static readonly ProjectionInfo Wgs84 =
             ProjectionInfo.FromProj4String("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs");
 
+        private static readonly ProjectionInfo Utm33Wgs84 =
+            ProjectionInfo.FromProj4String("+proj=utm +zone=33 +datum=WGS84 +units=m +no_defs");
+
         /// <summary>
-        /// Paper millimetres to Web Mercator for a map, or <c>null</c> when the map
-        /// has no georeference this can use: real-world coordinates are off, or the
-        /// grid is one with no known projection (a local grid, say), or the
-        /// georeference projects to somewhere no web map is.
+        /// Paper millimetres to each tile grid for a map, keyed by grid name, or
+        /// <c>null</c> when the map has no georeference this can use: real-world
+        /// coordinates are off, the grid is one with no known projection (a local
+        /// grid, say), or it projects to somewhere no web map is.
         /// </summary>
         /// <remarks>
         /// Never throws. The background map is optional; a georeference it cannot
-        /// use must not stop the map itself from opening.
+        /// use must not stop the map itself from opening. A grid the map cannot be
+        /// placed on is left out, and the others are still given.
         /// </remarks>
-        /// <param name="bounds">The drawn map, in paper millimetres. The transform is fitted over it.</param>
-        public static PaperToMercator Of(Map map, RectangleF bounds)
+        /// <param name="bounds">The drawn map, in paper millimetres. The transforms are fitted over it.</param>
+        public static IReadOnlyDictionary<string, PaperTransform> Of(Map map, RectangleF bounds)
         {
             RealWorldCoords coords;
             float mapScale;
@@ -81,33 +105,54 @@ namespace OcadViewer.Core
             if (coords is null || !coords.RealWorldOn || string.IsNullOrWhiteSpace(coords.Proj4String))
                 return null;
 
-            double scale = coords.GridScaleFactor * mapScale / 1000.0;
-
+            ProjectionInfo source;
             try {
-                ProjectionInfo grid = ProjectionInfo.FromProj4String(coords.Proj4String);
-                PaperToMercator fitted = Fit(bounds, (x, y) => {
-                    (double gx, double gy) = PaperToGrid(x, y, scale, coords.RealWorldAngle,
-                                                         coords.RealWorldOffsetX, coords.RealWorldOffsetY);
-                    return GridToMercator(grid, gx, gy);
-                });
-                return fitted.IsUsable ? fitted : null;
+                source = ProjectionInfo.FromProj4String(coords.Proj4String);
             }
             catch (Exception) {
-                // A projection DotSpatial cannot read or cannot apply is the same as none.
-                return null;
+                return null;   // A projection DotSpatial cannot read is the same as none.
             }
+
+            double scale = coords.GridScaleFactor * mapScale / 1000.0;
+            var transforms = new Dictionary<string, PaperTransform>();
+
+            foreach (string target in Grids) {
+                try {
+                    PaperTransform fitted = Fit(bounds, (x, y) => {
+                        (double gx, double gy) = PaperToGrid(x, y, scale, coords.RealWorldAngle,
+                                                             coords.RealWorldOffsetX, coords.RealWorldOffsetY);
+                        return GridTo(target, source, gx, gy);
+                    });
+                    if (fitted.IsUsable)
+                        transforms.Add(target, fitted);
+                }
+                catch (Exception) {
+                    // DotSpatial could read the projection but not apply it: leave this grid out.
+                }
+            }
+
+            return transforms.Count > 0 ? transforms : null;
         }
 
-        /// <summary>A point on a projected grid, in metres, to Web Mercator metres.</summary>
-        /// <param name="proj4">The grid, as a proj4 string.</param>
-        public static (double X, double Y) GridToMercator(string proj4, double x, double y)
-            => GridToMercator(ProjectionInfo.FromProj4String(proj4), x, y);
+        /// <summary>A point on the map's grid, in metres, to one of the tile grids.</summary>
+        /// <param name="target">One of <see cref="Grids"/>.</param>
+        /// <param name="proj4">The map's grid, as a proj4 string.</param>
+        public static (double X, double Y) GridTo(string target, string proj4, double x, double y)
+            => GridTo(target, ProjectionInfo.FromProj4String(proj4), x, y);
 
-        private static (double X, double Y) GridToMercator(ProjectionInfo grid, double x, double y)
+        private static (double X, double Y) GridTo(string target, ProjectionInfo source, double x, double y)
         {
             double[] xy = [x, y];
-            Reproject.ReprojectPoints(xy, [0.0], grid, Wgs84, 0, 1);
-            return LonLatToMercator(xy[0], xy[1]);
+            switch (target) {
+                case WebMercator:
+                    Reproject.ReprojectPoints(xy, [0.0], source, Wgs84, 0, 1);
+                    return LonLatToMercator(xy[0], xy[1]);
+                case Utm33:
+                    Reproject.ReprojectPoints(xy, [0.0], source, Utm33Wgs84, 0, 1);
+                    return (xy[0], xy[1]);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(target), target, "Not a grid background maps are drawn on.");
+            }
         }
 
         /// <summary>
@@ -148,7 +193,7 @@ namespace OcadViewer.Core
         /// edge. A map with no extent is widened to a square millimetre so the
         /// three points are never the same.
         /// </remarks>
-        public static PaperToMercator Fit(RectangleF bounds, Func<double, double, (double X, double Y)> project)
+        public static PaperTransform Fit(RectangleF bounds, Func<double, double, (double X, double Y)> project)
         {
             double x0 = bounds.Left, y0 = bounds.Top;
             double w = Math.Max(bounds.Width, 1.0), h = Math.Max(bounds.Height, 1.0);
@@ -160,8 +205,8 @@ namespace OcadViewer.Core
             double a = (px.X - p0.X) / w, b = (py.X - p0.X) / h;
             double d = (px.Y - p0.Y) / w, e = (py.Y - p0.Y) / h;
 
-            return new PaperToMercator(a, b, p0.X - a * x0 - b * y0,
-                                       d, e, p0.Y - d * x0 - e * y0);
+            return new PaperTransform(a, b, p0.X - a * x0 - b * y0,
+                                      d, e, p0.Y - d * x0 - e * y0);
         }
     }
 }

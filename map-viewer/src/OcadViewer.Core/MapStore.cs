@@ -15,7 +15,7 @@ namespace OcadViewer.Core
     {
         internal StoredMap(string key, int loadId, Map map, RectangleF bounds, int formatVersion,
                            TimeSpan parseTime, string georeference,
-                           PaperToMercator paperToMercator)
+                           IReadOnlyDictionary<string, PaperTransform> paperToGrid)
         {
             Key = key;
             LoadId = loadId;
@@ -23,7 +23,7 @@ namespace OcadViewer.Core
             FormatVersion = formatVersion;
             ParseTime = parseTime;
             Georeference = georeference;
-            PaperToMercator = paperToMercator;
+            PaperToGrid = paperToGrid;
             Map = map;
         }
 
@@ -52,10 +52,11 @@ namespace OcadViewer.Core
         public string Georeference { get; }
 
         /// <summary>
-        /// Where the paper is on a web map, read from the file's georeference, or
+        /// Where the paper is on each background map's tile grid, keyed by grid name
+        /// (<see cref="Core.Georeference.Grids"/>), read from the file's georeference;
         /// <c>null</c> when it has none that can be used.
         /// </summary>
-        public PaperToMercator PaperToMercator { get; }
+        public IReadOnlyDictionary<string, PaperTransform> PaperToGrid { get; }
 
         internal Map Map { get; }
 

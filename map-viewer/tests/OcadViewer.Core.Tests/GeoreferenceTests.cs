@@ -65,7 +65,7 @@ public sealed class GeoreferenceTests
     {
         static (double, double) Affine(double x, double y) => (3 * x - 2 * y + 1000, 0.5 * x + 4 * y - 7);
 
-        PaperToMercator fitted = Georeference.Fit(RectangleF.FromLTRB(-50, -20, 300, 180), Affine);
+        PaperTransform fitted = Georeference.Fit(RectangleF.FromLTRB(-50, -20, 300, 180), Affine);
 
         foreach ((double x, double y) in new[] { (0.0, 0.0), (123.4, -56.7), (-50.0, 180.0) }) {
             (double ex, double ey) = Affine(x, y);
@@ -80,10 +80,10 @@ public sealed class GeoreferenceTests
     [Test]
     public void AFittedSprintMapIsUsable()
     {
-        PaperToMercator fitted = Georeference.Fit(RectangleF.FromLTRB(-250, -250, 250, 250),
+        PaperTransform fitted = Georeference.Fit(RectangleF.FromLTRB(-250, -250, 250, 250),
             (px, py) => {
                 (double gx, double gy) = Georeference.PaperToGrid(px, py, 4, 7.5, 564000, 7031000);
-                return Georeference.GridToMercator(Utm32, gx, gy);
+                return Georeference.GridTo(Georeference.WebMercator, Utm32, gx, gy);
             });
 
         Assert.That(fitted.IsUsable, Is.True);
@@ -93,7 +93,7 @@ public sealed class GeoreferenceTests
     public void AGridScaleFactorOfZeroIsNotUsable()
     {
         // Every point of paper lands on the offset: nothing to invert.
-        PaperToMercator fitted = Georeference.Fit(RectangleF.FromLTRB(0, 0, 100, 100),
+        PaperTransform fitted = Georeference.Fit(RectangleF.FromLTRB(0, 0, 100, 100),
             (px, py) => Georeference.PaperToGrid(px, py, 0, 0, 564000, 7031000));
 
         Assert.That(fitted.IsUsable, Is.False);
@@ -106,8 +106,8 @@ public sealed class GeoreferenceTests
     {
         // What a projection gives for a point past the poles; JSON cannot carry NaN.
         Assert.Multiple(() => {
-            Assert.That(new PaperToMercator(bad, 0, 0, 0, 1, 0).IsUsable, Is.False, "scale");
-            Assert.That(new PaperToMercator(1, 0, bad, 0, 1, 0).IsUsable, Is.False, "offset");
+            Assert.That(new PaperTransform(bad, 0, 0, 0, 1, 0).IsUsable, Is.False, "scale");
+            Assert.That(new PaperTransform(1, 0, bad, 0, 1, 0).IsUsable, Is.False, "offset");
         });
     }
 
@@ -115,7 +115,7 @@ public sealed class GeoreferenceTests
     public void AUtmPointInTrondheimLandsInTrondheim()
     {
         // The origin of a real sprint map at Byåsen, Trondheim: 63.4°N 10.3°E.
-        (double x, double y) = Georeference.GridToMercator(Utm32, 564000, 7031000);
+        (double x, double y) = Georeference.GridTo(Georeference.WebMercator, Utm32, 564000, 7031000);
         (double minX, double minY) = Georeference.LonLatToMercator(10.1, 63.3);
         (double maxX, double maxY) = Georeference.LonLatToMercator(10.5, 63.5);
 
@@ -133,10 +133,10 @@ public sealed class GeoreferenceTests
         (double, double) Exact(double px, double py)
         {
             (double gx, double gy) = Georeference.PaperToGrid(px, py, 4, 0, 564000, 7031000);
-            return Georeference.GridToMercator(Utm32, gx, gy);
+            return Georeference.GridTo(Georeference.WebMercator, Utm32, gx, gy);
         }
 
-        PaperToMercator fitted = Georeference.Fit(paper, Exact);
+        PaperTransform fitted = Georeference.Fit(paper, Exact);
 
         // Web Mercator's scale grows with latitude, so no affine transform is exact;
         // the error is largest at the corner the three-corner fit does not pin,
@@ -148,6 +148,41 @@ public sealed class GeoreferenceTests
             (double ax, double ay) = fitted.Apply(px, py);
             double ground = Math.Sqrt((ax - ex) * (ax - ex) + (ay - ey) * (ay - ey)) * groundPerMercator;
             Assert.That(ground, Is.LessThan(1.5), $"metres on the ground at paper ({px}, {py})");
+        }
+    }
+
+    [Test]
+    public void AUtm32PointInTrondheimLandsInTrondheimOnUtm33()
+    {
+        // Trondheim is 4.7° west of zone 33's central meridian (15°E): about 235 km
+        // west of its false easting of 500 000, and about 7 040 km north.
+        (double x, double y) = Georeference.GridTo(Georeference.Utm33, Utm32, 564000, 7031000);
+
+        Assert.Multiple(() => {
+            Assert.That(x, Is.InRange(240000, 300000), "easting");
+            Assert.That(y, Is.InRange(7000000, 7080000), "northing");
+        });
+    }
+
+    [Test]
+    public void OverASprintMapTheUtm33FitIsWithinTenCentimetres()
+    {
+        // From one UTM zone to the next both grids are conformal and turn the same
+        // way with latitude, so what is left over a 2 km map is centimetres.
+        RectangleF paper = RectangleF.FromLTRB(-250, -250, 250, 250);
+        (double, double) Exact(double px, double py)
+        {
+            (double gx, double gy) = Georeference.PaperToGrid(px, py, 4, 0, 564000, 7031000);
+            return Georeference.GridTo(Georeference.Utm33, Utm32, gx, gy);
+        }
+
+        PaperTransform fitted = Georeference.Fit(paper, Exact);
+
+        foreach ((double px, double py) in new[] { (250.0, 250.0), (0.0, 0.0), (125.0, -60.0) }) {
+            (double ex, double ey) = Exact(px, py);
+            (double ax, double ay) = fitted.Apply(px, py);
+            Assert.That(Math.Sqrt((ax - ex) * (ax - ex) + (ay - ey) * (ay - ey)), Is.LessThan(0.10),
+                $"metres at paper ({px}, {py})");
         }
     }
 }

@@ -348,7 +348,7 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             layers[side] = layer;
 
             // The background follows the map: its georeference says where it is.
-            backgrounds[side].setGeoreference(bounds.paperToMercator ?? null);
+            backgrounds[side].setGeoreference(bounds.paperToGrid ?? null);
 
             return new Promise(resolve => {
                 pending[side] = resolve;
