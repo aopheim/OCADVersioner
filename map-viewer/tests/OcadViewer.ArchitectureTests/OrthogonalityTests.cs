@@ -188,7 +188,9 @@ public sealed class OrthogonalityTests
          *   projectFolder.js  the picked folder, which cannot cross into .NET and
          *                     cannot be re-obtained without asking the user
          *   dotnetExports.js  the .NET runtime
-         *   appInsights.js    the telemetry SDK, once it has loaded
+         *   appInsights.js    the telemetry SDK, once it has loaded, and how many
+         *                     errors this tab has sent through it - a ration
+         *                     that is per page by design
          * What the rule is really after is coordination state - a queue, a latch,
          * a timer, a cache - which is what makes a module secretly unrepeatable.
          * A const holding a Map or a Set is as mutable as a let, so it counts. */
