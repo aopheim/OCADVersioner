@@ -77,8 +77,20 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
      * maps can be different versions with different georeferences, and the
      * mapper may want aerial photos beside one and a street map beside the other. */
     const backgrounds = {};
-    for (const side of SIDES)
-        backgrounds[side] = createBackground(maps[side], { minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM });
+    /* How strongly each pane's OCAD map is drawn, so a background shows through.
+     * Kept here rather than on the layer because a new layer replaces the old one
+     * on every show, and the mapper's choice should survive that. */
+    const opacities = { left: 1, right: 1 };
+    for (const side of SIDES) {
+        backgrounds[side] = createBackground(maps[side], {
+            minZoom: MIN_ZOOM,
+            maxZoom: MAX_ZOOM,
+            onOpacity: value => {
+                opacities[side] = value;
+                layers[side]?.setOpacity(value);
+            }
+        });
+    }
 
     /* Leaflet measures its container once, at construction. Inside a component the
      * element is often still 0x0 at that point, and a map that believes it is zero
@@ -329,7 +341,8 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
                 tileSize: TILE_SIZE,
                 noWrap: true,
                 minZoom: MIN_ZOOM,
-                maxZoom: MAX_ZOOM
+                maxZoom: MAX_ZOOM,
+                opacity: opacities[side]
             });
             layer._ocadBounds = { ...bounds };
             layers[side] = layer;

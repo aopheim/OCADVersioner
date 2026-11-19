@@ -78,6 +78,40 @@ public sealed class GeoreferenceTests
     }
 
     [Test]
+    public void AFittedSprintMapIsUsable()
+    {
+        PaperToMercator fitted = Georeference.Fit(RectangleF.FromLTRB(-250, -250, 250, 250),
+            (px, py) => {
+                (double gx, double gy) = Georeference.PaperToGrid(px, py, 4, 7.5, 564000, 7031000);
+                return Georeference.GridToMercator(Utm32, gx, gy);
+            });
+
+        Assert.That(fitted.IsUsable, Is.True);
+    }
+
+    [Test]
+    public void AGridScaleFactorOfZeroIsNotUsable()
+    {
+        // Every point of paper lands on the offset: nothing to invert.
+        PaperToMercator fitted = Georeference.Fit(RectangleF.FromLTRB(0, 0, 100, 100),
+            (px, py) => Georeference.PaperToGrid(px, py, 0, 0, 564000, 7031000));
+
+        Assert.That(fitted.IsUsable, Is.False);
+    }
+
+    [TestCase(double.NaN)]
+    [TestCase(double.PositiveInfinity)]
+    [TestCase(double.NegativeInfinity)]
+    public void ATransformWithANonFiniteNumberIsNotUsable(double bad)
+    {
+        // What a projection gives for a point past the poles; JSON cannot carry NaN.
+        Assert.Multiple(() => {
+            Assert.That(new PaperToMercator(bad, 0, 0, 0, 1, 0).IsUsable, Is.False, "scale");
+            Assert.That(new PaperToMercator(1, 0, bad, 0, 1, 0).IsUsable, Is.False, "offset");
+        });
+    }
+
+    [Test]
     public void AUtmPointInTrondheimLandsInTrondheim()
     {
         // The origin of a real sprint map at Byåsen, Trondheim: 63.4°N 10.3°E.

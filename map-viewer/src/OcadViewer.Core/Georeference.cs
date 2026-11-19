@@ -21,6 +21,26 @@ namespace OcadViewer.Core
     public sealed record PaperToMercator(double A, double B, double C, double D, double E, double F)
     {
         public (double X, double Y) Apply(double x, double y) => (A * x + B * y + C, D * x + E * y + F);
+
+        /// <summary>
+        /// Whether a web map can be laid out by this: every number finite, and the
+        /// paper not squashed to a line or a point, so the transform can be inverted.
+        /// </summary>
+        /// <remarks>
+        /// A projection can give NaN or infinity for a point past the poles or in the
+        /// wrong zone, and a grid scale factor of 0 gives a transform with no inverse.
+        /// Either would draw nonsense, and NaN cannot even be sent to the page as JSON.
+        /// </remarks>
+        public bool IsUsable
+        {
+            get
+            {
+                double det = A * E - B * D;
+                return double.IsFinite(A) && double.IsFinite(B) && double.IsFinite(C)
+                    && double.IsFinite(D) && double.IsFinite(E) && double.IsFinite(F)
+                    && double.IsFinite(det) && det != 0;
+            }
+        }
     }
 
     /// <summary>
@@ -39,8 +59,13 @@ namespace OcadViewer.Core
         /// <summary>
         /// Paper millimetres to Web Mercator for a map, or <c>null</c> when the map
         /// has no georeference this can use: real-world coordinates are off, or the
-        /// grid is one with no known projection (a local grid, say).
+        /// grid is one with no known projection (a local grid, say), or the
+        /// georeference projects to somewhere no web map is.
         /// </summary>
+        /// <remarks>
+        /// Never throws. The background map is optional; a georeference it cannot
+        /// use must not stop the map itself from opening.
+        /// </remarks>
         /// <param name="bounds">The drawn map, in paper millimetres. The transform is fitted over it.</param>
         public static PaperToMercator Of(Map map, RectangleF bounds)
         {
@@ -54,21 +79,21 @@ namespace OcadViewer.Core
             if (coords is null || !coords.RealWorldOn || string.IsNullOrWhiteSpace(coords.Proj4String))
                 return null;
 
-            ProjectionInfo grid;
-            try {
-                grid = ProjectionInfo.FromProj4String(coords.Proj4String);
-            }
-            catch (Exception) {
-                return null;   // A projection DotSpatial cannot read is the same as none.
-            }
-
             double scale = coords.GridScaleFactor * mapScale / 1000.0;
 
-            return Fit(bounds, (x, y) => {
-                (double gx, double gy) = PaperToGrid(x, y, scale, coords.RealWorldAngle,
-                                                     coords.RealWorldOffsetX, coords.RealWorldOffsetY);
-                return GridToMercator(grid, gx, gy);
-            });
+            try {
+                ProjectionInfo grid = ProjectionInfo.FromProj4String(coords.Proj4String);
+                PaperToMercator fitted = Fit(bounds, (x, y) => {
+                    (double gx, double gy) = PaperToGrid(x, y, scale, coords.RealWorldAngle,
+                                                         coords.RealWorldOffsetX, coords.RealWorldOffsetY);
+                    return GridToMercator(grid, gx, gy);
+                });
+                return fitted.IsUsable ? fitted : null;
+            }
+            catch (Exception) {
+                // A projection DotSpatial cannot read or cannot apply is the same as none.
+                return null;
+            }
         }
 
         /// <summary>A point on a projected grid, in metres, to Web Mercator metres.</summary>
