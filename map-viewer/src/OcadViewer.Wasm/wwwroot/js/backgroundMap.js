@@ -36,8 +36,12 @@ const IMAGE_CACHE_SIZE = 400;
 const FIRST_OPACITY = 0.5;
 
 /**
- * The web maps on offer. Only OpenStreetMap so far; Kartverket's topographic map,
- * Norge i bilder and mapant.no are to come.
+ * The web maps on offer, in menu order. Norge i bilder and mapant.no are to come.
+ *
+ * Kartverket's topographic map covers Norway only; outside it the tiles are
+ * blank. Its cache takes row before column ({z}/{y}/{x}) and stops at zoom 18,
+ * which is about 0.6 m per pixel at 63°N - finer than any orienteering map needs.
+ * Free, no key, CC BY 4.0.
  */
 const SOURCES = Object.freeze({
     osm: Object.freeze({
@@ -45,6 +49,12 @@ const SOURCES = Object.freeze({
         url: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`,
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
+    }),
+    kartverketTopo: Object.freeze({
+        name: 'Kartverket topo',
+        url: (z, x, y) => `https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/${z}/${y}/${x}.png`,
+        maxZoom: 18,
+        attribution: '&copy; <a href="https://www.kartverket.no/" target="_blank" rel="noopener">Kartverket</a> (CC BY 4.0)'
     })
 });
 
