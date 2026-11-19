@@ -10,8 +10,8 @@
  *
  * Fading the OCAD map is how the background shows through: the OCAD map is drawn
  * on opaque white paper, so a background under it is otherwise hidden wherever the
- * map is. Only Leaflet's tile pane is faded; the change overlay is in the overlay
- * pane and keeps its full strength.
+ * map is. This module owns the slider but not the OCAD map: it says what opacity
+ * the map should have, and whoever draws the map applies it.
  *
  * Web tiles need the internet, and the app is meant to work without it. Offline,
  * the menu is disabled and says why, and a background that was on goes off.
@@ -59,6 +59,18 @@ const DEFAULT_LABELS = Object.freeze({
     noGeoreference: 'This map has no georeference, so it cannot be placed on a background map',
     offline: 'No internet connection'
 });
+
+/**
+ * Whether a paper-to-Mercator transform can lay out a web map: six finite numbers
+ * whose determinant is not zero, so it can be inverted. The same rule as
+ * PaperToMercator.IsUsable on the .NET side, repeated so this module never trusts
+ * what it is handed.
+ */
+export function isUsable(t) {
+    if (!Array.isArray(t) || t.length !== 6 || !t.every(Number.isFinite)) return false;
+    const det = t[0] * t[4] - t[1] * t[3];
+    return Number.isFinite(det) && det !== 0;
+}
 
 /**
  * The 2D affine transform from web tile image pixels to background canvas pixels.
@@ -131,7 +143,9 @@ export function webTilesUnder(t, paper, size, maxZoom) {
  * Puts a background menu and layer on one Leaflet map.
  *
  * @param map the Leaflet map, in paper millimetres
- * @param options {minZoom, maxZoom} the paper zoom range, the same as the OCAD layer's
+ * @param options {minZoom, maxZoom, onOpacity} the paper zoom range, the same as
+ *        the OCAD layer's, and a function told the opacity (0 to 1) the OCAD map
+ *        should now have, so the background shows through it
  * @returns {{setGeoreference: Function, setLabels: Function, dispose: Function}}
  */
 export function createBackground(map, options) {
@@ -308,7 +322,7 @@ export function createBackground(map, options) {
 
     function setOpacity(value) {
         opacity = value;
-        map.getPane('tilePane').style.opacity = value >= 1 ? '' : String(value);
+        options.onOpacity?.(value);
     }
 
     function choose(id) {
@@ -355,9 +369,12 @@ export function createBackground(map, options) {
          * Tells the background where the map now on this pane is.
          *
          * @param t paper-to-Mercator [a, b, c, d, e, f], or null when the map has
-         *          no georeference - which switches the background off
+         *          no georeference - which switches the background off. A transform
+         *          with a non-finite number or no inverse counts as none: it would
+         *          draw unrelated web tiles in the canvas corners.
          */
         setGeoreference(t) {
+            if (t && !isUsable(t)) t = null;
             const same = t && georeference && t.every((v, i) => v === georeference[i]);
             if (same) return;
 
