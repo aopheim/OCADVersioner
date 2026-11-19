@@ -208,5 +208,9 @@
     private static bool IsCancellation(Exception ex)
         => ex.Message.Contains("abort", StringComparison.OrdinalIgnoreCase);
 
-    protected override async ValueTask DisposeAsyncCore() => await ui.ReleaseAsync();
+    // disposeModal, not just a release: leaving the page through the About link
+    // removes this markup but not the backdrop Bootstrap put on <body>, which would
+    // otherwise darken and block the next page.
+    protected override async ValueTask DisposeAsyncCore()
+        => await ui.ReleaseAsync("disposeModal", "staticBackdrop");
 }
