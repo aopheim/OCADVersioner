@@ -83,7 +83,7 @@ public sealed class GeoreferenceTests
         PaperTransform fitted = Georeference.Fit(RectangleF.FromLTRB(-250, -250, 250, 250),
             (px, py) => {
                 (double gx, double gy) = Georeference.PaperToGrid(px, py, 4, 7.5, 564000, 7031000);
-                return Georeference.GridTo(Georeference.WebMercator, Utm32, gx, gy);
+                return Georeference.GridTo(TileGrid.WebMercator, Utm32, gx, gy);
             });
 
         Assert.That(fitted.IsUsable, Is.True);
@@ -115,7 +115,7 @@ public sealed class GeoreferenceTests
     public void AUtmPointInTrondheimLandsInTrondheim()
     {
         // The origin of a real sprint map at Byåsen, Trondheim: 63.4°N 10.3°E.
-        (double x, double y) = Georeference.GridTo(Georeference.WebMercator, Utm32, 564000, 7031000);
+        (double x, double y) = Georeference.GridTo(TileGrid.WebMercator, Utm32, 564000, 7031000);
         (double minX, double minY) = Georeference.LonLatToMercator(10.1, 63.3);
         (double maxX, double maxY) = Georeference.LonLatToMercator(10.5, 63.5);
 
@@ -133,7 +133,7 @@ public sealed class GeoreferenceTests
         (double, double) Exact(double px, double py)
         {
             (double gx, double gy) = Georeference.PaperToGrid(px, py, 4, 0, 564000, 7031000);
-            return Georeference.GridTo(Georeference.WebMercator, Utm32, gx, gy);
+            return Georeference.GridTo(TileGrid.WebMercator, Utm32, gx, gy);
         }
 
         PaperTransform fitted = Georeference.Fit(paper, Exact);
@@ -156,7 +156,7 @@ public sealed class GeoreferenceTests
     {
         // Trondheim is 4.7° west of zone 33's central meridian (15°E): about 235 km
         // west of its false easting of 500 000, and about 7 040 km north.
-        (double x, double y) = Georeference.GridTo(Georeference.Utm33, Utm32, 564000, 7031000);
+        (double x, double y) = Georeference.GridTo(TileGrid.MapAntUtm33, Utm32, 564000, 7031000);
 
         Assert.Multiple(() => {
             Assert.That(x, Is.InRange(240000, 300000), "easting");
@@ -173,7 +173,7 @@ public sealed class GeoreferenceTests
         (double, double) Exact(double px, double py)
         {
             (double gx, double gy) = Georeference.PaperToGrid(px, py, 4, 0, 564000, 7031000);
-            return Georeference.GridTo(Georeference.Utm33, Utm32, gx, gy);
+            return Georeference.GridTo(TileGrid.MapAntUtm33, Utm32, gx, gy);
         }
 
         PaperTransform fitted = Georeference.Fit(paper, Exact);

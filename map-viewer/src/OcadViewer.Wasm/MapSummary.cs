@@ -34,10 +34,8 @@ public sealed record MapSummary
     public string Georeference { get; init; }
 
     /// <summary>
-    /// Paper millimetres to each background map's tile grid, keyed by grid name
-    /// (<c>"EPSG:3857"</c>, <c>"EPSG:32633"</c>), each as <c>[a, b, c, d, e, f]</c>
-    /// where <c>gridX = a·x + b·y + c</c> and <c>gridY = d·x + e·y + f</c>; what a
-    /// background web map is laid out by. Null when the map has no usable georeference.
+    /// The ids of the background maps this map can be laid on. Null when it has no
+    /// usable georeference, so no background at all.
     /// </summary>
-    public Dictionary<string, double[]> PaperToGrid { get; init; }
+    public string[] BackgroundSources { get; init; }
 }

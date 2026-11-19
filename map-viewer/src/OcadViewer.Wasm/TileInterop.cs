@@ -158,6 +158,33 @@ public static partial class TileInterop
             new ChangeMaskPlan(width, height,
                                RectangleF.FromLTRB((float)minX, (float)minY, (float)maxX, (float)maxY)));
 
+    /// <summary>The background maps on offer, in menu order, as JSON <c>[{id, name, attribution}]</c>.</summary>
+    [JSExport]
+    internal static string BackgroundSources()
+        => JsonSerializer.Serialize(
+            BackgroundMaps.Sources.Select(s => new BackgroundSourceInfo(s.Id, s.Name, s.Attribution)).ToArray(),
+            TileInteropJson.Default.BackgroundSourceInfoArray);
+
+    /// <summary>
+    /// The web tiles to draw on one square background canvas over
+    /// <paramref name="key"/>'s map, as JSON <c>[{url, size, transform}]</c>.
+    /// An empty list when there is nothing to draw: the map has gone, or it
+    /// cannot be placed on that source's grid.
+    /// </summary>
+    /// <param name="minX">The canvas's left edge, in paper millimetres.</param>
+    /// <param name="maxY">The canvas's top edge, in paper millimetres.</param>
+    /// <param name="mmPerPixel">Paper millimetres per canvas pixel.</param>
+    /// <param name="pixels">Canvas pixels along a side.</param>
+    [JSExport]
+    internal static string BackgroundTiles(int store, string key, string sourceId,
+                                           double minX, double maxY, double mmPerPixel, int pixels)
+    {
+        BackgroundTile[] tiles = Stores.TryGetValue(store, out MapStore maps)
+            ? [.. maps.BackgroundTiles(key, sourceId, minX, maxY, mmPerPixel, pixels)]
+            : [];
+        return JsonSerializer.Serialize(tiles, TileInteropJson.Default.BackgroundTileArray);
+    }
+
     private static MapStore StoreFor(int store)
         => Stores.TryGetValue(store, out MapStore maps)
             ? maps
@@ -174,8 +201,7 @@ public static partial class TileInterop
         MaxY = map.Bounds.Bottom,
         ParseMs = map.ParseTime.TotalMilliseconds,
         Georeference = map.Georeference,
-        PaperToGrid = map.PaperToGrid?.ToDictionary(g => g.Key, g => new[] { g.Value.A, g.Value.B, g.Value.C,
-                                                                               g.Value.D, g.Value.E, g.Value.F })
+        BackgroundSources = BackgroundMaps.AvailableFor(map.PaperToGrid)
     };
 
     private static string Write(MapSummary summary)
@@ -201,6 +227,9 @@ internal sealed record ChangeMaskInfo
     public int? InMap { get; init; }
 }
 
+/// <summary>One entry of <see cref="TileInterop.BackgroundSources"/>: what the menu needs.</summary>
+internal sealed record BackgroundSourceInfo(string Id, string Name, string Attribution);
+
 /// <summary>
 /// Source-generated serialisation, so the shapes survive IL trimming without a
 /// rooted reflection path.
@@ -210,6 +239,8 @@ internal sealed record ChangeMaskInfo
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(MapSummary))]
 [JsonSerializable(typeof(ChangeMaskInfo))]
+[JsonSerializable(typeof(BackgroundSourceInfo[]))]
+[JsonSerializable(typeof(BackgroundTile[]))]
 internal sealed partial class TileInteropJson : JsonSerializerContext
 {
 }

@@ -28,7 +28,8 @@ import { paint, coverage } from './changeMask.js';
  */
 export async function createWorkspace(leftEl, rightEl) {
     const tiles = await createTileSource();
-    const view = createSyncedMaps(leftEl, rightEl, tiles.render);
+    const view = createSyncedMaps(leftEl, rightEl, tiles.render,
+                                  { sources: tiles.backgroundSources(), tiles: tiles.backgroundTiles });
 
     /* The change mask for one pair of parses: the bytes, the plan they were drawn
      * to, the image painted from them and how much they cover. Kept because

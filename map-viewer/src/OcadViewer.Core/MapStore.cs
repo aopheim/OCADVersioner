@@ -53,7 +53,7 @@ namespace OcadViewer.Core
 
         /// <summary>
         /// Where the paper is on each background map's tile grid, keyed by grid name
-        /// (<see cref="Core.Georeference.Grids"/>), read from the file's georeference;
+        /// (<see cref="TileGrid.Name"/>), read from the file's georeference;
         /// <c>null</c> when it has none that can be used.
         /// </summary>
         public IReadOnlyDictionary<string, PaperTransform> PaperToGrid { get; }
@@ -225,6 +225,27 @@ namespace OcadViewer.Core
 
             Touch(key);
             return stored;
+        }
+
+        /// <summary>
+        /// The web tiles of a background map to draw on one square canvas over
+        /// <paramref name="key"/>'s map, and where. Empty when the map is not held,
+        /// the source is unknown, or the map cannot be placed on the source's grid.
+        /// </summary>
+        /// <param name="minX">The canvas's left edge, in paper millimetres.</param>
+        /// <param name="maxY">The canvas's top edge, in paper millimetres.</param>
+        /// <param name="mmPerPixel">Paper millimetres per canvas pixel.</param>
+        /// <param name="pixels">Canvas pixels along a side.</param>
+        public IReadOnlyList<BackgroundTile> BackgroundTiles(string key, string sourceId, double minX, double maxY,
+                                                             double mmPerPixel, int pixels)
+        {
+            BackgroundSource source = BackgroundMaps.Find(sourceId);
+            StoredMap map = Get(key);
+            if (source is null || map?.PaperToGrid is null
+                || !map.PaperToGrid.TryGetValue(source.Grid.Name, out PaperTransform toGrid))
+                return [];
+
+            return BackgroundMaps.TilesUnder(source, toGrid, minX, maxY, mmPerPixel, pixels);
         }
 
         /// <summary>Forgets <paramref name="key"/>. Returns whether it was there.</summary>

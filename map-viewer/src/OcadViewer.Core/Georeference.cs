@@ -58,28 +58,15 @@ namespace OcadViewer.Core
     /// </summary>
     /// <remarks>
     /// The background maps come on more than one tile grid, so the paper is placed
-    /// on each of them. The grid names are the ones the page's background sources
-    /// ask for (<c>backgroundMap.js</c>); a new grid there is a new entry here.
+    /// on each of <see cref="TileGrid.All"/>.
     /// </remarks>
     public static class Georeference
     {
-        /// <summary>Web Mercator: OpenStreetMap, Kartverket's cache and most web maps.</summary>
-        public const string WebMercator = "EPSG:3857";
-
-        /// <summary>UTM zone 33 on WGS84: mapant.no.</summary>
-        public const string Utm33 = "EPSG:32633";
-
-        /// <summary>Every grid the paper is placed on.</summary>
-        public static readonly IReadOnlyList<string> Grids = [WebMercator, Utm33];
-
         /// <summary>The sphere Web Mercator is drawn on.</summary>
         private const double MercatorRadius = 6378137.0;
 
         private static readonly ProjectionInfo Wgs84 =
             ProjectionInfo.FromProj4String("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs");
-
-        private static readonly ProjectionInfo Utm33Wgs84 =
-            ProjectionInfo.FromProj4String("+proj=utm +zone=33 +datum=WGS84 +units=m +no_defs");
 
         /// <summary>
         /// Paper millimetres to each tile grid for a map, keyed by grid name, or
@@ -116,15 +103,15 @@ namespace OcadViewer.Core
             double scale = coords.GridScaleFactor * mapScale / 1000.0;
             var transforms = new Dictionary<string, PaperTransform>();
 
-            foreach (string target in Grids) {
+            foreach (TileGrid target in TileGrid.All) {
                 try {
                     PaperTransform fitted = Fit(bounds, (x, y) => {
                         (double gx, double gy) = PaperToGrid(x, y, scale, coords.RealWorldAngle,
                                                              coords.RealWorldOffsetX, coords.RealWorldOffsetY);
-                        return GridTo(target, source, gx, gy);
+                        return target.Project(source, gx, gy);
                     });
                     if (fitted.IsUsable)
-                        transforms.Add(target, fitted);
+                        transforms.Add(target.Name, fitted);
                 }
                 catch (Exception) {
                     // DotSpatial could read the projection but not apply it: leave this grid out.
@@ -135,24 +122,30 @@ namespace OcadViewer.Core
         }
 
         /// <summary>A point on the map's grid, in metres, to one of the tile grids.</summary>
-        /// <param name="target">One of <see cref="Grids"/>.</param>
         /// <param name="proj4">The map's grid, as a proj4 string.</param>
-        public static (double X, double Y) GridTo(string target, string proj4, double x, double y)
-            => GridTo(target, ProjectionInfo.FromProj4String(proj4), x, y);
+        public static (double X, double Y) GridTo(TileGrid target, string proj4, double x, double y)
+            => target.Project(ProjectionInfo.FromProj4String(proj4), x, y);
 
-        private static (double X, double Y) GridTo(string target, ProjectionInfo source, double x, double y)
+        /// <summary>
+        /// A point on a map's grid to Web Mercator: by way of longitude and latitude,
+        /// then Web Mercator's own closed form, which proj4 strings get subtly wrong.
+        /// </summary>
+        internal static (double X, double Y) ToWebMercator(ProjectionInfo source, double x, double y)
         {
             double[] xy = [x, y];
-            switch (target) {
-                case WebMercator:
-                    Reproject.ReprojectPoints(xy, [0.0], source, Wgs84, 0, 1);
-                    return LonLatToMercator(xy[0], xy[1]);
-                case Utm33:
-                    Reproject.ReprojectPoints(xy, [0.0], source, Utm33Wgs84, 0, 1);
-                    return (xy[0], xy[1]);
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(target), target, "Not a grid background maps are drawn on.");
-            }
+            Reproject.ReprojectPoints(xy, [0.0], source, Wgs84, 0, 1);
+            return LonLatToMercator(xy[0], xy[1]);
+        }
+
+        /// <summary>A point on a map's grid to the projection <paramref name="proj4"/> describes.</summary>
+        internal static Func<ProjectionInfo, double, double, (double X, double Y)> ToProjection(string proj4)
+        {
+            ProjectionInfo target = ProjectionInfo.FromProj4String(proj4);
+            return (source, x, y) => {
+                double[] xy = [x, y];
+                Reproject.ReprojectPoints(xy, [0.0], source, target, 0, 1);
+                return (xy[0], xy[1]);
+            };
         }
 
         /// <summary>

@@ -43,9 +43,12 @@ function latLngBounds(area) {
  * @param leftEl  element for the left map
  * @param rightEl element for the right map
  * @param renderTile (key, minX, minY, width, height, pixels) => Uint8Array|null
+ * @param background {sources, tiles}: the background maps on offer, and
+ *        (key, sourceId, minX, maxY, mmPerPixel, pixels) => [{url, size, transform}]
+ *        saying which web tiles to draw on a background canvas, and where
  * @returns a handle with show, stats and dispose.
  */
-export function createSyncedMaps(leftEl, rightEl, renderTile) {
+export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
     const pump = createTilePump();
 
     /* One shared counter set per viewport rather than per layer: a layer is
@@ -85,6 +88,7 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
         backgrounds[side] = createBackground(maps[side], {
             minZoom: MIN_ZOOM,
             maxZoom: MAX_ZOOM,
+            sources: background.sources,
             onOpacity: value => {
                 opacities[side] = value;
                 layers[side]?.setOpacity(value);
@@ -347,8 +351,11 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             layer._ocadBounds = { ...bounds };
             layers[side] = layer;
 
-            // The background follows the map: its georeference says where it is.
-            backgrounds[side].setGeoreference(bounds.paperToGrid ?? null);
+            // The background follows the map: which web maps it can be laid on,
+            // and where their tiles go, are asked of the map now on this pane.
+            backgrounds[side].setMap(bounds.backgroundSources ?? null,
+                (sourceId, minX, maxY, mmPerPixel, pixels) =>
+                    background.tiles(mapKey, sourceId, minX, maxY, mmPerPixel, pixels));
 
             return new Promise(resolve => {
                 pending[side] = resolve;
