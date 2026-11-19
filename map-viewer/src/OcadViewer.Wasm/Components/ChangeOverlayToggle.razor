@@ -14,7 +14,7 @@
 *@
 
 <button class="btn text-nowrap @(Large ? "" : "btn-sm") @(showChanges ? "btn-primary" : "btn-outline-secondary")"
-        @onclick="ToggleAsync" disabled="@(Busy || !Available)"
+        @onclick="ToggleAsync" data-testid="overlay-toggle" data-on="@(showChanges ? "true" : "false")" disabled="@(Busy || !Available)"
         title="@L.Format("#_showChangesSince", ("name", OlderLabel ?? Older), ("key", OverlayKey.ToUpperInvariant()))">
     <i class="bi bi-file-diff"></i>
     @if (Large) {
@@ -31,7 +31,7 @@
    than on each page for the same reason as the overlay: the rules tie the two
    together - hiding turns the overlay on, the overlay going off shows the map. *@
 <button class="btn text-nowrap @(Large ? "" : "btn-sm") @(showMap ? "btn-outline-secondary" : "btn-primary")"
-        @onclick="ToggleMapAsync" disabled="@(!Available)"
+        @onclick="ToggleMapAsync" data-testid="map-toggle" data-on="@(showMap ? "true" : "false")" disabled="@(!Available)"
         title="@L[showMap ? "#_hideMap" : "#_showMap"] (@MapKey.ToUpperInvariant())">
     <i class="bi @(showMap ? "bi-map" : "bi-map-fill")"></i>
 </button>
@@ -40,7 +40,7 @@
 @* Just the number on a phone, where "of the map" would push the toolbar
    off the screen. *@
 @if (Available && ChangedShare() is { } share) {
-    <span class="text-muted small text-nowrap">
+    <span class="text-muted small text-nowrap" data-testid="change-share">
         @share<span class="d-none d-sm-inline">@($" {L["#_ofTheMap"]}")</span>
     </span>
 }

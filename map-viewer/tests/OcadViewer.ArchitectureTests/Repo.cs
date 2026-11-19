@@ -13,7 +13,7 @@ namespace OcadViewer.ArchitectureTests;
 internal static class Repo
 {
     /// <summary>The <c>map-viewer</c> directory, found by walking up from the test binaries.</summary>
-    public static DirectoryInfo Root { get; } = Find();
+    public static DirectoryInfo Root { get; } = OcadViewer.Tests.Shared.SourceTree.FindRoot();
 
     public static string Src => Path.Combine(Root.FullName, "src");
 
@@ -22,19 +22,6 @@ internal static class Repo
     /// <summary>The app's JavaScript, which is a first-class part of the architecture here.</summary>
     public static string Scripts =>
         Path.Combine(Src, "OcadViewer.Wasm", "wwwroot", "js");
-
-    private static DirectoryInfo Find()
-    {
-        DirectoryInfo directory = new(AppContext.BaseDirectory);
-
-        while (directory is not null
-               && !File.Exists(Path.Combine(directory.FullName, "MapViewer.slnx")))
-            directory = directory.Parent;
-
-        return directory
-            ?? throw new DirectoryNotFoundException(
-                $"No MapViewer.slnx above {AppContext.BaseDirectory}; these tests need the source tree.");
-    }
 
     /// <summary>
     /// Every project file in the solution, vendored wrappers included.
