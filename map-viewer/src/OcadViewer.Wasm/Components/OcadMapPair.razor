@@ -1,8 +1,7 @@
 @using OcadViewer.Versioning
 @using OcadViewer.Wasm.Services
-@implements IAsyncDisposable
+@inherits LocalisedComponent
 @inject IJSRuntime JS
-@inject Localiser L
 
 @*
     Two synced Leaflet maps. Blazor owns the page and the state; JavaScript owns
@@ -103,14 +102,26 @@
             ready ??= InitialiseAsync();
     }
 
+    /// <summary>
+    /// A change of language repaints this component (<see cref="LocalisedComponent"/>),
+    /// and that is when the background menus are told their new words.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender && workspace is not null && labelsLanguage != L.Language)
+            await SendBackgroundLabelsAsync();
+    }
+
     private async Task InitialiseAsync()
     {
         module = await JS.ImportAsync("./js/mapWorkspace.js");
         workspace = await module.InvokeAsync<IJSObjectReference>("createWorkspace", leftEl, rightEl);
 
         await SendBackgroundLabelsAsync();
-        L.Changed += OnLanguageChanged;
     }
+
+    /// <summary>The language the background menus were last given their words in.</summary>
+    private string labelsLanguage;
 
     /// <summary>
     /// The background menus are drawn by Leaflet, outside Blazor, so their words
@@ -118,8 +129,8 @@
     /// </summary>
     private async Task SendBackgroundLabelsAsync()
     {
-        if (workspace is null)
-            return;
+        // Noted before the call, so a second repaint while it is in flight does not send them twice.
+        labelsLanguage = L.Language;
 
         await workspace.InvokeVoidAsync("setBackgroundLabels", new {
             background = L["#_backgroundMap"],
@@ -129,8 +140,6 @@
             offline = L["#_noInternetConnection"]
         });
     }
-
-    private void OnLanguageChanged() => _ = InvokeAsync(SendBackgroundLabelsAsync);
 
     /// <summary>
     /// Makes sure a version is parsed, reading its file only if it has to.
@@ -224,9 +233,8 @@
         await workspace.InvokeVoidAsync("reset");
     }
 
-    public async ValueTask DisposeAsync()
+    protected override async ValueTask DisposeAsyncCore()
     {
-        L.Changed -= OnLanguageChanged;
         await workspace.ReleaseAsync("dispose");
         await module.ReleaseAsync();
     }

@@ -13,10 +13,12 @@ namespace OcadViewer.Core
     /// </summary>
     /// <remarks>
     /// <c>mercatorX = A·x + B·y + C</c> and <c>mercatorY = D·x + E·y + F</c>, with
-    /// paper Y running up and Mercator Y running north. An orienteering map covers
-    /// a few kilometres, over which the projection from the map's grid to Web
-    /// Mercator is a plane to within centimetres, so one affine transform per map
-    /// is exact enough to lay web tiles under it.
+    /// paper Y running up and Mercator Y running north. One affine transform per
+    /// map is not exact: Web Mercator's scale grows with latitude, by about 0.14%
+    /// across two kilometres at 63°N, so over a 2 km sprint map the far corner is
+    /// about 1.25 m out on the ground - 0.3 mm of paper at 1:4000. That is close
+    /// enough to lay a background web map under the map, which is all this is for;
+    /// it is not a survey.
     /// </remarks>
     public sealed record PaperToMercator(double A, double B, double C, double D, double E, double F)
     {

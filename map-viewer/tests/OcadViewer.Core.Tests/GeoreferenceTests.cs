@@ -126,7 +126,7 @@ public sealed class GeoreferenceTests
     }
 
     [Test]
-    public void OverASprintMapTheFittedTransformIsWithinACentimetreOfTheProjection()
+    public void OverASprintMapTheFittedTransformIsWithinAMetreAndAHalfOnTheGround()
     {
         // 1:4000, half a metre of paper: two kilometres of ground.
         RectangleF paper = RectangleF.FromLTRB(-250, -250, 250, 250);
@@ -138,13 +138,16 @@ public sealed class GeoreferenceTests
 
         PaperToMercator fitted = Georeference.Fit(paper, Exact);
 
-        // Mercator metres are stretched by 1/cos(latitude), about 2.2 at 63°N, so a
-        // centimetre on the ground is about 2.2 cm here.
+        // Web Mercator's scale grows with latitude, so no affine transform is exact;
+        // the error is largest at the corner the three-corner fit does not pin,
+        // about 2.8 Mercator metres. Mercator metres are stretched by 1/cos(latitude),
+        // about 2.2 at 63°N, so that is about 1.25 m on the ground - 0.3 mm of paper.
+        double groundPerMercator = Math.Cos(63.4 * Math.PI / 180.0);
         foreach ((double px, double py) in new[] { (250.0, 250.0), (0.0, 0.0), (125.0, -60.0) }) {
             (double ex, double ey) = Exact(px, py);
             (double ax, double ay) = fitted.Apply(px, py);
-            Assert.That(Math.Sqrt((ax - ex) * (ax - ex) + (ay - ey) * (ay - ey)), Is.LessThan(0.03),
-                $"at paper ({px}, {py})");
+            double ground = Math.Sqrt((ax - ex) * (ax - ex) + (ay - ey) * (ay - ey)) * groundPerMercator;
+            Assert.That(ground, Is.LessThan(1.5), $"metres on the ground at paper ({px}, {py})");
         }
     }
 }
