@@ -135,5 +135,10 @@
     "#_tapToChooseMap": "Tap to choose a map, or drop an OCAD file here",
     "#_twoMapsCompared": "Two maps, compared",
     "#_hideMap": "Hide the newer map, leaving only the changes on it",
-    "#_showMap": "Show the newer map"
+    "#_showMap": "Show the newer map",
+    "#_backgroundMap": "Background map",
+    "#_noBackgroundMap": "None",
+    "#_mapOpacity": "Map opacity",
+    "#_noGeoreferenceForBackground": "This map has no georeference, so it cannot be placed on a background map",
+    "#_noInternetConnection": "No internet connection"
 }
