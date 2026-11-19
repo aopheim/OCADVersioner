@@ -264,6 +264,9 @@ export async function createWorkspace(leftEl, rightEl) {
 
         showing: () => view.showing(),
 
+        /** The background menus' words, in the page's language. */
+        setBackgroundLabels: labels => view.setBackgroundLabels(labels),
+
         stats: view.stats,
 
         dispose() {

@@ -135,5 +135,10 @@
     "#_tapToChooseMap": "Trykk for å velge et kart, eller slipp en OCAD-fil her",
     "#_twoMapsCompared": "To kart, sammenlignet",
     "#_hideMap": "Skjul det nyeste kartet, så bare endringene vises",
-    "#_showMap": "Vis det nyeste kartet"
+    "#_showMap": "Vis det nyeste kartet",
+    "#_backgroundMap": "Bakgrunnskart",
+    "#_noBackgroundMap": "Ingen",
+    "#_mapOpacity": "Kartets synlighet",
+    "#_noGeoreferenceForBackground": "Kartet er ikke georeferert, så det kan ikke legges på et bakgrunnskart",
+    "#_noInternetConnection": "Ingen internettforbindelse"
 }

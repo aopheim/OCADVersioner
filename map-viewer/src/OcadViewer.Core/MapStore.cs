@@ -14,7 +14,8 @@ namespace OcadViewer.Core
     public sealed class StoredMap : IDisposable
     {
         internal StoredMap(string key, int loadId, Map map, RectangleF bounds, int formatVersion,
-                           TimeSpan parseTime, string georeference)
+                           TimeSpan parseTime, string georeference,
+                           PaperToMercator paperToMercator)
         {
             Key = key;
             LoadId = loadId;
@@ -22,6 +23,7 @@ namespace OcadViewer.Core
             FormatVersion = formatVersion;
             ParseTime = parseTime;
             Georeference = georeference;
+            PaperToMercator = paperToMercator;
             Map = map;
         }
 
@@ -48,6 +50,12 @@ namespace OcadViewer.Core
         /// no proj4, or <c>null</c> when the map is not georeferenced at all.
         /// </summary>
         public string Georeference { get; }
+
+        /// <summary>
+        /// Where the paper is on a web map, read from the file's georeference, or
+        /// <c>null</c> when it has none that can be used.
+        /// </summary>
+        public PaperToMercator PaperToMercator { get; }
 
         internal Map Map { get; }
 
@@ -197,7 +205,8 @@ namespace OcadViewer.Core
             }
 
             var stored = new StoredMap(key, ++loads, loaded.Map, bounds, loaded.Format.version,
-                                       loaded.ParseTime, GeoreferenceOf(loaded.Map));
+                                       loaded.ParseTime, GeoreferenceOf(loaded.Map),
+                                       Georeference.Of(loaded.Map, bounds));
 
             Unload(key);
             maps.Add(key, stored);

@@ -11,6 +11,7 @@
  */
 
 import { createTilePump } from './tilePump.js';
+import { createBackground } from './backgroundMap.js';
 
 const TILE_SIZE = 256;
 
@@ -71,6 +72,25 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
     for (const side of SIDES) maps[side].setView([0, 0], 0);
     maps.left.sync(maps.right);
     maps.right.sync(maps.left);
+
+    /* A web map under each pane, with its own menu. Per pane, because the two
+     * maps can be different versions with different georeferences, and the
+     * mapper may want aerial photos beside one and a street map beside the other. */
+    const backgrounds = {};
+    /* How strongly each pane's OCAD map is drawn, so a background shows through.
+     * Kept here rather than on the layer because a new layer replaces the old one
+     * on every show, and the mapper's choice should survive that. */
+    const opacities = { left: 1, right: 1 };
+    for (const side of SIDES) {
+        backgrounds[side] = createBackground(maps[side], {
+            minZoom: MIN_ZOOM,
+            maxZoom: MAX_ZOOM,
+            onOpacity: value => {
+                opacities[side] = value;
+                layers[side]?.setOpacity(value);
+            }
+        });
+    }
 
     /* Leaflet measures its container once, at construction. Inside a component the
      * element is often still 0x0 at that point, and a map that believes it is zero
@@ -188,8 +208,22 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             stats.drawn++;
             stats.totalMs += ms;
             stats.maxMs = Math.max(stats.maxMs, ms);
-            tile.getContext('2d').putImageData(
-                new ImageData(new Uint8ClampedArray(bytes), size.x, size.y), 0, 0);
+            const ctx = tile.getContext('2d');
+            ctx.putImageData(new ImageData(new Uint8ClampedArray(bytes), size.x, size.y), 0, 0);
+
+            /* The renderer paints paper white over the whole tile, including the
+             * part past the map's edge. Invisible on its own, but under a faded
+             * map it would wash out a background map in tile-shaped blocks that
+             * stop at the tile grid. Cleared, the paper ends where the map does. */
+            const perMm = size.x / (maxX - minX);
+            const left = Math.max(0, (b.minX - minX) * perMm);
+            const right = Math.min(size.x, (b.maxX - minX) * perMm);
+            const top = Math.max(0, (maxY - b.maxY) * perMm);
+            const bottom = Math.min(size.y, (maxY - b.minY) * perMm);
+            if (left > 0) ctx.clearRect(0, 0, Math.ceil(left), size.y);
+            if (right < size.x) ctx.clearRect(Math.floor(right), 0, size.x, size.y);
+            if (top > 0) ctx.clearRect(0, 0, size.x, Math.ceil(top));
+            if (bottom < size.y) ctx.clearRect(0, Math.floor(bottom), size.x, size.y);
         } else {
             // Only happens when the map behind this layer is no longer held.
             stats.noMap++;
@@ -307,10 +341,14 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
                 tileSize: TILE_SIZE,
                 noWrap: true,
                 minZoom: MIN_ZOOM,
-                maxZoom: MAX_ZOOM
+                maxZoom: MAX_ZOOM,
+                opacity: opacities[side]
             });
             layer._ocadBounds = { ...bounds };
             layers[side] = layer;
+
+            // The background follows the map: its georeference says where it is.
+            backgrounds[side].setGeoreference(bounds.paperToMercator ?? null);
 
             return new Promise(resolve => {
                 pending[side] = resolve;
@@ -386,6 +424,14 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
             fitted = false;
         },
 
+        /**
+         * The words the background menus show, in the page's language.
+         * @param labels {background, none, opacity, noGeoreference, offline}
+         */
+        setBackgroundLabels(labels) {
+            for (const side of SIDES) backgrounds[side].setLabels(labels);
+        },
+
         stats,
 
         dispose() {
@@ -395,6 +441,7 @@ export function createSyncedMaps(leftEl, rightEl, renderTile) {
                 // Anything still waiting for this pane never will be.
                 settle(side);
                 clearOverlay(side);
+                backgrounds[side].dispose();
                 layers[side]?.remove();
                 maps[side].remove();
             }

@@ -32,4 +32,11 @@ public sealed record MapSummary
 
     /// <summary>The map's projection, or null when it is not georeferenced.</summary>
     public string Georeference { get; init; }
+
+    /// <summary>
+    /// Paper millimetres to Web Mercator metres as <c>[a, b, c, d, e, f]</c>, where
+    /// <c>mercatorX = a·x + b·y + c</c> and <c>mercatorY = d·x + e·y + f</c>; what a
+    /// background web map is laid out by. Null when the map has no usable georeference.
+    /// </summary>
+    public double[] PaperToMercator { get; init; }
 }

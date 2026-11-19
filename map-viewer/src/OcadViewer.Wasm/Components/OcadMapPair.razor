@@ -1,6 +1,6 @@
 @using OcadViewer.Versioning
 @using OcadViewer.Wasm.Services
-@implements IAsyncDisposable
+@inherits LocalisedComponent
 @inject IJSRuntime JS
 
 @*
@@ -102,10 +102,43 @@
             ready ??= InitialiseAsync();
     }
 
+    /// <summary>
+    /// A change of language repaints this component (<see cref="LocalisedComponent"/>),
+    /// and that is when the background menus are told their new words.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender && workspace is not null && labelsLanguage != L.Language)
+            await SendBackgroundLabelsAsync();
+    }
+
     private async Task InitialiseAsync()
     {
         module = await JS.ImportAsync("./js/mapWorkspace.js");
         workspace = await module.InvokeAsync<IJSObjectReference>("createWorkspace", leftEl, rightEl);
+
+        await SendBackgroundLabelsAsync();
+    }
+
+    /// <summary>The language the background menus were last given their words in.</summary>
+    private string labelsLanguage;
+
+    /// <summary>
+    /// The background menus are drawn by Leaflet, outside Blazor, so their words
+    /// are handed over - again whenever the language changes.
+    /// </summary>
+    private async Task SendBackgroundLabelsAsync()
+    {
+        // Noted before the call, so a second repaint while it is in flight does not send them twice.
+        labelsLanguage = L.Language;
+
+        await workspace.InvokeVoidAsync("setBackgroundLabels", new {
+            background = L["#_backgroundMap"],
+            none = L["#_noBackgroundMap"],
+            opacity = L["#_mapOpacity"],
+            noGeoreference = L["#_noGeoreferenceForBackground"],
+            offline = L["#_noInternetConnection"]
+        });
     }
 
     /// <summary>
@@ -200,7 +233,7 @@
         await workspace.InvokeVoidAsync("reset");
     }
 
-    public async ValueTask DisposeAsync()
+    protected override async ValueTask DisposeAsyncCore()
     {
         await workspace.ReleaseAsync("dispose");
         await module.ReleaseAsync();

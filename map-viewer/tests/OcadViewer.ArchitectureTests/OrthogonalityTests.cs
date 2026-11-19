@@ -102,8 +102,9 @@ public sealed class OrthogonalityTests
         ["changeMask.js"] = [],
         ["hotkeys.js"] = [],
         ["fileDrop.js"] = [],
+        ["backgroundMap.js"] = [],
         ["mapTiles.js"] = ["dotnetExports.js"],
-        ["leafletViewport.js"] = ["tilePump.js"],
+        ["leafletViewport.js"] = ["tilePump.js", "backgroundMap.js"],
         ["mapWorkspace.js"] = ["projectFolder.js", "mapTiles.js", "leafletViewport.js", "changeMask.js"],
     };
 
