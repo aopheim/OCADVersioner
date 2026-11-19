@@ -56,3 +56,42 @@
     max-width: 22rem;
     text-overflow: ellipsis;
 }
+
+/* The background map menu inside each Leaflet pane (backgroundMap.js). Styled
+   like Leaflet's own zoom buttons so it reads as part of the map. */
+.backgroundMenu {
+    background: #fff;
+}
+
+.backgroundMenu-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
+
+.backgroundMenu.disabled .backgroundMenu-button {
+    color: #bbb;
+    cursor: not-allowed;
+}
+
+.backgroundMenu-panel {
+    padding: 0.5rem 0.75rem;
+    min-width: 11rem;
+    font-size: 0.875rem;
+}
+
+.backgroundMenu-heading {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.backgroundMenu-choices .form-check {
+    display: block;
+    margin-bottom: 0.125rem;
+}
+
+.backgroundMenu-opacity {
+    display: block;
+    margin-top: 0.5rem;
+}

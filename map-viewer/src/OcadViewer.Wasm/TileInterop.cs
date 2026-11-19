@@ -173,7 +173,8 @@ public static partial class TileInterop
         MaxX = map.Bounds.Right,
         MaxY = map.Bounds.Bottom,
         ParseMs = map.ParseTime.TotalMilliseconds,
-        Georeference = map.Georeference
+        Georeference = map.Georeference,
+        PaperToMercator = map.PaperToMercator is { } t ? [t.A, t.B, t.C, t.D, t.E, t.F] : null
     };
 
     private static string Write(MapSummary summary)

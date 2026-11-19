@@ -38,7 +38,7 @@ public sealed class ProjectDependencyTests
         ["DotSpatial.Projections"] = [],
         ["MapModel"] = ["Graphics2D", "DotSpatial.Projections"],
         ["Map_SkiaStd"] = ["Graphics2D", "MapModel"],
-        ["OcadViewer.Core"] = ["Map_SkiaStd"],
+        ["OcadViewer.Core"] = ["Map_SkiaStd", "DotSpatial.Projections"],
         ["OcadViewer.Versioning"] = [],
         ["OcadViewer.Ocd"] = [],
         ["OcadViewer.Merge"] = ["OcadViewer.Ocd"],
