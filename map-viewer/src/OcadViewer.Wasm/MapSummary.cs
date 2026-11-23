@@ -34,9 +34,8 @@ public sealed record MapSummary
     public string Georeference { get; init; }
 
     /// <summary>
-    /// Paper millimetres to Web Mercator metres as <c>[a, b, c, d, e, f]</c>, where
-    /// <c>mercatorX = a·x + b·y + c</c> and <c>mercatorY = d·x + e·y + f</c>; what a
-    /// background web map is laid out by. Null when the map has no usable georeference.
+    /// The ids of the background maps this map can be laid on. Null when it has no
+    /// usable georeference, so no background at all.
     /// </summary>
-    public double[] PaperToMercator { get; init; }
+    public string[] BackgroundSources { get; init; }
 }

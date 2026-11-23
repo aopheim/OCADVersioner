@@ -20,6 +20,8 @@ import { getTileInterop } from './dotnetExports.js';
  * @property {number} [minX] @property {number} [minY] @property {number} [maxX] @property {number} [maxY]
  * @property {number} [parseMs]
  * @property {string} [georeference]
+ * @property {string[]} [backgroundSources] ids of the background maps it can be laid on;
+ *           absent when it has no usable georeference
  */
 
 /**
@@ -76,6 +78,23 @@ export async function createTileSource() {
         renderChangeMask(olderKey, newerKey, plan) {
             return interop.RenderChangeMask(store, olderKey, newerKey,
                 plan.minX, plan.minY, plan.maxX, plan.maxY, plan.width, plan.height);
+        },
+
+        /**
+         * The background maps on offer, in menu order.
+         * @returns {{id: string, name: string, attribution: string}[]}
+         */
+        backgroundSources() {
+            return JSON.parse(interop.BackgroundSources());
+        },
+
+        /**
+         * The web tiles to draw on one square background canvas over a map.
+         * @returns {{url: string, size: number, transform: number[]}[]} empty when
+         *          there is nothing to draw
+         */
+        backgroundTiles(key, sourceId, minX, maxY, mmPerPixel, pixels) {
+            return JSON.parse(interop.BackgroundTiles(store, key, sourceId, minX, maxY, mmPerPixel, pixels));
         },
 
         /** Forgets every map; the source stays usable. */
