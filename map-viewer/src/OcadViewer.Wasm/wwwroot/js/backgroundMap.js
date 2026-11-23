@@ -86,6 +86,11 @@ export function createBackground(map, options) {
         entry.loading = new Promise(resolve => {
             const img = new Image();
             img.decoding = 'async';
+            /* OpenStreetMap refuses tile requests with no Referer, and Azure Static
+             * Web Apps serves the page with Referrer-Policy: same-origin, which
+             * sends none across origins. Ask for the browser default on these
+             * requests alone: the origin is sent, never the path. */
+            img.referrerPolicy = 'strict-origin-when-cross-origin';
             img.onload = () => resolve(img);
             img.onerror = () => { forget(url, entry); resolve(null); };
             img.src = url;
