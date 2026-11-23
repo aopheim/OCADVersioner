@@ -3,7 +3,7 @@
    something is happening and nothing below it ever moves. flex-shrink: 0 keeps
    that room in a page that is a flex column, as the workspace is. Striped when
    the work cannot say how far it is; filled to Progress when it can. *@
-<div class="progress rounded-0 flex-shrink-0" style="height:2px; @(Busy ? "" : "visibility:hidden")">
+<div class="progress rounded-0 flex-shrink-0" data-testid="busy-bar" data-busy="@(Busy ? "true" : "false")" style="height:2px; @(Busy ? "" : "visibility:hidden")">
     @if (Progress is double done) {
         <div class="progress-bar" style="width:@((int)Math.Round(done * 100))%"></div>
     } else {

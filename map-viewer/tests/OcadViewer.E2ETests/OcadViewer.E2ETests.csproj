@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Browser-driven happy paths against the published app. See E2E-PLAN.md.
+
+    Deliberately not in MapViewer.slnx: the tests need a published site, Node and
+    Playwright's browsers, and the Playwright package copies a ~90 MB driver into
+    bin on every build. Only the e2e CI job builds and runs this project, so the
+    required build-and-test job does not pay for it. Every test is also in the
+    E2E category, for anyone running it alongside the other suites.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="Microsoft.Playwright.NUnit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Fixture projects are laid out by the same rules the app reads them with. -->
+    <ProjectReference Include="..\..\src\OcadViewer.Versioning\OcadViewer.Versioning.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Scripts\*.js" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Shared with the other suites; see the file. -->
+    <Compile Include="../Shared/SourceTree.cs" Link="Shared/SourceTree.cs" />
+  </ItemGroup>
+
+</Project>

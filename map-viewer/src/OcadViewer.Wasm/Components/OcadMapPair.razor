@@ -25,7 +25,7 @@
         @if (LeftTitle is not null) {
             <div class="text-center fw-medium text-truncate mb-1">@LeftTitle</div>
         }
-        <div class="mapPane">
+        <div class="mapPane" data-testid="@($"map-pane-{MapSide.Left}")">
             <div @ref="leftEl" class="mapDiv"></div>
             @PaneContent?.Invoke(MapSide.Left)
         </div>
@@ -34,7 +34,7 @@
         @if (RightTitle is not null) {
             <div class="text-center fw-medium text-truncate mb-1">@RightTitle</div>
         }
-        <div class="mapPane">
+        <div class="mapPane" data-testid="@($"map-pane-{MapSide.Right}")">
             <div @ref="rightEl" class="mapDiv"></div>
             @PaneContent?.Invoke(MapSide.Right)
         </div>

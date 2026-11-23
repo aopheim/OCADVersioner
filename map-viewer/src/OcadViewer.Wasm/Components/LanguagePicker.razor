@@ -17,7 +17,7 @@
 <div class="@Class" role="group" aria-label="@L["#_language"]">
     @foreach (var language in Localiser.Languages) {
         <div class="@ItemClass">
-            <button type="button" @onclick="() => Select(language.Code)"
+            <button type="button" @onclick="() => Select(language.Code)" data-testid="@($"{TestIdPrefix}-{language.Code}")"
                     class="d-block w-100 p-0 bg-transparent pointer border @(Selected == language.Code ? "border-4 border-success" : "")"
                     title="@language.Name" aria-label="@language.Name"
                     aria-pressed="@(Selected == language.Code ? "true" : "false")">
@@ -38,6 +38,12 @@
 
     /// <summary>Classes on each flag's wrapper.</summary>
     [Parameter] public string ItemClass { get; set; } = "col-1";
+
+    /// <summary>
+    /// Starts each flag's test id. The start dialog and the settings modal are on
+    /// the workspace page at the same time, so each needs ids of its own.
+    /// </summary>
+    [Parameter, EditorRequired] public string TestIdPrefix { get; set; }
 
     private Task Select(string code) =>
         code == Selected ? Task.CompletedTask : SelectedChanged.InvokeAsync(code);
