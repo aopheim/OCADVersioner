@@ -53,9 +53,41 @@ export async function createTileSource() {
             return JSON.parse(interop.Describe(store, key));
         },
 
-        /** Raw RGBA for one square tile, or null if that map is no longer held. */
-        render(key, minX, minY, width, height, pixels) {
-            return interop.RenderTile(store, key, minX, minY, width, height, pixels);
+        /**
+         * Straight RGBA for one square canvas: the canvas's top-left corner and
+         * units per pixel, in Web Mercator metres on the ground - or paper
+         * millimetres, when onGround is false. Empty where the map is not; null
+         * if that map is no longer held.
+         */
+        render(key, onGround, minX, maxY, unitsPerPixel, pixels) {
+            return interop.RenderOnGround(store, key, onGround, minX, maxY, unitsPerPixel, pixels);
+        },
+
+        /** Whether these maps can all be shown on the ground, rather than on paper. */
+        canShowOnGround(keys) {
+            return interop.CanShowOnGround(store, keys);
+        },
+
+        /**
+         * What these maps cover, in the coordinates shown.
+         * @returns {{minX: number, minY: number, maxX: number, maxY: number}|null}
+         */
+        extent(keys, onGround) {
+            const e = interop.Extent(store, keys, onGround);
+            return e ? { minX: e[0], minY: e[1], maxX: e[2], maxY: e[3] } : null;
+        },
+
+        /**
+         * Where a change mask lands on one canvas: mask pixels to canvas pixels as
+         * setTransform takes them, placed through the newer map. Null when it is
+         * not held.
+         * @param plan what planChangeMask answered
+         */
+        maskToCanvas(newerKey, onGround, plan, minX, maxY, unitsPerPixel, pixels) {
+            const t = interop.MaskToCanvas(store, newerKey, onGround,
+                plan.minX, plan.minY, plan.maxX, plan.maxY, plan.width, plan.height,
+                minX, maxY, unitsPerPixel, pixels);
+            return t ? Array.from(t) : null;
         },
 
         /**
@@ -89,12 +121,13 @@ export async function createTileSource() {
         },
 
         /**
-         * The web tiles to draw on one square background canvas over a map.
+         * The web tiles to draw on one square canvas of the ground, given in Web
+         * Mercator metres. The same under every map, so no map is named.
          * @returns {{url: string, size: number, transform: number[]}[]} empty when
          *          there is nothing to draw
          */
-        backgroundTiles(key, sourceId, minX, maxY, mmPerPixel, pixels) {
-            return JSON.parse(interop.BackgroundTiles(store, key, sourceId, minX, maxY, mmPerPixel, pixels));
+        backgroundOnGround(sourceId, minX, maxY, metresPerPixel, pixels) {
+            return JSON.parse(interop.BackgroundOnGround(sourceId, minX, maxY, metresPerPixel, pixels));
         },
 
         /** Forgets every map; the source stays usable. */

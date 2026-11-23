@@ -1,13 +1,19 @@
 /* Two synced Leaflet maps whose tiles come from somewhere else.
  *
- * Maps are drawn in OCAD paper millimetres, so Leaflet uses L.CRS.Simple and paper
- * coordinates are Leaflet coordinates directly: lng = paper X, lat = paper Y. Tile
- * world rects come from map.unproject, which keeps the maths to four lines and lets
- * leaflet.sync work without knowing anything about the layer.
+ * Both panes show the ground, in Web Mercator - Leaflet's own CRS, and the grid
+ * of the web maps laid underneath - so two maps, whatever their scale, rotation
+ * or place on their paper, are drawn where they lie on the ground, over the same
+ * background, at the same zoom. leaflet.sync keeps the panes on the same view
+ * without knowing anything about the layers.
  *
- * This module knows about Leaflet and nothing else. The tile renderer and the
- * scheduler are passed in; it does not import the .NET runtime, read files, or
- * know what a project version is. Composition happens in mapWorkspace.js.
+ * Maps that cannot be put on the ground - one of the pair has no georeference -
+ * are shown on their paper instead, one millimetre to one Web Mercator metre, and
+ * without a background. Which it is, where a map lies and every pixel of every
+ * tile are worked out in .NET; this module only asks, and draws what it is given.
+ *
+ * This module knows about Leaflet and nothing else. The tile source is passed in;
+ * it does not import the .NET runtime, read files, or know what a project version
+ * is. Composition happens in mapWorkspace.js.
  */
 
 import { createTilePump } from './tilePump.js';
@@ -15,9 +21,15 @@ import { createBackground } from './backgroundMap.js';
 
 const TILE_SIZE = 256;
 
-// Shared by the maps and the tile layers - see the note where the layer is built.
-const MIN_ZOOM = -6;
-const MAX_ZOOM = 4;
+/* Shared by the maps and the tile layers - see the note where the layer is built.
+ * 24 is about 1 cm per pixel at Trondheim: far past any web map, which is then
+ * stretched, and enough for a 1:4000 map at 16 pixels to the millimetre - or for
+ * a map on its paper, at 1 mm to the metre. */
+const MIN_ZOOM = 0;
+const MAX_ZOOM = 24;
+
+/** The background picked until the mapper picks another. */
+const DEFAULT_BACKGROUND = 'osm';
 
 /** Which pane. The names are the contract with the C# MapSide enum. */
 export const SIDES = ['left', 'right'];
@@ -26,15 +38,22 @@ function freshStats() {
     return { drawn: 0, stale: 0, outside: 0, noMap: 0, detached: 0, totalMs: 0, maxMs: 0 };
 }
 
-/**
- * A paper-millimetre rectangle as Leaflet bounds.
- *
- * Paper coordinates are Leaflet coordinates under L.CRS.Simple - lng is X and
- * lat is Y - and everything above this module speaks {minX, minY, maxX, maxY}.
- * This is the one place that conversion happens.
- */
+/** A rectangle in Web Mercator metres, {minX, minY, maxX, maxY}, as Leaflet bounds. */
 function latLngBounds(area) {
-    return L.latLngBounds(L.latLng(area.minY, area.minX), L.latLng(area.maxY, area.maxX));
+    const crs = L.CRS.EPSG3857;
+    return L.latLngBounds(crs.unproject(L.point(area.minX, area.minY)),
+                          crs.unproject(L.point(area.maxX, area.maxY)));
+}
+
+/**
+ * The square of ground one tile covers, as .NET wants it: its top-left corner
+ * in Web Mercator metres and the metres each pixel spans.
+ */
+function canvasOf(map, coords, size) {
+    const crs = map.options.crs;
+    const nw = crs.project(map.unproject(coords.scaleBy(size), coords.z));
+    const se = crs.project(map.unproject(coords.scaleBy(size).add(size), coords.z));
+    return { minX: nw.x, maxY: nw.y, unitsPerPixel: (se.x - nw.x) / size.x, maxX: se.x, minY: se.y };
 }
 
 /**
@@ -42,13 +61,16 @@ function latLngBounds(area) {
  *
  * @param leftEl  element for the left map
  * @param rightEl element for the right map
- * @param renderTile (key, minX, minY, width, height, pixels) => Uint8Array|null
- * @param background {sources, tiles}: the background maps on offer, and
- *        (key, sourceId, minX, maxY, mmPerPixel, pixels) => [{url, size, transform}]
- *        saying which web tiles to draw on a background canvas, and where
+ * @param source what .NET answers, as plain functions:
+ *        render(key, onGround, minX, maxY, unitsPerPixel, pixels) => RGBA, empty
+ *          where the map is not, or null when it is no longer held;
+ *        canShowOnGround(keys) => whether these maps can all go on the ground;
+ *        extent(keys, onGround) => {minX, minY, maxX, maxY} they cover, or null;
+ *        background: {sources, tiles}, the web maps on offer and
+ *          (sourceId, minX, maxY, metresPerPixel, pixels) => [{url, size, transform}]
  * @returns a handle with show, stats and dispose.
  */
-export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
+export function createSyncedMaps(leftEl, rightEl, source) {
     const pump = createTilePump();
 
     /* One shared counter set per viewport rather than per layer: a layer is
@@ -56,7 +78,7 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
     const stats = freshStats();
 
     const makeMap = el => L.map(el, {
-        crs: L.CRS.Simple,
+        crs: L.CRS.EPSG3857,
         minZoom: MIN_ZOOM,
         maxZoom: MAX_ZOOM,
         zoomSnap: 0,
@@ -76,24 +98,39 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
     maps.left.sync(maps.right);
     maps.right.sync(maps.left);
 
-    /* A web map under each pane, with its own menu. Per pane, because the two
-     * maps can be different versions with different georeferences, and the
-     * mapper may want aerial photos beside one and a street map beside the other. */
+    /* Whether the panes show the ground or the maps' paper. Decided by the pair
+     * on show: both georeferenced, the ground; otherwise both on paper. */
+    let onGround = false;
+
+    /* The web map under each pane. The choice is shared - both panes lie on the
+     * same ground, so the same map lies under both - while how strongly each
+     * pane's OCAD map is drawn over it is the pane's own. Kept here rather than on
+     * the layer because a new layer replaces the old one on every show, and the
+     * mapper's choice should survive that. */
     const backgrounds = {};
-    /* How strongly each pane's OCAD map is drawn, so a background shows through.
-     * Kept here rather than on the layer because a new layer replaces the old one
-     * on every show, and the mapper's choice should survive that. */
     const opacities = { left: 1, right: 1 };
+    const allSources = source.background.sources.map(s => s.id);
     for (const side of SIDES) {
         backgrounds[side] = createBackground(maps[side], {
             minZoom: MIN_ZOOM,
             maxZoom: MAX_ZOOM,
-            sources: background.sources,
+            sources: source.background.sources,
+            initialSource: DEFAULT_BACKGROUND,
             onOpacity: value => {
                 opacities[side] = value;
                 layers[side]?.setOpacity(value);
+            },
+            onChoose: id => {
+                for (const other of SIDES)
+                    if (other !== side) backgrounds[other].select(id);
             }
         });
+    }
+
+    /** Tells both backgrounds whether there is ground to lay a web map on. */
+    function offerBackgrounds() {
+        for (const side of SIDES)
+            backgrounds[side].setMap(onGround ? allSources : null, source.background.tiles);
     }
 
     /* Leaflet measures its container once, at construction. Inside a component the
@@ -150,7 +187,11 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
      * are dropped from the queue and will never report back. */
     const pending = { left: null, right: null };
 
-    let fitted = false;
+    /* How much of the view has been fitted since the last refit: nothing, one
+     * map, or both. The second map's first arrival fits again, to the two of
+     * them; after that a show never moves the view - it would fight the
+     * mapper's own pan and zoom. */
+    let fittedMaps = 0;
 
     function paneFor(side) {
         if (!SIDES.includes(side))
@@ -174,7 +215,7 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
         // The layer was detached while this job sat in the queue - which happens
         // every time a side is reloaded. Counted rather than silent, so that
         // every tile taking this path shows up in the stats as a bug.
-        if (!map || !layer._ocadBounds) { stats.detached++; job.done(null, tile); return; }
+        if (!map) { stats.detached++; job.done(null, tile); return; }
 
         /* Leaflet prunes tiles as soon as the view moves past them, but a job
          * already queued would still be rendered - at hundreds of milliseconds
@@ -186,17 +227,11 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
         const key = layer._tileCoordsToKey(coords);
         if (!layer._tiles[key]) { stats.stale++; job.done(null, tile); return; }
 
-        const nwPoint = coords.scaleBy(size);
-        const sePoint = nwPoint.add(size);
-        const nw = map.unproject(nwPoint, coords.z);
-        const se = map.unproject(sePoint, coords.z);
+        const canvas = canvasOf(map, coords, size);
+        const e = layer._ocadExtent;
 
-        const minX = nw.lng, maxX = se.lng;
-        const minY = se.lat, maxY = nw.lat;        // lat decreases downwards
-        const b = layer._ocadBounds;
-
-        // Same bounding-box idea the renderer uses internally, one level up.
-        if (maxX < b.minX || minX > b.maxX || maxY < b.minY || minY > b.maxY) {
+        // Skipped without asking .NET when the map cannot reach this tile at all.
+        if (!e || canvas.maxX < e.minX || canvas.minX > e.maxX || canvas.maxY < e.minY || canvas.minY > e.maxY) {
             stats.outside++;
             job.done(null, tile);
             return;
@@ -205,32 +240,22 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
         /* Measured here rather than asked of .NET afterwards: wall time around the
          * boundary includes marshalling, and needs no state on the other side. */
         const started = performance.now();
-        const bytes = renderTile(layer._ocadKey, minX, minY, maxX - minX, maxY - minY, size.x);
+        const bytes = source.render(layer._ocadKey, onGround, canvas.minX, canvas.maxY, canvas.unitsPerPixel, size.x);
         const ms = performance.now() - started;
 
-        if (bytes) {
+        if (!bytes) {
+            // Only happens when the map behind this layer is no longer held.
+            stats.noMap++;
+        } else if (bytes.length === 0) {
+            // Inside the map's rectangle on the ground, but past its turned paper.
+            stats.outside++;
+        } else {
             stats.drawn++;
             stats.totalMs += ms;
             stats.maxMs = Math.max(stats.maxMs, ms);
-            const ctx = tile.getContext('2d');
-            ctx.putImageData(new ImageData(new Uint8ClampedArray(bytes), size.x, size.y), 0, 0);
-
-            /* The renderer paints paper white over the whole tile, including the
-             * part past the map's edge. Invisible on its own, but under a faded
-             * map it would wash out a background map in tile-shaped blocks that
-             * stop at the tile grid. Cleared, the paper ends where the map does. */
-            const perMm = size.x / (maxX - minX);
-            const left = Math.max(0, (b.minX - minX) * perMm);
-            const right = Math.min(size.x, (b.maxX - minX) * perMm);
-            const top = Math.max(0, (maxY - b.maxY) * perMm);
-            const bottom = Math.min(size.y, (maxY - b.minY) * perMm);
-            if (left > 0) ctx.clearRect(0, 0, Math.ceil(left), size.y);
-            if (right < size.x) ctx.clearRect(Math.floor(right), 0, size.x, size.y);
-            if (top > 0) ctx.clearRect(0, 0, size.x, Math.ceil(top));
-            if (bottom < size.y) ctx.clearRect(0, Math.floor(bottom), size.x, size.y);
-        } else {
-            // Only happens when the map behind this layer is no longer held.
-            stats.noMap++;
+            /* Transparent past the paper's edge, so a background under a faded
+             * map shows there rather than tile-shaped blocks of white. */
+            tile.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(bytes), size.x, size.y), 0, 0);
         }
         job.done(null, tile);
     }
@@ -241,7 +266,7 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
         initialize(mapKey, options) {
             L.GridLayer.prototype.initialize.call(this, options);
             this._ocadKey = mapKey;
-            this._ocadBounds = null;
+            this._ocadExtent = null;
 
             /* How many tiles this layer has asked for and how many have finished,
              * so that show() can say when the pane is drawn. */
@@ -285,7 +310,44 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
         }
     });
 
+    /* A change mask over one pane: an image drawn on the newer map's paper, put
+     * in place on each canvas by a transform .NET works out from that map's
+     * placement - turned and scaled with the map, wherever it lies. */
+    const MaskLayer = L.GridLayer.extend({
+        initialize(image, placeOn, options) {
+            L.GridLayer.prototype.initialize.call(this, options);
+            this._image = image;
+            this._placeOn = placeOn;
+        },
+
+        createTile(coords, done) {
+            const size = this.getTileSize();
+            const tile = document.createElement('canvas');
+            tile.width = size.x;
+            tile.height = size.y;
+
+            const canvas = canvasOf(this._map, coords, size);
+            const transform = this._placeOn(onGround, canvas.minX, canvas.maxY, canvas.unitsPerPixel, size.x);
+            this._image.then(img => {
+                if (img && transform) {
+                    const ctx = tile.getContext('2d');
+                    // Each mask pixel is a cell of change, not a photograph: kept sharp.
+                    ctx.imageSmoothingEnabled = false;
+                    ctx.setTransform(...transform);
+                    ctx.drawImage(img, 0, 0);
+                }
+                done(null, tile);
+            });
+            return tile;
+        }
+    });
+
     /* --------------------------------------------------------------- public */
+
+    /** The view a set of maps covers, in the coordinates now shown. */
+    function extentOf(keys) {
+        return keys.length ? source.extent(keys, onGround) : null;
+    }
 
     const handle = {
         /**
@@ -299,12 +361,12 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
          *
          * @param side 'left' or 'right'
          * @param mapKey the name the tile source holds it under
-         * @param bounds {minX, minY, maxX, maxY} in paper millimetres
          * @returns {Promise<void>} resolved when the pane is drawn, or when the
          *          pane is handed to another map and these tiles are abandoned
          */
-        show(side, mapKey, bounds) {
+        show(side, mapKey) {
             const map = paneFor(side);
+            const other = SIDES.find(s => s !== side);
 
             // Drop queued work for the layer being replaced, rather than letting
             // the pump grind through tiles for a map that is no longer shown.
@@ -314,9 +376,28 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
                 outgoing._ocadCheck = null;
                 outgoing.remove();
             }
+            layers[side] = null;
 
             // Those dropped tiles are what somebody was waiting for.
             settle(side);
+
+            /* Ground or paper is the pair's to decide. When it changes, the other
+             * pane's map moves to the other coordinates too: its tiles are drawn
+             * again, and the view is fitted afresh - the old one is somewhere else
+             * entirely now. */
+            const keys = [mapKey, layers[other]?._ocadKey].filter(Boolean);
+            const ground = source.canShowOnGround(keys);
+            if (ground !== onGround) {
+                onGround = ground;
+                fittedMaps = 0;
+                if (layers[other]) {
+                    layers[other]._ocadExtent = extentOf([layers[other]._ocadKey]);
+                    layers[other].redraw();
+                }
+                offerBackgrounds();
+            } else if (!outgoing) {
+                offerBackgrounds();
+            }
 
             /* Always re-measure before adding a layer. The ResizeObserver catches
              * later changes, but the first show often happens before the browser
@@ -325,22 +406,20 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
              * with no error and a perfectly healthy-looking layer. */
             for (const s of SIDES) maps[s].invalidateSize({ animate: false, pan: false });
 
-            /* Fit only on the first show, and only on one map - leaflet.sync
-             * mirrors it to the other. Re-fitting on every show fights the user's
-             * own zoom, and fitting both maps makes sync bounce the view back and
-             * forth, which prunes tiles mid-flight - measured at 113 stale tiles
-             * for every one drawn. */
-            if (!fitted) {
-                map.fitBounds(latLngBounds(bounds), { animate: false });
-                fitted = true;
+            /* Fit on one map only - leaflet.sync mirrors it to the other. Fitting
+             * both makes sync bounce the view back and forth, which prunes tiles
+             * mid-flight - measured at 113 stale tiles for every one drawn. */
+            if (fittedMaps < keys.length) {
+                const area = extentOf(keys);
+                if (area) map.fitBounds(latLngBounds(area), { animate: false });
+                fittedMaps = keys.length;
             }
 
             /* minZoom/maxZoom must be repeated here. GridLayer keeps its *own* zoom
-             * limits, defaulting to minZoom 0, and when the map's zoom rounds below
+             * limits, defaulting to 0 and 18, and when the map's zoom rounds past
              * them Leaflet sets _tileZoom to undefined and creates no tiles at all -
-             * no error, no warning, an attached layer and an empty map. A large map
-             * fits at a negative zoom, so this bites exactly on the files that
-             * matter most: 628 mm fitted into a 314 px pane is zoom -1. */
+             * no error, no warning, an attached layer and an empty map. A 1:4000
+             * map wants zooming well past 18. */
             const layer = new OcadTileLayer(mapKey, {
                 tileSize: TILE_SIZE,
                 noWrap: true,
@@ -348,14 +427,8 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
                 maxZoom: MAX_ZOOM,
                 opacity: opacities[side]
             });
-            layer._ocadBounds = { ...bounds };
+            layer._ocadExtent = extentOf([mapKey]);
             layers[side] = layer;
-
-            // The background follows the map: which web maps it can be laid on,
-            // and where their tiles go, are asked of the map now on this pane.
-            backgrounds[side].setMap(bounds.backgroundSources ?? null,
-                (sourceId, minX, maxY, mmPerPixel, pixels) =>
-                    background.tiles(mapKey, sourceId, minX, maxY, mmPerPixel, pixels));
 
             return new Promise(resolve => {
                 pending[side] = resolve;
@@ -391,16 +464,26 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
          * rectangle rather than per tile.
          *
          * @param url an object URL; the caller keeps ownership and revokes it
-         * @param bounds {minX, minY, maxX, maxY} in paper millimetres
+         * @param placeOn (onGround, minX, maxY, unitsPerPixel, pixels) =>
+         *        [a, b, c, d, e, f] from image pixels to a canvas's, or null
          */
-        setOverlay(side, url, bounds) {
+        setOverlay(side, url, placeOn) {
             const map = paneFor(side);
             clearOverlay(side);
 
-            overlays[side] = L.imageOverlay(
-                url, latLngBounds(bounds),
-                { interactive: false, className: 'changeMask' }
-            ).addTo(map);
+            const image = new Promise(resolve => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => resolve(null);
+                img.src = url;
+            });
+            overlays[side] = new MaskLayer(image, placeOn, {
+                pane: 'overlayPane',
+                tileSize: TILE_SIZE,
+                minZoom: MIN_ZOOM,
+                maxZoom: MAX_ZOOM,
+                className: 'changeMask'
+            }).addTo(map);
         },
 
         clearOverlays() {
@@ -423,12 +506,11 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
         /**
          * Lets the next show fit the view again, as the very first one did.
          *
-         * For a different project: its maps can sit anywhere on the paper, so
-         * keeping the last project's zoom and centre could leave both panes
-         * looking at empty paper.
+         * For a different project: its maps can lie anywhere, so keeping the last
+         * project's zoom and centre could leave both panes looking at nothing.
          */
         refit() {
-            fitted = false;
+            fittedMaps = 0;
         },
 
         /**
@@ -463,7 +545,7 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
     // Debugging handle. The maps are otherwise unreachable from the console, and
     // "no tiles appeared" is almost always a view or sizing question. The probes
     // in PLAN.md use it.
-    globalThis.__ocad = { maps, layers, stats, pump };
+    globalThis.__ocad = { maps, layers, stats, pump, get onGround() { return onGround; } };
 
     return handle;
 }

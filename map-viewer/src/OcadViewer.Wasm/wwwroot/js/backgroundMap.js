@@ -1,11 +1,17 @@
 /* A web map under an OCAD map, and the menu that picks it.
  *
  * Deliberately thin. Which web maps there are, which of their tiles lie under a
- * rectangle of paper and how each must be scaled and rotated to land in place
- * are all worked out in .NET (OcadViewer.Core's BackgroundMaps), from the map's
- * own georeference. This module is handed the list of sources and a function
- * that answers "what goes on this canvas?"; it fetches the images and draws them
- * where it is told.
+ * square of ground and how each must be scaled and rotated to land in place are
+ * all worked out in .NET (OcadViewer.Core's BackgroundMaps). This module is
+ * handed the list of sources and a function that answers "what goes on this
+ * canvas?"; it fetches the images and draws them where it is told.
+ *
+ * The map shows the ground in Web Mercator, so a canvas is given to .NET as its
+ * top-left corner in Web Mercator metres and the metres each pixel spans.
+ *
+ * Which web map is wanted is remembered apart from which one is shown: when the
+ * pane has no ground to lay it on - its maps are shown on paper - nothing is
+ * shown, and the wanted one comes back as soon as there is ground again.
  *
  * Fading the OCAD map is how the background shows through: the OCAD map is drawn
  * on opaque white paper, so a background under it is otherwise hidden wherever the
@@ -41,22 +47,24 @@ const DEFAULT_LABELS = Object.freeze({
 /**
  * Puts a background menu and layer on one Leaflet map.
  *
- * @param map the Leaflet map, in paper millimetres
- * @param options {minZoom, maxZoom, sources, onOpacity}: the paper zoom range,
- *        the same as the OCAD layer's; the web maps on offer as
- *        [{id, name, attribution}], in menu order; and a function told the
- *        opacity (0 to 1) the OCAD map should now have
- * @returns {{setMap: Function, setLabels: Function, dispose: Function}}
+ * @param map the Leaflet map, in Web Mercator
+ * @param options {minZoom, maxZoom, sources, initialSource, onOpacity, onChoose}:
+ *        the zoom range, the same as the OCAD layer's; the web maps on offer as
+ *        [{id, name, attribution}], in menu order; the one wanted until the
+ *        mapper picks another; a function told the opacity (0 to 1) the OCAD map
+ *        should now have; and one told the id the mapper picked in this menu
+ * @returns {{setMap: Function, select: Function, setLabels: Function, dispose: Function}}
  */
 export function createBackground(map, options) {
     const sources = new Map(options.sources.map(s => [s.id, s]));
     let labels = { ...DEFAULT_LABELS };
-    /* The ids of the sources the map on this pane can be laid on: null for a map
-     * with no georeference, undefined while the pane has no map at all. */
+    /* The ids of the sources there is ground for: null when the pane shows
+     * paper, undefined while the pane has no map at all. */
     let available;
-    /* (sourceId, minX, maxY, mmPerPixel, pixels) => [{url, size, transform}] for
-     * the map now on this pane. */
+    /* (sourceId, minX, maxY, metresPerPixel, pixels) => [{url, size, transform}]. */
     let tilesFor = null;
+    /* The web map the mapper wants, shown whenever there is ground for it. */
+    let wanted = sources.has(options.initialSource) ? options.initialSource : NONE;
     let source = NONE;
     let opacity = 1;
     let layer = null;
@@ -133,11 +141,12 @@ export function createBackground(map, options) {
             canvas.width = size.x;
             canvas.height = size.y;
 
-            const nw = map.unproject(coords.scaleBy(size), coords.z);
-            const se = map.unproject(coords.scaleBy(size).add(size), coords.z);
+            const crs = map.options.crs;
+            const nw = crs.project(map.unproject(coords.scaleBy(size), coords.z));
+            const se = crs.project(map.unproject(coords.scaleBy(size).add(size), coords.z));
             const tiles = source === NONE || !tilesFor
                 ? []
-                : tilesUnder(nw.lng, nw.lat, (se.lng - nw.lng) / size.x, size.x);
+                : tilesUnder(nw.x, nw.y, (se.x - nw.x) / size.x, size.x);
 
             Promise.all(tiles.map(tile => image(tile.url, tile.size).then(img => ({ tile, img }))))
                 .then(loaded => {
@@ -241,7 +250,11 @@ export function createBackground(map, options) {
             radio.name = `background-${L.stamp(map)}`;
             radio.checked = id === source;
             radio.disabled = id !== NONE && !offered(id);
-            radio.addEventListener('change', () => choose(id));
+            radio.addEventListener('change', () => {
+                wanted = id;
+                choose(id);
+                options.onChoose?.(id);
+            });
             const text = document.createElement('span');
             text.className = 'form-check-label';
             text.textContent = id === NONE ? labels.none : sources.get(id).name;
@@ -291,7 +304,7 @@ export function createBackground(map, options) {
     }
 
     const onConnectivity = () => {
-        if (!navigator.onLine) choose(NONE);
+        choose(navigator.onLine && offered(wanted) ? wanted : NONE);
         render();
     };
     window.addEventListener('online', onConnectivity);
@@ -301,19 +314,29 @@ export function createBackground(map, options) {
 
     return {
         /**
-         * Tells the background about the map now on this pane.
+         * Tells the background whether the pane shows ground it can lie on.
          *
-         * @param ids the sources it can be laid on, or null when it has no
-         *        georeference - which switches the background off
-         * @param tiles (sourceId, minX, maxY, mmPerPixel, pixels) =>
-         *        [{url, size, transform}]: what to draw on a canvas of this map
+         * @param ids the sources on offer, or null when the pane shows paper -
+         *        which takes the background off until there is ground again
+         * @param tiles (sourceId, minX, maxY, metresPerPixel, pixels) =>
+         *        [{url, size, transform}]: what to draw on a canvas
          */
         setMap(ids, tiles) {
             available = ids ? [...ids] : null;
             tilesFor = tiles;
-            if (source !== NONE && !offered(source)) choose(NONE);
+            const next = offered(wanted) ? wanted : NONE;
+            if (next !== source) choose(next);
             else layer?.redraw();
             render();
+        },
+
+        /**
+         * Shows the web map picked in another pane's menu: the panes lie on the
+         * same ground, so they share one. Not passed on again.
+         */
+        select(id) {
+            wanted = id;
+            choose(id);
         },
 
         /** The menu's words, in the page's language. */

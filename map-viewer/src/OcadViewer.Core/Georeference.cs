@@ -71,7 +71,7 @@ namespace OcadViewer.Core
         /// catches it, instead of as a TypeInitializationException that would stop
         /// every map from opening.
         /// </summary>
-        private static readonly Lazy<ProjectionInfo> Wgs84 = new(
+        internal static readonly Lazy<ProjectionInfo> Wgs84 = new(
             () => ProjectionInfo.FromProj4String("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"));
 
         /// <summary>
@@ -201,9 +201,17 @@ namespace OcadViewer.Core
         /// three points are never the same.
         /// </remarks>
         public static PaperTransform Fit(RectangleF bounds, Func<double, double, (double X, double Y)> project)
+            => Fit(bounds.Left, bounds.Top, bounds.Width, bounds.Height, project);
+
+        /// <summary>
+        /// <see cref="Fit(RectangleF, Func{double, double, ValueTuple{double, double}})"/>
+        /// in doubles, for rectangles a float cannot hold to the metre - Web
+        /// Mercator coordinates run to seven digits.
+        /// </summary>
+        public static PaperTransform Fit(double x0, double y0, double width, double height,
+                                         Func<double, double, (double X, double Y)> project)
         {
-            double x0 = bounds.Left, y0 = bounds.Top;
-            double w = Math.Max(bounds.Width, 1.0), h = Math.Max(bounds.Height, 1.0);
+            double w = Math.Max(width, 1.0), h = Math.Max(height, 1.0);
 
             (double X, double Y) p0 = project(x0, y0);
             (double X, double Y) px = project(x0 + w, y0);

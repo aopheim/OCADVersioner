@@ -28,8 +28,12 @@ import { paint, coverage } from './changeMask.js';
  */
 export async function createWorkspace(leftEl, rightEl) {
     const tiles = await createTileSource();
-    const view = createSyncedMaps(leftEl, rightEl, tiles.render,
-                                  { sources: tiles.backgroundSources(), tiles: tiles.backgroundTiles });
+    const view = createSyncedMaps(leftEl, rightEl, {
+        render: tiles.render,
+        canShowOnGround: tiles.canShowOnGround,
+        extent: tiles.extent,
+        background: { sources: tiles.backgroundSources(), tiles: tiles.backgroundOnGround }
+    });
 
     /* The change mask for one pair of parses: the bytes, the plan they were drawn
      * to, the image painted from them and how much they cover. Kept because
@@ -113,7 +117,7 @@ export async function createWorkspace(leftEl, rightEl) {
         if (view.showing()[side] !== mapName)
             takeDownOverlay();
 
-        return view.show(side, mapName, tiles.describe(mapName));
+        return view.show(side, mapName);
     }
 
     return {
@@ -223,10 +227,10 @@ export async function createWorkspace(leftEl, rightEl) {
                 throw new Error(`${newerName} is not on screen.`);
 
             view.clearOverlays();
-            view.setOverlay(side, changes.url, {
-                minX: changes.plan.minX, minY: changes.plan.minY,
-                maxX: changes.plan.maxX, maxY: changes.plan.maxY
-            });
+            // Compared on the paper, placed on the ground through the newer map.
+            const plan = changes.plan;
+            view.setOverlay(side, changes.url, (onGround, minX, maxY, unitsPerPixel, pixels) =>
+                tiles.maskToCanvas(newerName, onGround, plan, minX, maxY, unitsPerPixel, pixels));
 
             return {
                 shown: true,

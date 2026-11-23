@@ -104,6 +104,30 @@ namespace OcadViewer.Core
         }
 
         /// <summary>
+        /// The web tiles to draw on one square canvas of the ground, and where: a
+        /// canvas whose top-left corner is at <paramref name="minX"/>,
+        /// <paramref name="maxY"/> in Web Mercator metres.
+        /// </summary>
+        /// <remarks>
+        /// A Web Mercator source lies on the canvas as it is - only moved and
+        /// scaled. Any other grid is fitted to the canvas through its projection,
+        /// over this one canvas, so it bends no more than a screen tile's worth.
+        /// </remarks>
+        public static IReadOnlyList<BackgroundTile> TilesOnGround(BackgroundSource source, double minX, double maxY,
+                                                                  double metresPerPixel, int pixels)
+        {
+            double side = pixels * metresPerPixel;
+            PaperTransform toGrid = source.Grid == TileGrid.WebMercator
+                ? new PaperTransform(1, 0, 0, 0, 1, 0)
+                : Georeference.Fit(minX, maxY - side, side, side, (x, y) => {
+                    (double lon, double lat) = GroundPlacement.MercatorToLonLat(x, y);
+                    return source.Grid.Project(Georeference.Wgs84.Value, lon, lat);
+                });
+
+            return toGrid.IsUsable ? TilesUnder(source, toGrid, minX, maxY, metresPerPixel, pixels) : [];
+        }
+
+        /// <summary>
         /// Which tiles of a grid lie under a canvas, and at what zoom: the coarsest
         /// zoom whose pixels are no larger than the canvas's, so the background is
         /// as sharp as the screen without fetching more than it shows; coarser still
