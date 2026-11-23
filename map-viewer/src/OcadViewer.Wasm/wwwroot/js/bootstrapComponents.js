@@ -19,7 +19,36 @@ export function showModal(id) {
     const element = document.getElementById(id);
     if (!element || !globalThis.bootstrap?.Modal) return false;
 
-    globalThis.bootstrap.Modal.getOrCreateInstance(element).show();
+    const modal = globalThis.bootstrap.Modal.getOrCreateInstance(element);
+    shownModals.set(id, modal);
+    modal.show();
+    return true;
+}
+
+/* Modals opened through showModal, kept so they can still be closed after Blazor
+ * has removed their element. By the time a component's DisposeAsync runs, the
+ * element is gone from the document and getElementById finds nothing. */
+const shownModals = new Map();
+
+/**
+ * Closes and tears down a modal whose component is going away.
+ *
+ * Blazor's router follows an in-app link such as href="about" without a reload,
+ * and removes the modal's markup with the page. Bootstrap's backdrop, though, is
+ * appended to <body>, as are the modal-open class and the overflow it sets to
+ * stop scrolling; left alone they stay behind and cover the next page. Hiding the
+ * kept instance removes all of that, and works on a detached element because
+ * these modals have no fade, so Bootstrap tidies up synchronously.
+ */
+export function disposeModal(id) {
+    const element = document.getElementById(id);
+    const modal = shownModals.get(id)
+        ?? (element && globalThis.bootstrap?.Modal.getInstance(element));
+    shownModals.delete(id);
+    if (!modal) return false;
+
+    modal.hide();
+    modal.dispose();
     return true;
 }
 
