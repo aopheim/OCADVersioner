@@ -201,7 +201,10 @@ public static partial class TileInterop
         MaxY = map.Bounds.Bottom,
         ParseMs = map.ParseTime.TotalMilliseconds,
         Georeference = map.Georeference,
-        BackgroundSources = BackgroundMaps.AvailableFor(map.PaperToGrid)
+        BackgroundSources = BackgroundMaps.AvailableFor(map.PaperToGrid),
+        Ground = map.PaperToGrid?.TryGetValue(TileGrid.WebMercator.Name, out PaperTransform ground) == true
+            ? [ground.A, ground.B, ground.C, ground.D, ground.E, ground.F]
+            : null
     };
 
     private static string Write(MapSummary summary)

@@ -3,7 +3,7 @@
  * Maps are drawn in OCAD paper millimetres, so Leaflet uses L.CRS.Simple and paper
  * coordinates are Leaflet coordinates directly: lng = paper X, lat = paper Y. Tile
  * world rects come from map.unproject, which keeps the maths to four lines and lets
- * leaflet.sync work without knowing anything about the layer.
+ * the two panes be kept together without knowing anything about the layer.
  *
  * This module knows about Leaflet and nothing else. The tile renderer and the
  * scheduler are passed in; it does not import the .NET runtime, read files, or
@@ -35,6 +35,85 @@ function freshStats() {
  */
 function latLngBounds(area) {
     return L.latLngBounds(L.latLng(area.minY, area.minX), L.latLng(area.maxY, area.maxX));
+}
+
+/**
+ * A map's paper-to-ground transform if it can be used to line panes up: six
+ * finite numbers, and paper that is not squashed to a line. Otherwise null.
+ */
+function usableGround(ground) {
+    if (!Array.isArray(ground) || ground.length !== 6 || !ground.every(Number.isFinite))
+        return null;
+    const [a, b, , d, e] = ground;
+    return a * e - b * d !== 0 ? ground : null;
+}
+
+/**
+ * How to go from a point on one pane's paper to the same place on the other's.
+ *
+ * Each transform takes paper (x, y) to the same ground grid, so one pane's paper
+ * goes to the other's through the ground: forward on its own, back through the
+ * other's inverse. dz is the zoom to add for the same ground metres per pixel -
+ * under L.CRS.Simple a pixel is 2^-zoom millimetres, so a map whose millimetre
+ * covers twice the ground needs one zoom level less.
+ *
+ * With either map not georeferenced there is no ground to go through, and the
+ * panes line up on the paper, as they always used to.
+ *
+ * @param left  [A, B, C, D, E, F] or null; x' = Ax + By + C, y' = Dx + Ey + F
+ * @param right likewise
+ * @returns {{left: Function, right: Function}} from that side's paper (x, y)
+ *          to {x, y, dz} on the other side
+ */
+function alignmentOf(left, right) {
+    if (!left || !right) {
+        const same = (x, y) => ({ x, y, dz: 0 });
+        return { left: same, right: same };
+    }
+    return { left: through(left, right), right: through(right, left) };
+}
+
+function through(from, to) {
+    const [a, b, c, d, e, f] = from;
+    const [A, B, C, D, E, F] = to;
+    const det = A * E - B * D;
+
+    // Paper millimetres on `to` per paper millimetre on `from`, on the ground.
+    const ratio = Math.sqrt(Math.abs((a * e - b * d) / det));
+    const dz = -Math.log2(ratio);
+
+    return (x, y) => {
+        const gx = a * x + b * y + c - C;
+        const gy = d * x + e * y + f - F;
+        return { x: (E * gx - B * gy) / det, y: (A * gy - D * gx) / det, dz };
+    };
+}
+
+/** Whether Leaflet believes a map has an area to draw in. */
+function visible(map) {
+    const size = map.getSize();
+    return size.x > 0 && size.y > 0;
+}
+
+/**
+ * Runs fn with the map's 'viewprereset' listeners held back.
+ *
+ * Moving a map to a new zoom without an animation resets its view, and the reset
+ * tells every tile layer to throw its tiles away and start again. For a map that
+ * is following another through a pinch, that is a blank pane on every frame, and
+ * renders at hundreds of milliseconds a tile that never get shown. Without the
+ * event, the layers keep their tiles and scale them, as they do for an animated
+ * zoom. The same trick leaflet.sync used.
+ */
+function quietly(map, fn) {
+    const events = map._events;
+    const held = events?.viewprereset;
+    if (held) events.viewprereset = [];
+    try {
+        return fn();
+    } finally {
+        if (held) events.viewprereset = held;
+    }
 }
 
 /**
@@ -71,10 +150,101 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
 
     const maps = { left: makeMap(leftEl), right: makeMap(rightEl) };
 
-    // Leaflet refuses to sync maps with no view; the first show replaces this.
+    // Every map needs a view before it can be asked for one; the first show replaces this.
     for (const side of SIDES) maps[side].setView([0, 0], 0);
-    maps.left.sync(maps.right);
-    maps.right.sync(maps.left);
+
+    /* Each pane's paper on the ground, as the map's summary gave it, or null for
+     * a map that is not georeferenced - and the alignment that follows from the
+     * pair: how to go from one pane's paper to the other's. */
+    const grounds = { left: null, right: null };
+    let alignment = alignmentOf(null, null);
+
+    /* Keeping the two panes on the same place.
+     *
+     * Not leaflet.sync. That copies a view from one map to the other unchanged,
+     * which is right only when both versions sit at the same place on the paper -
+     * and a mapper moves, rotates and rescales a map between versions. Here the
+     * centre is carried through both georeferences, so the panes show the same
+     * point on the ground, and the zoom is offset by the scale ratio, so they
+     * show the same ground metres per pixel.
+     *
+     * Either map can lead: whichever moves, the other follows. `following` stops
+     * a map that is being moved to match from moving the first one in turn, and
+     * the tolerance stops two maps that already agree to within rounding from
+     * nudging each other for ever after an animation ends on each. */
+    let following = false;
+
+    function follow(from, center = maps[from].getCenter(), zoom = maps[from].getZoom(), animate = false) {
+        if (following) return;
+
+        const to = SIDES.find(s => s !== from);
+        const target = maps[to];
+        const leader = maps[from];
+
+        // A hidden pane is put right by the resize observer when it reappears.
+        if (!visible(leader) || !visible(target)) return;
+        // Mid-animation, a setView would cut it short; it catches up when it ends.
+        if (target._animatingZoom) return;
+
+        const { x, y, dz } = alignment[from](center.lng, center.lat);
+        const goal = L.latLng(y, x);
+        const goalZoom = target._limitZoom(zoom + dz);
+
+        if (Math.abs(target.getZoom() - goalZoom) < 1e-6) {
+            const off = target.project(goal, goalZoom).subtract(target.project(target.getCenter(), goalZoom));
+            if (Math.abs(off.x) < 0.5 && Math.abs(off.y) < 0.5) return;
+        }
+
+        following = true;
+        try {
+            quietly(target, () => target.setView(goal, goalZoom, { animate }));
+        } finally {
+            following = false;
+        }
+    }
+
+    /* Tells Leaflet a map's real size without the other map following.
+     *
+     * invalidateSize keeps the top-left corner where it was, so the centre moves
+     * and the map fires 'move'. For a pane coming back from hidden that move is
+     * from wherever it was left, and following it would drag the visible pane
+     * there; whoever calls this decides who leads afterwards. */
+    function remeasure(map) {
+        const was = following;
+        following = true;
+        try {
+            map.invalidateSize({ animate: false, pan: false });
+        } finally {
+            following = was;
+        }
+    }
+
+    /* Which pane the mapper last laid a hand on. Only that one leads by its own
+     * movement. Otherwise a pane that cannot zoom as far as its partner - a
+     * 1:15000 version beside a 1:4000 one - would end its animation at its limit
+     * and pull the pane the mapper is zooming back to match it. Moves made in
+     * code, which no hand started, name their leader by calling follow. */
+    let leading = null;
+
+    for (const side of SIDES) {
+        const el = maps[side].getContainer();
+        for (const type of ['pointerdown', 'wheel', 'keydown', 'touchstart'])
+            el.addEventListener(type, () => { leading = side; }, { capture: true, passive: true });
+
+        const lead = (...args) => { if (leading === null || leading === side) follow(side, ...args); };
+
+        /* 'move' covers drags, inertia, pans and the end of every zoom; 'zoom'
+         * covers pinches, which move the view without a 'move' until they end.
+         * 'zoomanim' starts the partner's own zoom animation alongside, so the
+         * two zoom together instead of one jumping a quarter-second later. */
+        maps[side].on('move zoom', () => lead());
+        maps[side].on('zoomanim', e => lead(e.center, e.zoom, true));
+
+        /* A follower animating its own zoom skips the leader's last word - the
+         * leader often lands first - and would stay where its animation was
+         * aimed, a pixel or so off. When it stops, it catches up once more. */
+        maps[side].on('moveend', () => { if (leading && leading !== side) follow(leading); });
+    }
 
     /* A web map under each pane, with its own menu. Per pane, because the two
      * maps can be different versions with different georeferences, and the
@@ -125,18 +295,12 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
             if (believed.x === w && believed.y === h) continue;
 
             const wasHidden = believed.x === 0 || believed.y === 0;
-            map.invalidateSize({ animate: false, pan: false });
+            remeasure(map);
 
-            /* A hidden map is still synced, but leaflet.sync places it using its
-             * 0x0 size, and invalidateSize({pan: false}) keeps that wrong pixel
-             * origin - so it comes back looking at a different place from its
-             * partner. Put it back where the visible map is. */
-            if (wasHidden) {
-                const partner = maps[SIDES.find(s => s !== side)];
-                const partnerSize = partner.getSize();
-                if (partnerSize.x > 0 && partnerSize.y > 0)
-                    map.setView(partner.getCenter(), partner.getZoom(), { animate: false });
-            }
+            /* A hidden map is not followed while it is hidden, so it comes back
+             * looking wherever it was left: put it back where the visible map is.
+             * A map that was only resized has moved its centre, and leads. */
+            follow(wasHidden ? SIDES.find(s => s !== side) : side);
         }
     });
     for (const side of SIDES) resizeObserver.observe(maps[side].getContainer());
@@ -323,16 +487,29 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
              * has laid the component out, and a map that still believes it is 0x0
              * decides no tiles are in view and draws nothing at all - silently,
              * with no error and a perfectly healthy-looking layer. */
-            for (const s of SIDES) maps[s].invalidateSize({ animate: false, pan: false });
+            for (const s of SIDES) remeasure(maps[s]);
 
-            /* Fit only on the first show, and only on one map - leaflet.sync
-             * mirrors it to the other. Re-fitting on every show fights the user's
-             * own zoom, and fitting both maps makes sync bounce the view back and
-             * forth, which prunes tiles mid-flight - measured at 113 stale tiles
-             * for every one drawn. */
+            // This map's place on the ground decides how the panes line up from now on.
+            grounds[side] = usableGround(bounds.ground);
+            alignment = alignmentOf(grounds.left, grounds.right);
+
+            /* Fit only on the first show, and only on one map - the other follows.
+             * Re-fitting on every show fights the user's own zoom, and fitting
+             * both maps bounces the view back and forth, which prunes tiles
+             * mid-flight - measured at 113 stale tiles for every one drawn.
+             *
+             * Every later show puts this pane where its partner is looking: a
+             * different version can sit somewhere else on the paper, and keeping
+             * this pane's old paper view would show a different place. */
+            const other = SIDES.find(s => s !== side);
             if (!fitted) {
                 map.fitBounds(latLngBounds(bounds), { animate: false });
                 fitted = true;
+                follow(side);
+            } else if (layers[other]) {
+                follow(other);
+            } else {
+                follow(side);
             }
 
             /* minZoom/maxZoom must be repeated here. GridLayer keeps its *own* zoom

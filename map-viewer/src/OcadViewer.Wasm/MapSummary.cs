@@ -38,4 +38,17 @@ public sealed record MapSummary
     /// usable georeference, so no background at all.
     /// </summary>
     public string[] BackgroundSources { get; init; }
+
+    /// <summary>
+    /// Where the paper is on the ground: paper millimetres to Web Mercator metres,
+    /// as <c>[A, B, C, D, E, F]</c> with <c>x' = A·x + B·y + C</c> and
+    /// <c>y' = D·x + E·y + F</c>. Null when the map has no usable georeference.
+    /// </summary>
+    /// <remarks>
+    /// What lets the split view show two versions at the same place on the
+    /// ground: each is placed on one shared grid, whatever grid its own file
+    /// uses. Web Mercator because every usable georeference reaches it, and its
+    /// stretch with latitude is the same for two maps of the same place.
+    /// </remarks>
+    public double[] Ground { get; init; }
 }

@@ -16,8 +16,8 @@
     is where Angular says it.
 *@
 @*
-    Both panes are always on the page, even when only one is shown: Leaflet and
-    leaflet.sync are built over two elements once, and a hidden pane keeps its
+    Both panes are always on the page, even when only one is shown: the two
+    Leaflet maps are built over two elements once, and a hidden pane keeps its
     map, so showing it again costs nothing and loses nothing.
 *@
 <div class="row g-1 mapPair @(Fill ? "fill" : "") @(OnlySide is null ? "" : "single")">
