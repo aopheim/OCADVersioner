@@ -65,8 +65,14 @@ namespace OcadViewer.Core
         /// <summary>The sphere Web Mercator is drawn on.</summary>
         private const double MercatorRadius = 6378137.0;
 
-        private static readonly ProjectionInfo Wgs84 =
-            ProjectionInfo.FromProj4String("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs");
+        /// <summary>
+        /// Parsed on first use rather than when the class is first touched: a
+        /// projection DotSpatial cannot read then throws where <see cref="Of"/>
+        /// catches it, instead of as a TypeInitializationException that would stop
+        /// every map from opening.
+        /// </summary>
+        private static readonly Lazy<ProjectionInfo> Wgs84 = new(
+            () => ProjectionInfo.FromProj4String("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"));
 
         /// <summary>
         /// Paper millimetres to each tile grid for a map, keyed by grid name, or
@@ -114,7 +120,8 @@ namespace OcadViewer.Core
                         transforms.Add(target.Name, fitted);
                 }
                 catch (Exception) {
-                    // DotSpatial could read the projection but not apply it: leave this grid out.
+                    // DotSpatial could not read the grid's projection, or not apply
+                    // the map's to it: leave this grid out.
                 }
             }
 
@@ -133,17 +140,24 @@ namespace OcadViewer.Core
         internal static (double X, double Y) ToWebMercator(ProjectionInfo source, double x, double y)
         {
             double[] xy = [x, y];
-            Reproject.ReprojectPoints(xy, [0.0], source, Wgs84, 0, 1);
+            Reproject.ReprojectPoints(xy, [0.0], source, Wgs84.Value, 0, 1);
             return LonLatToMercator(xy[0], xy[1]);
         }
 
         /// <summary>A point on a map's grid to the projection <paramref name="proj4"/> describes.</summary>
+        /// <remarks>
+        /// <paramref name="proj4"/> is parsed on first use, not here: this is called
+        /// from <see cref="TileGrid"/>'s static fields, and a parse that failed there
+        /// would make the whole class unusable. A failure on first use is thrown
+        /// to the caller, every time it is asked, and <see cref="Of"/> leaves that
+        /// grid out.
+        /// </remarks>
         internal static Func<ProjectionInfo, double, double, (double X, double Y)> ToProjection(string proj4)
         {
-            ProjectionInfo target = ProjectionInfo.FromProj4String(proj4);
+            var target = new Lazy<ProjectionInfo>(() => ProjectionInfo.FromProj4String(proj4));
             return (source, x, y) => {
                 double[] xy = [x, y];
-                Reproject.ReprojectPoints(xy, [0.0], source, target, 0, 1);
+                Reproject.ReprojectPoints(xy, [0.0], source, target.Value, 0, 1);
                 return (xy[0], xy[1]);
             };
         }
