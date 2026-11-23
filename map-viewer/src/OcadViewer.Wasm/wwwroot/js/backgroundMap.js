@@ -111,6 +111,21 @@ export function createBackground(map, options) {
         cachedPixels -= entry.pixels;
     }
 
+    /**
+     * What .NET says goes on one canvas, or nothing if asking it failed. Thrown
+     * out of createTile, an error would stop Leaflet partway through laying out
+     * the canvases, leaving the rest of the pane's background undrawn and its
+     * load event never fired; a blank canvas is the lesser harm.
+     */
+    function tilesUnder(minX, maxY, mmPerPixel, pixels) {
+        try {
+            return tilesFor(source, minX, maxY, mmPerPixel, pixels);
+        } catch (error) {
+            console.error('Could not work out the background tiles for a canvas.', error);
+            return [];
+        }
+    }
+
     const BackgroundLayer = L.GridLayer.extend({
         createTile(coords, done) {
             const size = this.getTileSize();
@@ -122,7 +137,7 @@ export function createBackground(map, options) {
             const se = map.unproject(coords.scaleBy(size).add(size), coords.z);
             const tiles = source === NONE || !tilesFor
                 ? []
-                : tilesFor(source, nw.lng, nw.lat, (se.lng - nw.lng) / size.x, size.x);
+                : tilesUnder(nw.lng, nw.lat, (se.lng - nw.lng) / size.x, size.x);
 
             Promise.all(tiles.map(tile => image(tile.url, tile.size).then(img => ({ tile, img }))))
                 .then(loaded => {
