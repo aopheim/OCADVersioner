@@ -98,6 +98,15 @@ public static partial class TileInterop
     }
 
     /// <summary>
+    /// What to add to a point on <paramref name="fromKey"/>'s paper, in
+    /// millimetres, to show the same area of <paramref name="toKey"/>'s map, as
+    /// <c>[x, y]</c>; <c>null</c> when either is not held.
+    /// </summary>
+    [JSExport]
+    internal static double[] PaneOffset(int store, string fromKey, string toKey)
+        => StoreFor(store).PaneOffset(fromKey, toKey) is (double x, double y) ? [x, y] : null;
+
+    /// <summary>
     /// Draws a square tile of <paramref name="key"/>'s map as raw RGBA.
     /// </summary>
     /// <returns><c>null</c> when no map is held under that name - which happens

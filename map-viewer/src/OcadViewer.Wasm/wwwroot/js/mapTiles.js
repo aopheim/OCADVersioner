@@ -53,6 +53,16 @@ export async function createTileSource() {
             return JSON.parse(interop.Describe(store, key));
         },
 
+        /**
+         * What to add to a point on one map's paper to show the same area of the
+         * other, in millimetres.
+         * @returns {{x: number, y: number}|null} null when either is not held
+         */
+        paneOffset(fromKey, toKey) {
+            const offset = interop.PaneOffset(store, fromKey, toKey);
+            return offset ? { x: offset[0], y: offset[1] } : null;
+        },
+
         /** Raw RGBA for one square tile, or null if that map is no longer held. */
         render(key, minX, minY, width, height, pixels) {
             return interop.RenderTile(store, key, minX, minY, width, height, pixels);

@@ -71,10 +71,21 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
 
     const maps = { left: makeMap(leftEl), right: makeMap(rightEl) };
 
+    /* Where the right pane looks relative to the left, in paper millimetres:
+     * the two versions can sit at different places on the paper. Worked out in
+     * .NET and handed over by align(); zero shows both at the same paper point. */
+    let offset = { x: 0, y: 0 };
+
+    /** A point on one pane's paper, moved to the same place on the other's. */
+    function across(from, latlng) {
+        const sign = from === 'left' ? 1 : -1;
+        return L.latLng(latlng.lat + sign * offset.y, latlng.lng + sign * offset.x);
+    }
+
     // Leaflet refuses to sync maps with no view; the first show replaces this.
     for (const side of SIDES) maps[side].setView([0, 0], 0);
-    maps.left.sync(maps.right);
-    maps.right.sync(maps.left);
+    maps.left.sync(maps.right, { offsetFn: center => across('left', center) });
+    maps.right.sync(maps.left, { offsetFn: center => across('right', center) });
 
     /* A web map under each pane, with its own menu. Per pane, because the two
      * maps can be different versions with different georeferences, and the
@@ -132,10 +143,11 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
              * origin - so it comes back looking at a different place from its
              * partner. Put it back where the visible map is. */
             if (wasHidden) {
-                const partner = maps[SIDES.find(s => s !== side)];
+                const other = SIDES.find(s => s !== side);
+                const partner = maps[other];
                 const partnerSize = partner.getSize();
                 if (partnerSize.x > 0 && partnerSize.y > 0)
-                    map.setView(partner.getCenter(), partner.getZoom(), { animate: false });
+                    map.setView(across(other, partner.getCenter()), partner.getZoom(), { animate: false });
             }
         }
     });
@@ -375,6 +387,34 @@ export function createSyncedMaps(leftEl, rightEl, renderTile, background) {
                  * to wait for and is settled here. */
                 layer._ocadCheck();
             });
+        },
+
+        /**
+         * Sets how far the right pane looks from the left, and puts one pane
+         * where that says it should be, opposite the other.
+         *
+         * Called before a pane is given a different map: that pane moves, and
+         * the one the mapper was looking at stays put. A pane opposite one that
+         * shows nothing yet has nowhere to go, and stays.
+         *
+         * @param side the pane to move
+         * @param mapKey the map it is about to show
+         * @param offsetOf (fromKey, toKey) => {x, y} in paper millimetres, or
+         *        null; asked from the left pane's map to the right's
+         */
+        align(side, mapKey, offsetOf) {
+            paneFor(side);
+            const other = SIDES.find(s => s !== side);
+
+            const keys = { [side]: mapKey, [other]: layers[other]?._ocadKey ?? null };
+            offset = (keys.left && keys.right ? offsetOf(keys.left, keys.right) : null) ?? { x: 0, y: 0 };
+
+            const partner = maps[other];
+            if (!layers[other] || partner.getSize().x === 0) return;
+
+            /* Leaflet.sync would move the partner back to match, through the
+             * same offset - so it lands where it already is. */
+            maps[side].setView(across(other, partner.getCenter()), partner.getZoom(), { animate: false });
         },
 
         /** Which map each side is showing, by name. */

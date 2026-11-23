@@ -228,6 +228,18 @@ namespace OcadViewer.Core
         }
 
         /// <summary>
+        /// What to add to a point on <paramref name="fromKey"/>'s paper to show the
+        /// same area of <paramref name="toKey"/>'s map: see <see cref="PaneAlignment"/>.
+        /// <c>null</c> when either map is not held.
+        /// </summary>
+        public (double X, double Y)? PaneOffset(string fromKey, string toKey)
+        {
+            StoredMap from = Get(fromKey);
+            StoredMap to = Get(toKey);
+            return from is null || to is null ? null : PaneAlignment.Offset(from.Bounds, to.Bounds);
+        }
+
+        /// <summary>
         /// The web tiles of a background map to draw on one square canvas over
         /// <paramref name="key"/>'s map, and where. Empty when the map is not held,
         /// the source is unknown, or the map cannot be placed on the source's grid.

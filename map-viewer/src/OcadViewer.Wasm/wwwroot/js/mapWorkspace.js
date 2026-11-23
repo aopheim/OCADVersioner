@@ -110,8 +110,13 @@ export async function createWorkspace(leftEl, rightEl) {
     function draw(side, mapName) {
         // A different version in a pane makes a different pair: the overlay on
         // screen is the last pair's changes, not these.
-        if (view.showing()[side] !== mapName)
+        const showing = view.showing();
+        if (showing[side] !== mapName)
             takeDownOverlay();
+
+        // How far apart the two versions sit on the paper is .NET's to say;
+        // this pane moves to match the other before it draws anything.
+        view.align(side, mapName, tiles.paneOffset);
 
         return view.show(side, mapName, tiles.describe(mapName));
     }
