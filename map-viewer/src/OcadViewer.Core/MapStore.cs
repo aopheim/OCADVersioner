@@ -15,7 +15,8 @@ namespace OcadViewer.Core
     {
         internal StoredMap(string key, int loadId, Map map, RectangleF bounds, int formatVersion,
                            TimeSpan parseTime, string georeference,
-                           IReadOnlyDictionary<string, PaperTransform> paperToGrid)
+                           IReadOnlyDictionary<string, PaperTransform> paperToGrid,
+                           GroundPlacement ground)
         {
             Key = key;
             LoadId = loadId;
@@ -24,6 +25,7 @@ namespace OcadViewer.Core
             ParseTime = parseTime;
             Georeference = georeference;
             PaperToGrid = paperToGrid;
+            Ground = ground;
             Map = map;
         }
 
@@ -57,6 +59,13 @@ namespace OcadViewer.Core
         /// <c>null</c> when it has none that can be used.
         /// </summary>
         public IReadOnlyDictionary<string, PaperTransform> PaperToGrid { get; }
+
+        /// <summary>
+        /// Where the paper lies on the ground, read from the file's georeference;
+        /// <c>null</c> when it has none that can be used, and the map can only be
+        /// shown on its own paper.
+        /// </summary>
+        public GroundPlacement Ground { get; }
 
         internal Map Map { get; }
 
@@ -207,7 +216,9 @@ namespace OcadViewer.Core
 
             var stored = new StoredMap(key, ++loads, loaded.Map, bounds, loaded.Format.version,
                                        loaded.ParseTime, GeoreferenceOf(loaded.Map),
-                                       Georeference.Of(loaded.Map, bounds));
+                                       Georeference.Of(loaded.Map, bounds),
+                                       GroundPlacement.Of(loaded.Map, bounds.X + bounds.Width / 2.0,
+                                                          bounds.Y + bounds.Height / 2.0));
 
             Unload(key);
             maps.Add(key, stored);
@@ -227,25 +238,133 @@ namespace OcadViewer.Core
             return stored;
         }
 
+        /* ------------------------------------------------------ on the ground */
+
         /// <summary>
-        /// The web tiles of a background map to draw on one square canvas over
-        /// <paramref name="key"/>'s map, and where. Empty when the map is not held,
-        /// the source is unknown, or the map cannot be placed on the source's grid.
+        /// Whether these maps can be shown together on the ground: every one of
+        /// them held and georeferenced. If one cannot be placed, none is - they
+        /// are then shown on their own paper, which at least lines them up there.
         /// </summary>
-        /// <param name="minX">The canvas's left edge, in paper millimetres.</param>
-        /// <param name="maxY">The canvas's top edge, in paper millimetres.</param>
-        /// <param name="mmPerPixel">Paper millimetres per canvas pixel.</param>
-        /// <param name="pixels">Canvas pixels along a side.</param>
-        public IReadOnlyList<BackgroundTile> BackgroundTiles(string key, string sourceId, double minX, double maxY,
-                                                             double mmPerPixel, int pixels)
+        public bool CanShowOnGround(IEnumerable<string> keys)
+        {
+            bool any = false;
+            foreach (string key in keys) {
+                if (Get(key)?.Ground is null)
+                    return false;
+                any = true;
+            }
+            return any;
+        }
+
+        /// <summary>
+        /// The area a set of maps covers in the viewer's coordinates - Web
+        /// Mercator metres on the ground, or paper millimetres - as
+        /// <c>(minX, minY, maxX, maxY)</c>; <c>null</c> when none of them is held.
+        /// </summary>
+        /// <remarks>What the first view is fitted to, so every map shown is in it.</remarks>
+        public (double MinX, double MinY, double MaxX, double MaxY)? Extent(IEnumerable<string> keys, bool onGround)
+        {
+            (double MinX, double MinY, double MaxX, double MaxY)? all = null;
+            foreach (string key in keys) {
+                StoredMap map = Get(key);
+                if (map is null)
+                    continue;
+
+                var one = GroundView.GroundExtent(PlacementOf(map, onGround), map.Bounds);
+                all = all is { } sofar
+                    ? (Math.Min(sofar.MinX, one.MinX), Math.Min(sofar.MinY, one.MinY),
+                       Math.Max(sofar.MaxX, one.MaxX), Math.Max(sofar.MaxY, one.MaxY))
+                    : one;
+            }
+            return all;
+        }
+
+        /// <summary>
+        /// Draws what of <paramref name="key"/>'s map lies under one square canvas,
+        /// turned and scaled to where it lies on the ground (or on its paper).
+        /// </summary>
+        /// <param name="onGround">Whether the viewer is showing the ground; when not, Web Mercator metres stand for paper millimetres.</param>
+        /// <param name="minX">The canvas's left edge, in the viewer's coordinates.</param>
+        /// <param name="maxY">The canvas's top edge.</param>
+        /// <param name="unitsPerPixel">The viewer's units per canvas pixel.</param>
+        /// <param name="pixels">Canvas pixels on a side.</param>
+        /// <returns>
+        /// <c>null</c> when nothing is held under that name; an empty tile when the
+        /// map has nothing under this canvas, so the page draws nothing at all.
+        /// </returns>
+        public RenderedTile RenderOnGround(string key, bool onGround, double minX, double maxY,
+                                           double unitsPerPixel, int pixels)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(pixels, 1);
+
+            StoredMap stored = Get(key);
+            if (stored is null)
+                return null;
+
+            var stopwatch = Stopwatch.StartNew();
+            Affine canvasToPaper = GroundView.CanvasToPaper(PlacementOf(stored, onGround), minX, maxY,
+                                                            unitsPerPixel, pixels);
+            if (!canvasToPaper.IsUsable || !GroundView.PaperUnder(canvasToPaper, pixels).IntersectsWith(stored.Bounds))
+                return new RenderedTile([], pixels, stopwatch.Elapsed);
+
+            MapRenderResult result = MapRenderer.RenderThrough(stored.Map, canvasToPaper.Invert(), stored.Bounds,
+                                                                pixels, Settings);
+            stopwatch.Stop();
+
+            using SKBitmap bitmap = result.Bitmap;
+            return new RenderedTile(ToStraightRgba(bitmap, pixels), pixels, stopwatch.Elapsed);
+        }
+
+        /// <summary>
+        /// Where a change mask lands on one canvas: mask pixels to canvas pixels, as
+        /// <c>setTransform</c> takes them. The mask is drawn on the newer map's
+        /// paper, so it is placed through the newer map. <c>null</c> when it is not held.
+        /// </summary>
+        public Affine? MaskToCanvas(string newerKey, bool onGround, ChangeMaskPlan plan,
+                                    double minX, double maxY, double unitsPerPixel, int pixels)
+        {
+            StoredMap newer = Get(newerKey);
+            if (newer is null || plan is null)
+                return null;
+
+            Affine toCanvas = GroundView.MaskToCanvas(PlacementOf(newer, onGround), plan.Area, plan.Width, plan.Height,
+                                                      minX, maxY, unitsPerPixel, pixels);
+            return toCanvas.IsUsable ? toCanvas : null;
+        }
+
+        /// <summary>
+        /// The web tiles of a background map to draw on one square canvas of the
+        /// ground, and where. The ground is the same under every map, so no map is asked.
+        /// </summary>
+        public static IReadOnlyList<BackgroundTile> BackgroundOnGround(string sourceId, double minX, double maxY,
+                                                                       double metresPerPixel, int pixels)
         {
             BackgroundSource source = BackgroundMaps.Find(sourceId);
-            StoredMap map = Get(key);
-            if (source is null || map?.PaperToGrid is null
-                || !map.PaperToGrid.TryGetValue(source.Grid.Name, out PaperTransform toGrid))
-                return [];
+            return source is null ? [] : BackgroundMaps.TilesOnGround(source, minX, maxY, metresPerPixel, pixels);
+        }
 
-            return BackgroundMaps.TilesUnder(source, toGrid, minX, maxY, mmPerPixel, pixels);
+        private static GroundPlacement PlacementOf(StoredMap map, bool onGround)
+            => onGround && map.Ground is not null ? map.Ground : GroundPlacement.Paper;
+
+        /// <summary>
+        /// Straight RGBA, as ImageData wants it, from a bitmap that may be
+        /// transparent past the map's edge. Skia draws premultiplied, and the
+        /// anti-aliased edge of the paper would come out darker if passed on as it is.
+        /// </summary>
+        private static byte[] ToStraightRgba(SKBitmap bitmap, int pixels)
+        {
+            var info = new SKImageInfo(pixels, pixels, SKColorType.Rgba8888, SKAlphaType.Unpremul);
+            byte[] rgba = new byte[info.BytesSize];
+            GCHandle pinned = GCHandle.Alloc(rgba, GCHandleType.Pinned);
+            try {
+                using SKPixmap pixmap = bitmap.PeekPixels();
+                if (pixmap is null || !pixmap.ReadPixels(info, pinned.AddrOfPinnedObject(), info.RowBytes, 0, 0))
+                    throw new InvalidOperationException("Could not read the rendered tile back.");
+            }
+            finally {
+                pinned.Free();
+            }
+            return rgba;
         }
 
         /// <summary>Forgets <paramref name="key"/>. Returns whether it was there.</summary>
@@ -260,26 +379,6 @@ namespace OcadViewer.Core
             return true;
         }
 
-        /// <summary>
-        /// Draws <paramref name="area"/> of <paramref name="key"/>'s map as a square
-        /// tile <paramref name="pixels"/> on a side.
-        /// </summary>
-        /// <returns><c>null</c> when nothing is held under that name.</returns>
-        public RenderedTile Render(string key, RectangleF area, int pixels)
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThan(pixels, 1);
-
-            StoredMap stored = Get(key);
-            if (stored is null)
-                return null;
-
-            var stopwatch = Stopwatch.StartNew();
-            MapRenderResult result = MapRenderer.Render(stored.Map, area, pixels, pixels, Settings);
-            stopwatch.Stop();
-
-            using SKBitmap bitmap = result.Bitmap;
-            return new RenderedTile(ToRgba(bitmap, pixels), pixels, stopwatch.Elapsed);
-        }
 
         /// <summary>
         /// Where the two versions differ, pixel by pixel, over the rectangle and
@@ -417,20 +516,6 @@ namespace OcadViewer.Core
             return new ChangeMaskPlan(width, height, area);
         }
 
-        /// <summary>
-        /// ImageData wants straight RGBA. Skia's native layout varies by platform,
-        /// so convert rather than assume - but skip the copy when it already matches.
-        /// </summary>
-        private static byte[] ToRgba(SKBitmap bitmap, int pixels)
-        {
-            if (bitmap.ColorType == SKColorType.Rgba8888)
-                return bitmap.Bytes;
-
-            using var rgba = new SKBitmap(
-                new SKImageInfo(pixels, pixels, SKColorType.Rgba8888, SKAlphaType.Unpremul));
-
-            return bitmap.CopyTo(rgba, SKColorType.Rgba8888) ? rgba.Bytes : bitmap.Bytes;
-        }
 
         private static string GeoreferenceOf(Map map)
         {

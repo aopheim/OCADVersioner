@@ -98,17 +98,55 @@ public static partial class TileInterop
     }
 
     /// <summary>
-    /// Draws a square tile of <paramref name="key"/>'s map as raw RGBA.
+    /// Whether these maps can be shown together on the ground - all held and
+    /// georeferenced - rather than on their own paper.
     /// </summary>
-    /// <returns><c>null</c> when no map is held under that name - which happens
-    /// legitimately when a tile is drawn just after its map was evicted, or after
-    /// its store was disposed.</returns>
     [JSExport]
-    internal static byte[] RenderTile(int store, string key, double minX, double minY,
-                                      double width, double height, int pixels)
+    internal static bool CanShowOnGround(int store, string[] keys) => StoreFor(store).CanShowOnGround(keys);
+
+    /// <summary>
+    /// The area these maps cover in the viewer's coordinates, as
+    /// <c>[minX, minY, maxX, maxY]</c>; <c>null</c> when none of them is held.
+    /// </summary>
+    [JSExport]
+    internal static double[] Extent(int store, string[] keys, bool onGround)
+        => StoreFor(store).Extent(keys, onGround) is var (minX, minY, maxX, maxY) ? [minX, minY, maxX, maxY] : null;
+
+    /// <summary>
+    /// Draws what of <paramref name="key"/>'s map lies under one square canvas,
+    /// as straight RGBA, transparent where the map is not.
+    /// </summary>
+    /// <param name="onGround">Whether the viewer shows the ground (Web Mercator metres) or paper.</param>
+    /// <param name="minX">The canvas's left edge, in the viewer's coordinates.</param>
+    /// <param name="maxY">The canvas's top edge.</param>
+    /// <param name="unitsPerPixel">The viewer's units per canvas pixel.</param>
+    /// <returns>
+    /// <c>null</c> when no map is held under that name - which happens
+    /// legitimately when a tile is drawn just after its map was evicted, or after
+    /// its store was disposed. Empty when the map has nothing under this canvas.
+    /// </returns>
+    [JSExport]
+    internal static byte[] RenderOnGround(int store, string key, bool onGround, double minX, double maxY,
+                                          double unitsPerPixel, int pixels)
         => Stores.TryGetValue(store, out MapStore maps)
-            ? maps.Render(key, new RectangleF((float)minX, (float)minY, (float)width, (float)height), pixels)?.Rgba
+            ? maps.RenderOnGround(key, onGround, minX, maxY, unitsPerPixel, pixels)?.Rgba
             : null;
+
+    /// <summary>
+    /// Where a change mask lands on one canvas: mask pixels to canvas pixels as
+    /// <c>[a, b, c, d, e, f]</c>, the order <c>setTransform</c> takes; <c>null</c>
+    /// when the newer version is not held.
+    /// </summary>
+    [JSExport]
+    internal static double[] MaskToCanvas(int store, string newerKey, bool onGround,
+                                          double planMinX, double planMinY, double planMaxX, double planMaxY,
+                                          int planWidth, int planHeight,
+                                          double minX, double maxY, double unitsPerPixel, int pixels)
+        => StoreFor(store).MaskToCanvas(
+            newerKey, onGround,
+            new ChangeMaskPlan(planWidth, planHeight,
+                               RectangleF.FromLTRB((float)planMinX, (float)planMinY, (float)planMaxX, (float)planMaxY)),
+            minX, maxY, unitsPerPixel, pixels)?.ToArray();
 
     /// <summary>
     /// The size and extent to compare two versions at, to be handed back to
@@ -166,24 +204,17 @@ public static partial class TileInterop
             TileInteropJson.Default.BackgroundSourceInfoArray);
 
     /// <summary>
-    /// The web tiles to draw on one square background canvas over
-    /// <paramref name="key"/>'s map, as JSON <c>[{url, size, transform}]</c>.
-    /// An empty list when there is nothing to draw: the map has gone, or it
-    /// cannot be placed on that source's grid.
+    /// The web tiles to draw on one square canvas of the ground, as JSON
+    /// <c>[{url, size, transform}]</c>; empty for an unknown source.
     /// </summary>
-    /// <param name="minX">The canvas's left edge, in paper millimetres.</param>
-    /// <param name="maxY">The canvas's top edge, in paper millimetres.</param>
-    /// <param name="mmPerPixel">Paper millimetres per canvas pixel.</param>
+    /// <param name="minX">The canvas's left edge, in Web Mercator metres.</param>
+    /// <param name="maxY">The canvas's top edge, in Web Mercator metres.</param>
+    /// <param name="metresPerPixel">Web Mercator metres per canvas pixel.</param>
     /// <param name="pixels">Canvas pixels along a side.</param>
     [JSExport]
-    internal static string BackgroundTiles(int store, string key, string sourceId,
-                                           double minX, double maxY, double mmPerPixel, int pixels)
-    {
-        BackgroundTile[] tiles = Stores.TryGetValue(store, out MapStore maps)
-            ? [.. maps.BackgroundTiles(key, sourceId, minX, maxY, mmPerPixel, pixels)]
-            : [];
-        return JsonSerializer.Serialize(tiles, TileInteropJson.Default.BackgroundTileArray);
-    }
+    internal static string BackgroundOnGround(string sourceId, double minX, double maxY, double metresPerPixel, int pixels)
+        => JsonSerializer.Serialize(MapStore.BackgroundOnGround(sourceId, minX, maxY, metresPerPixel, pixels).ToArray(),
+                                    TileInteropJson.Default.BackgroundTileArray);
 
     private static MapStore StoreFor(int store)
         => Stores.TryGetValue(store, out MapStore maps)

@@ -121,6 +121,75 @@ namespace OcadViewer.Core
         }
 
         /// <summary>
+        /// Renders <paramref name="map"/> into a square bitmap through any affine
+        /// transform - turned, scaled and moved - with nothing drawn outside
+        /// <paramref name="paper"/>: past the map's edge the bitmap stays transparent,
+        /// so whatever is under it shows.
+        /// </summary>
+        /// <param name="paperToPixels">Paper millimetres (Y up) to bitmap pixels (Y down).</param>
+        /// <param name="paper">The map's own paper; the white paper and the map end at its edge.</param>
+        /// <param name="pixels">Bitmap pixels on a side.</param>
+        public static MapRenderResult RenderThrough(
+            Map map,
+            Affine paperToPixels,
+            RectangleF paper,
+            int pixels,
+            MapRenderSettings settings = null,
+            Action throwOnCancel = null)
+        {
+            ArgumentNullException.ThrowIfNull(map);
+            ArgumentOutOfRangeException.ThrowIfLessThan(pixels, 1);
+
+            settings ??= new MapRenderSettings();
+
+            Affine pixelsToPaper = paperToPixels.Invert();
+            RectangleF shown = GroundView.PaperUnder(pixelsToPaper, pixels);
+            shown.Intersect(paper);
+
+            RenderOptions renderOptions = new() {
+                minResolution = (float)pixelsToPaper.Scale,
+                usePatternBitmaps = settings.UsePatternBitmaps,
+                renderTemplates = settings.Templates,
+                blendOverprintedColors = settings.BlendOverprintedColors,
+            };
+
+            var stopwatch = Stopwatch.StartNew();
+
+            var bitmap = new SKBitmap(new SKImageInfo(pixels, pixels, SKColorType.Rgba8888, SKAlphaType.Premul));
+            bitmap.Erase(SKColors.Transparent);
+
+            // The paper's outline in bitmap pixels: the clip is applied before the
+            // transform, and limits the white paper as well as the map on it.
+            using var clip = new SKPath();
+            (double X, double Y)[] corners = [
+                paperToPixels.Apply(paper.Left, paper.Top), paperToPixels.Apply(paper.Right, paper.Top),
+                paperToPixels.Apply(paper.Right, paper.Bottom), paperToPixels.Apply(paper.Left, paper.Bottom)
+            ];
+            clip.MoveTo((float)corners[0].X, (float)corners[0].Y);
+            foreach ((double x, double y) in corners[1..])
+                clip.LineTo((float)x, (float)y);
+            clip.Close();
+
+            var matrix = new Matrix((float)paperToPixels.A, (float)paperToPixels.B, (float)paperToPixels.C,
+                                    (float)paperToPixels.D, (float)paperToPixels.E, (float)paperToPixels.F);
+            var target = new Skia_BitmapGraphicsTarget(bitmap, settings.Background, matrix, clipPath: clip);
+
+            using (target) {
+                target.PushAntiAliasing(settings.AntiAlias);
+
+                if (shown.Width > 0 && shown.Height > 0) {
+                    using (map.Read())
+                        map.Draw(target, shown, renderOptions, throwOnCancel);
+                }
+
+                bitmap = ((Skia_Bitmap)target.FinishBitmap()).Bitmap;
+            }
+
+            stopwatch.Stop();
+            return new MapRenderResult(bitmap, stopwatch.Elapsed);
+        }
+
+        /// <summary>
         /// Paper millimetres per destination pixel, which is what tells the renderer
         /// how much detail to cull.
         /// </summary>
